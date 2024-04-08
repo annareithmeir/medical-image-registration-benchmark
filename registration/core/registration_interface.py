@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 
-from .configurations import RegistrationConfiguration
-
 
 class RegistrationInterface(ABC):
     """
@@ -9,13 +7,13 @@ class RegistrationInterface(ABC):
     """
 
     @abstractmethod
-    def __init__(self, configuration: RegistrationConfiguration):
+    def __init__(self, configuration):
         """
         Initialize the registration model.
         """
 
     @abstractmethod
-    def register(self, fixed_image, moving_image):
+    def register(self, fixed_image, moving_image, print_progress=False):
         """
         Register moving_image to fixed_image.
         """
