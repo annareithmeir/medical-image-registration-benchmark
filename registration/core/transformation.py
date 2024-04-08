@@ -1,10 +1,4 @@
-from enum import Enum
-import numpy as np
-
-
-class TransformationType(Enum):
-    AFFINE = 1
-    NON_RIGID = 2
+from enums import TransformationType
 
 
 class Transformation:
