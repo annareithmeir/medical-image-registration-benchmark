@@ -1,22 +1,7 @@
-from abc import ABC, abstractmethod
-
-import SimpleITK as sitk
-
 from .enums import SITKSimilarityMetric, SITKOptimizer, SITKInterpolator
 
 
-class RegistrationConfiguration(ABC):
-    """
-    Abstract base class for registration configurations.
-    """
-    @abstractmethod
-    def __init__(self):
-        """
-        Initialize the registration model.
-        """
-
-
-class AffineSITKConfiguration(RegistrationConfiguration):
+class AffineSITKConfiguration():
     """Configuration for the affine registration using SimpleITK"""
 
     def __init__(self, similarity_metric: SITKSimilarityMetric = SITKSimilarityMetric.NCC,
@@ -25,7 +10,7 @@ class AffineSITKConfiguration(RegistrationConfiguration):
                  min_step: float = 1e-4,
                  number_of_iterations: int = 500,
                  gradient_magnitude_tolerance: float = 1e-8,
-                 interpolator: SITKInterpolator = sitk.sitkLinear):
+                 interpolator: SITKInterpolator = SITKInterpolator.LINEAR):
 
         self.similarity_metric = similarity_metric
 
