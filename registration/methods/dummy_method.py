@@ -1,4 +1,4 @@
-from core.registration_interface import RegistrationInterface
+from ..core.registration_interface import RegistrationInterface
 
 
 class DummyMethod(RegistrationInterface):
