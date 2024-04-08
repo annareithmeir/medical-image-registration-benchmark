@@ -1,5 +1,7 @@
 from enum import Enum
 
+import SimpleITK as sitk
+
 
 class TransformationType(Enum):
     AFFINE = 1
@@ -14,3 +16,8 @@ class SITKSimilarityMetric(Enum):
 
 class SITKOptimizer(Enum):
     REGULAR_STEP_GRADIENT_DESCENT = 1
+
+
+class SITKInterpolator(Enum):
+    LINEAR = sitk.sitkLinear
+    BSPLINE = sitk.sitkBSpline
