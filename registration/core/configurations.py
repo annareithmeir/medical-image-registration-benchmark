@@ -2,16 +2,18 @@ from abc import ABC, abstractmethod
 
 import SimpleITK as sitk
 
-from .enums import *
+from .enums import SITKSimilarityMetric, SITKOptimizer, SITKInterpolator
 
 
 class RegistrationConfiguration(ABC):
+    """
+    Abstract base class for registration configurations.
+    """
     @abstractmethod
-    def __init__(self, configuration):
+    def __init__(self):
         """
         Initialize the registration model.
         """
-        pass
 
 
 class AffineSITKConfiguration(RegistrationConfiguration):
