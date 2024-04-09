@@ -32,6 +32,9 @@ class AffineNiftyReg(RegistrationInterface):
         self.result_transformation_path = Path()
         self.working_dir_path = Path()
 
+        # remaining arguments
+        self.remaining_arguments = configuration_registration.remaining_arguments
+
         # command to call NiftyReg
         self.command: List[str] = []
 
@@ -107,6 +110,9 @@ class AffineNiftyReg(RegistrationInterface):
                 f"Transformation type {self.transfromation_type} not supported.")
 
         self.command += ['-aff', self.result_transformation_path.as_posix()]
+
+        if self.remaining_arguments is not None:
+            self.command += self.remaining_arguments
 
     def _print_command_line(self):
         print('\n\n')

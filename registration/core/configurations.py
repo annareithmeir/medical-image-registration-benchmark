@@ -1,5 +1,7 @@
 import SimpleITK as sitk
 
+from typing import List
+
 from .enums import SITKSimilarityMetric, SITKOptimizer, TransformationType
 
 
@@ -34,16 +36,34 @@ class ResampleSITKConfiguration():
         self.interpolator = interpolator
         self.default_pixel_value = default_pixel_value
 
-
 class AffineNiftyRegConfiguration():
     """Configuration for the affine registration using NiftyReg"""
 
-    def __init__(self, transformation_type: TransformationType = TransformationType.AFFINE) -> None:
-        self.transformation_type = transformation_type
+    def __init__(self,
+                 transformation_type: TransformationType = TransformationType.AFFINE,
+                 remaining_arguments: List[str] = None) -> None:
+        """
+        Args:
+            transformation_type (TransformationType): Type of transformation to use.
+            remaining_arguments (List[str]): Remaining arguments to pass to NiftyReg. has to be a list of strings, like so:
+            ["-noSym", "-ln", "5"]
+        """
 
+        self.transformation_type = transformation_type
+        self.remaining_arguments = remaining_arguments
 
 class BSplineNiftyRegConfiguration():
     """Configuration for the affine registration using NiftyReg"""
 
-    def __init__(self, transformation_type: TransformationType = TransformationType.B_SPLINE) -> None:
+    def __init__(self, transformation_type: TransformationType = TransformationType.B_SPLINE,
+                 remaining_arguments: List[str] = None) -> None:
+        """
+        Args:
+            transformation_type (TransformationType): Type of transformation to use.
+            remaining_arguments (List[str]): Remaining arguments to pass to NiftyReg. has to be a list of strings, like so:
+            ["-noSym", "-ln", "5"]
+        """
+
         self.transformation_type = transformation_type
+        self.remaining_arguments = remaining_arguments
+        

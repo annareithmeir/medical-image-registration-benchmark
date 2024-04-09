@@ -50,6 +50,9 @@ class BSplineNiftyReg(RegistrationInterface):
         self.result_transformation_path = Path()
         self.working_dir_path = Path()
 
+        # remaining arguments
+        self.remaining_arguments = configuration_registration.remaining_arguments
+
         # command to call NiftyReg
         self.command: List[str] = []
 
@@ -126,6 +129,9 @@ class BSplineNiftyReg(RegistrationInterface):
         else:
             raise ValueError(
                 f"Transformation type {self.transfromation_type} not supported.")
+        
+        if self.remaining_arguments is not None:
+            self.command += self.remaining_arguments
 
     def _print_command_line(self, cmd_list):
         print('\n\n')
