@@ -9,6 +9,7 @@ from typing import List
 from ..core.registration_interface import RegistrationInterface
 from ..core.configurations import AffineNiftyRegConfiguration
 from ..core.enums import TransformationType
+from ..core.utilities import create_result_paths
 
 
 INTENT_CODES = ['NIFTI_INTENT_CORREL', 'NIFTI_INTENT_TTEST', 'NIFTI_INTENT_FTEST',
@@ -111,22 +112,14 @@ class AffineNiftyReg(RegistrationInterface):
         Create the command line list for the registration.
         """
 
-        fixed_name = self.fixed_path.stem
-        moving_name = self.moving_path.stem
+        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
+                                                                                                  self.fixed_path.stem,
+                                                                                                  self.moving_path.stem,
+                                                                                                  self.method,
+                                                                                                  ".nii",
+                                                                                                  ".txt")
 
-        date_time = datetime.datetime.now()
-
-        self.result_transformed_image_path = self.working_dir_path / \
-            f"{moving_name}_warped_on_{fixed_name}_{self.method}_{date_time}.nii"
-
-        binary_path = ALADIN_PATH
-
-        extension = '.txt'
-
-        self.result_transformation_path = self.working_dir_path / \
-            f"{moving_name}_warped_on_{fixed_name}_{self.method}_{date_time}{extension}"
-
-        self.command = [binary_path.as_posix()]
+        self.command = [ALADIN_PATH.as_posix()]
         self.command += ['-ref', self.fixed_path.as_posix()]
         self.command += ['-flo', self.moving_path.as_posix()]
         self.command += ['-res', self.result_transformed_image_path.as_posix()]

@@ -6,7 +6,7 @@ import SimpleITK as sitk
 from ..core.enums import SITKSimilarityMetric, SITKOptimizer
 from ..core.registration_interface import RegistrationInterface
 from ..core.configurations import AffineSITKConfiguration, ResampleSITKConfiguration
-
+from ..core.utilities import create_result_paths
 
 class AffineSITK(RegistrationInterface):
     """
@@ -68,7 +68,6 @@ class AffineSITK(RegistrationInterface):
         registration = sitk.ImageRegistrationMethod()
 
         self._set_similarity_metric(registration)
-
         self._set_optimizer(registration)
 
         # create and set affine initial transform
@@ -82,21 +81,19 @@ class AffineSITK(RegistrationInterface):
             registration.AddCommand(
                 sitk.sitkIterationEvent, lambda: self._print_progress(registration))
 
-        # register the images and store the result
+        # register the images
         self.result_transformation = registration.Execute(
             fixed_image, moving_image)
         self.result_transformed_image = self._resample(
             fixed_image, moving_image)
-        
-        fixed_name = self.fixed_path.stem
-        moving_name = self.moving_path.stem
 
-        date_time = datetime.datetime.now()
-
-        self.result_transformed_image_path = self.working_dir_path / \
-            f"{moving_name}_warped_on_{fixed_name}_{self.method}_{date_time}.nii"
-        self.result_transformation_path = self.working_dir_path / \
-            f"{moving_name}_warped_on_{fixed_name}_{self.method}_{date_time}.tfm"
+        # save the results
+        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
+                                                                                                  self.fixed_path.stem,
+                                                                                                  self.moving_path.stem,
+                                                                                                  self.method,
+                                                                                                  ".nii",
+                                                                                                  ".tfm")
         
         sitk.WriteImage(self.result_transformed_image, self.result_transformed_image_path)
         sitk.WriteTransform(self.result_transformation, self.result_transformation_path)
