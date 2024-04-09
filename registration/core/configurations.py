@@ -28,7 +28,7 @@ class AffineSITKConfiguration():
 class ResampleSITKConfiguration():
     """Configuration for resampling using SimpleITK"""
 
-    def __init__(self, interpolator = sitk.sitkLinear,
+    def __init__(self, interpolator = sitk.sitkHammingWindowedSinc,
                  default_pixel_value: float = 100):
 
         self.interpolator = interpolator
