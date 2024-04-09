@@ -1,14 +1,13 @@
 from pathlib import Path
 import subprocess
 import os
-import datetime
-from time import time
 
 from typing import List
 
 from ..core.registration_interface import RegistrationInterface
 from ..core.configurations import AffineNiftyRegConfiguration
 from ..core.enums import TransformationType
+from ..core.utilities import create_result_paths
 
 
 INTENT_CODES = ['NIFTI_INTENT_CORREL', 'NIFTI_INTENT_TTEST', 'NIFTI_INTENT_FTEST',
@@ -36,30 +35,29 @@ class AffineNiftyReg(RegistrationInterface):
 
     def __init__(self, configuration_registration: AffineNiftyRegConfiguration):
 
+        self.method = "AffineNiftyReg"
+
         # registration configuration
         self.transfromation_type = configuration_registration.transformation_type
 
+        # paths
         self.fixed_path = Path()
         self.moving_path = Path()
         self.result_transformed_image_path = Path()
         self.result_transformation_path = Path()
-
-        self.command: List[str] = []
-
-        # store the folder where the images are stored
         self.working_dir_path = Path()
 
-        # results
-        self.result_transformation = None
-        self.result_transformed_image = None
+        # command to call NiftyReg
+        self.command: List[str] = []
 
-    def register(self, fixed_image: Path, moving_image: Path) -> None:
+    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False) -> None:
         """
             Test
         """
 
-        self.fixed_path = fixed_image
-        self.moving_path = moving_image
+        self.fixed_path = fixed_image_path
+        self.moving_path = moving_image_path
+        self.working_dir_path = self.fixed_path.parent
 
         # check that both images exist
         assert self.fixed_path.exists(
@@ -67,20 +65,14 @@ class AffineNiftyReg(RegistrationInterface):
         assert self.moving_path.exists(
         ), f"File {self.moving_path} does not exist."
 
-        # store the folder where the images are stored
-        self.working_dir_path = fixed_image.parent
-
-        self.create_registration_command_list()
+        self._create_registration_command_list()
 
         self._print_command_line()
-
-        t_start = time()
 
         try:
             p = subprocess.Popen(
                 self.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             output = p.communicate()
-            print(f"\nBlockmatching returned {p.returncode}")
 
             if p.returncode != 0 or not self._outputs_exist():
 
@@ -91,44 +83,32 @@ class AffineNiftyReg(RegistrationInterface):
 
                 raise FileNotFoundError(error_message)
 
-            else:
-                t_stop = time()
-                print(f"\nRegistration completed in {t_stop - t_start:.2f} seconds")
-
         except OSError as e:
             print(e)
             print('Is blockmatching correctly installed?')
 
-    def get_transformed_image(self):
+    def get_transformed_image_path(self):
         # Return transformed image
         return self.result_transformed_image_path
 
-    def get_transformation(self):
+    def get_transformation_path(self):
         # Return transformation
 
         return self.result_transformation_path
 
-    def create_registration_command_list(self):
+    def _create_registration_command_list(self):
         """
         Create the command line list for the registration.
         """
 
-        fixed_name = self.fixed_path.stem
-        moving_name = self.moving_path.stem
+        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
+                                                                                                  self.fixed_path.stem,
+                                                                                                  self.moving_path.stem,
+                                                                                                  self.method,
+                                                                                                  ".nii",
+                                                                                                  ".txt")
 
-        date_time = datetime.datetime.now()
-
-        self.result_transformed_image_path = self.working_dir_path / \
-            f"{moving_name}_warped_on_{fixed_name}_{date_time}.nii"
-
-        binary_path = ALADIN_PATH
-
-        extension = '.txt'
-
-        self.result_transformation_path = self.working_dir_path / \
-            f"{moving_name}_warped_on_{fixed_name}_{date_time}{extension}"
-
-        self.command = [binary_path.as_posix()]
+        self.command = [ALADIN_PATH.as_posix()]
         self.command += ['-ref', self.fixed_path.as_posix()]
         self.command += ['-flo', self.moving_path.as_posix()]
         self.command += ['-res', self.result_transformed_image_path.as_posix()]
