@@ -40,3 +40,10 @@ class AffineNiftyRegConfiguration():
 
     def __init__(self, transformation_type: TransformationType = TransformationType.AFFINE) -> None:
         self.transformation_type = transformation_type
+
+
+class BSplineNiftyRegConfiguration():
+    """Configuration for the affine registration using NiftyReg"""
+
+    def __init__(self, transformation_type: TransformationType = TransformationType.B_SPLINE) -> None:
+        self.transformation_type = transformation_type
