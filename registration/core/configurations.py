@@ -1,6 +1,6 @@
 import SimpleITK as sitk
 
-from .enums import SITKSimilarityMetric, SITKOptimizer
+from .enums import SITKSimilarityMetric, SITKOptimizer, TransformationType
 
 
 class AffineSITKConfiguration():
