@@ -36,6 +36,8 @@ class AffineNiftyReg(RegistrationInterface):
 
     def __init__(self, configuration_registration: AffineNiftyRegConfiguration):
 
+        self.method = "AffineNiftyReg"
+
         # registration configuration
         self.transfromation_type = configuration_registration.transformation_type
 
@@ -119,14 +121,14 @@ class AffineNiftyReg(RegistrationInterface):
         date_time = datetime.datetime.now()
 
         self.result_transformed_image_path = self.working_dir_path / \
-            f"{moving_name}_warped_on_{fixed_name}_{date_time}.nii"
+            f"{moving_name}_warped_on_{fixed_name}_{self.method}_{date_time}.nii"
 
         binary_path = ALADIN_PATH
 
         extension = '.txt'
 
         self.result_transformation_path = self.working_dir_path / \
-            f"{moving_name}_warped_on_{fixed_name}_{date_time}{extension}"
+            f"{moving_name}_warped_on_{fixed_name}_{self.method}_{date_time}{extension}"
 
         self.command = [binary_path.as_posix()]
         self.command += ['-ref', self.fixed_path.as_posix()]
