@@ -13,7 +13,7 @@ class RegistrationInterface(ABC):
         """
 
     @abstractmethod
-    def register(self, fixed_image, moving_image, print_progress=False):
+    def register(self, fixed_image, moving_image):
         """
         Register moving_image to fixed_image.
         """
