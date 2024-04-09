@@ -23,3 +23,9 @@ class RegistrationInterface(ABC):
         """
         Return the transformation model.
         """
+
+    @abstractmethod
+    def get_transformed_image(self):
+        """
+        Return the transformed image.
+        """
