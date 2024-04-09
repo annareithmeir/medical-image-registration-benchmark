@@ -8,7 +8,7 @@ class TransformationType(Enum):
     NONE = 0
     RIGID = 1
     AFFINE = 2
-    NON_LINEAR = 3
+    B_SPLINE = 3
 
 
 class SITKSimilarityMetric(Enum):
