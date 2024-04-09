@@ -69,13 +69,12 @@ class AffineSITK(RegistrationInterface):
         # register the images
         result_transformation = registration.Execute(
             fixed_image, moving_image)
-        result_transformed_image = self._resample(
-            fixed_image, moving_image)
+        result_transformed_image = self._resample(result_transformation, fixed_image, moving_image)
 
         # save the results
         self._save_results(result_transformation, result_transformed_image)
 
-        self._print_registratoin_result(registration)
+        self._print_registratoin_result(registration, result_transformation)
     
     def get_transformed_image_path(self):
         # Return transformed image
@@ -139,15 +138,15 @@ class AffineSITK(RegistrationInterface):
         else:
             raise ValueError("Invalid similarity metric")
 
-    def _print_registratoin_result(self, registration):
+    def _print_registratoin_result(self, registration, transformation):
         print("-------")
-        print(self.result_transformation)
+        print(transformation)
         print(
             f"Optimizer stop condition: {registration.GetOptimizerStopConditionDescription()}")
         print(f" Iteration: {registration.GetOptimizerIteration()}")
         print(f" Metric value: {registration.GetMetricValue()}")
 
-    def _resample(self, fixed_image: sitk.Image, moving_image: sitk.Image):
+    def _resample(self, transformation, fixed_image: sitk.Image, moving_image: sitk.Image):
         """
         Resample the moving image using the transformation.
         """
@@ -155,7 +154,7 @@ class AffineSITK(RegistrationInterface):
         resampler.SetReferenceImage(fixed_image)
         resampler.SetInterpolator(self.interpolator_resample)
         resampler.SetDefaultPixelValue(self.default_pixel_value)
-        resampler.SetTransform(self.result_transformation)
+        resampler.SetTransform(transformation)
 
         return resampler.Execute(moving_image)
 
