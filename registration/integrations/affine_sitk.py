@@ -1,3 +1,6 @@
+from pathlib import Path
+import datetime
+
 import SimpleITK as sitk
 
 from ..core.enums import SITKSimilarityMetric, SITKOptimizer
@@ -15,6 +18,8 @@ class AffineSITK(RegistrationInterface):
                  configuration_registration: AffineSITKConfiguration,
                  configuration_resample: ResampleSITKConfiguration):
 
+        self.method = "AffneSITK"
+
         # registration configuration
         self.similarity_metric = configuration_registration.similarity_metric
         self.optimizer = configuration_registration.optimizer
@@ -28,11 +33,18 @@ class AffineSITK(RegistrationInterface):
         self.interpolator_resample = configuration_resample.interpolator
         self.default_pixel_value = configuration_resample.default_pixel_value
 
-        # results
-        self.result_transformation = None
-        self.result_transformed_image = None
+        # paths
+        self.fixed_path = Path()
+        self.moving_path = Path()
+        self.result_transformed_image_path = Path()
+        self.result_transformation_path = Path()
+        self.working_dir_path = Path()
 
-    def register(self, fixed_image: sitk.Image, moving_image: sitk.Image, print_progress=False):
+        # results
+        self.result_transformed_image = sitk.Image()
+        self.result_transformation = sitk.Transform()
+
+    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
         """
         Creates an affine transformation model to register the moving image to the fixed image.
 
@@ -43,6 +55,16 @@ class AffineSITK(RegistrationInterface):
         The registration is executed and the result is stored (both the transformation and the transformed image).
 
         """
+
+        self.fixed_path = fixed_image_path
+        self.moving_path = moving_image_path
+
+        fixed_image = sitk.ReadImage(fixed_image_path, sitk.sitkFloat32)
+        moving_image = sitk.ReadImage(moving_image_path, sitk.sitkFloat32)
+
+        # store the folder where the images are stored
+        self.working_dir_path = self.fixed_path.parent
+
         registration = sitk.ImageRegistrationMethod()
 
         self._set_similarity_metric(registration)
@@ -65,17 +87,30 @@ class AffineSITK(RegistrationInterface):
             fixed_image, moving_image)
         self.result_transformed_image = self._resample(
             fixed_image, moving_image)
+        
+        fixed_name = self.fixed_path.stem
+        moving_name = self.moving_path.stem
+
+        date_time = datetime.datetime.now()
+
+        self.result_transformed_image_path = self.working_dir_path / \
+            f"{moving_name}_warped_on_{fixed_name}_{self.method}_{date_time}.nii"
+        self.result_transformation_path = self.working_dir_path / \
+            f"{moving_name}_warped_on_{fixed_name}_{self.method}_{date_time}.tfm"
+        
+        sitk.WriteImage(self.result_transformed_image, self.result_transformed_image_path)
+        sitk.WriteTransform(self.result_transformation, self.result_transformation_path)
 
         self._print_registratoin_result(registration)
 
-    def get_transformed_image(self):
+    def get_transformed_image_path(self):
         # Return transformed image
-        return self.result_transformed_image
+        return self.result_transformed_image_path
 
-    def get_transformation(self):
+    def get_transformation_path(self):
         # Return transformation
 
-        return self.result_transformation
+        return self.result_transformation_path
 
     def _set_optimizer(self, registration):
         if self.optimizer == SITKOptimizer.REGULAR_STEP_GRADIENT_DESCENT:
