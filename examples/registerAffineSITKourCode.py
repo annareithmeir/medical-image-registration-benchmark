@@ -17,13 +17,12 @@ def main():
     fixed = sitk.ReadImage(r"data/tumor1.nii", sitk.sitkFloat32)
     moving = sitk.ReadImage(r"data/tumor2.nii", sitk.sitkFloat32)
 
-    R = AffineSITK(AffineSITKConfiguration(), ResampleSITKConfiguration())
+    registration = AffineSITK(AffineSITKConfiguration(), ResampleSITKConfiguration())
 
-    R.register(fixed, moving, True)
+    registration.register(fixed, moving, True)
 
-    transformation = R.get_transformation()
-
-    sitk.WriteTransform(transformation, r"transform.hdf5")
+    sitk.WriteTransform(registration.get_transformation(), r"transform.hdf5")
+    sitk.WriteImage(registration.get_transformed_image(), r"output.nii")
 
 if __name__ == "__main__":
     main()

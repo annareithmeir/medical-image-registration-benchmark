@@ -1,6 +1,6 @@
 import SimpleITK as sitk
 
-from ..core.enums import SITKSimilarityMetric, SITKOptimizer, SITKInterpolator
+from ..core.enums import SITKSimilarityMetric, SITKOptimizer
 from ..core.registration_interface import RegistrationInterface
 from ..core.configurations import AffineSITKConfiguration, ResampleSITKConfiguration
 
@@ -127,5 +127,5 @@ class AffineSITK(RegistrationInterface):
         print(
             f"{method.GetOptimizerIteration():3} "
             + f"= {method.GetMetricValue():7.5f} "
-            + f": {method.GetOptimizerPosition()}"
+            # + f": {method.GetOptimizerPosition()}"
         )
