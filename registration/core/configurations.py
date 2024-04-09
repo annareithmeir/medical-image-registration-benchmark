@@ -1,4 +1,6 @@
-from .enums import SITKSimilarityMetric, SITKOptimizer, SITKInterpolator
+import SimpleITK as sitk
+
+from .enums import SITKSimilarityMetric, SITKOptimizer
 
 
 class AffineSITKConfiguration():
@@ -10,7 +12,7 @@ class AffineSITKConfiguration():
                  min_step: float = 1e-4,
                  number_of_iterations: int = 500,
                  gradient_magnitude_tolerance: float = 1e-8,
-                 interpolator: SITKInterpolator = SITKInterpolator.LINEAR):
+                 interpolator = sitk.sitkLinear):
 
         self.similarity_metric = similarity_metric
 
@@ -21,3 +23,13 @@ class AffineSITKConfiguration():
         self.gradient_magnitude_tolerance = gradient_magnitude_tolerance
 
         self.interpolator = interpolator
+
+
+class ResampleSITKConfiguration():
+    """Configuration for resampling using SimpleITK"""
+
+    def __init__(self, interpolator = sitk.sitkLinear,
+                 default_pixel_value: float = 100):
+
+        self.interpolator = interpolator
+        self.default_pixel_value = default_pixel_value
