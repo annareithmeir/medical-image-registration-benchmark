@@ -51,17 +51,13 @@ class AffineNiftyReg(RegistrationInterface):
         # store the folder where the images are stored
         self.working_dir_path = Path()
 
-        # results
-        self.result_transformation = None
-        self.result_transformed_image = None
-
-    def register(self, fixed_image: Path, moving_image: Path) -> None:
+    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False) -> None:
         """
             Test
         """
 
-        self.fixed_path = fixed_image
-        self.moving_path = moving_image
+        self.fixed_path = fixed_image_path
+        self.moving_path = moving_image_path
 
         # check that both images exist
         assert self.fixed_path.exists(
@@ -70,7 +66,7 @@ class AffineNiftyReg(RegistrationInterface):
         ), f"File {self.moving_path} does not exist."
 
         # store the folder where the images are stored
-        self.working_dir_path = fixed_image.parent
+        self.working_dir_path = self.fixed_path.parent
 
         self.create_registration_command_list()
 
@@ -101,11 +97,11 @@ class AffineNiftyReg(RegistrationInterface):
             print(e)
             print('Is blockmatching correctly installed?')
 
-    def get_transformed_image(self):
+    def get_transformed_image_path(self):
         # Return transformed image
         return self.result_transformed_image_path
 
-    def get_transformation(self):
+    def get_transformation_path(self):
         # Return transformation
 
         return self.result_transformation_path
