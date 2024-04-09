@@ -1,8 +1,6 @@
 from pathlib import Path
 import subprocess
 import os
-import datetime
-from time import time
 
 from typing import List
 
@@ -42,15 +40,15 @@ class AffineNiftyReg(RegistrationInterface):
         # registration configuration
         self.transfromation_type = configuration_registration.transformation_type
 
+        # paths
         self.fixed_path = Path()
         self.moving_path = Path()
         self.result_transformed_image_path = Path()
         self.result_transformation_path = Path()
-
-        self.command: List[str] = []
-
-        # store the folder where the images are stored
         self.working_dir_path = Path()
+
+        # command to call NiftyReg
+        self.command: List[str] = []
 
     def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False) -> None:
         """
@@ -59,6 +57,7 @@ class AffineNiftyReg(RegistrationInterface):
 
         self.fixed_path = fixed_image_path
         self.moving_path = moving_image_path
+        self.working_dir_path = self.fixed_path.parent
 
         # check that both images exist
         assert self.fixed_path.exists(
@@ -66,20 +65,14 @@ class AffineNiftyReg(RegistrationInterface):
         assert self.moving_path.exists(
         ), f"File {self.moving_path} does not exist."
 
-        # store the folder where the images are stored
-        self.working_dir_path = self.fixed_path.parent
-
-        self.create_registration_command_list()
+        self._create_registration_command_list()
 
         self._print_command_line()
-
-        t_start = time()
 
         try:
             p = subprocess.Popen(
                 self.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             output = p.communicate()
-            print(f"\nBlockmatching returned {p.returncode}")
 
             if p.returncode != 0 or not self._outputs_exist():
 
@@ -89,10 +82,6 @@ class AffineNiftyReg(RegistrationInterface):
                 error_message += str(output[1])
 
                 raise FileNotFoundError(error_message)
-
-            else:
-                t_stop = time()
-                print(f"\nRegistration completed in {t_stop - t_start:.2f} seconds")
 
         except OSError as e:
             print(e)
@@ -107,7 +96,7 @@ class AffineNiftyReg(RegistrationInterface):
 
         return self.result_transformation_path
 
-    def create_registration_command_list(self):
+    def _create_registration_command_list(self):
         """
         Create the command line list for the registration.
         """

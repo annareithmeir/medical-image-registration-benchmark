@@ -1,5 +1,4 @@
 from pathlib import Path
-import datetime
 
 import SimpleITK as sitk
 
@@ -40,10 +39,6 @@ class AffineSITK(RegistrationInterface):
         self.result_transformation_path = Path()
         self.working_dir_path = Path()
 
-        # results
-        self.result_transformed_image = sitk.Image()
-        self.result_transformation = sitk.Transform()
-
     def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
         """
         Creates an affine transformation model to register the moving image to the fixed image.
@@ -58,13 +53,51 @@ class AffineSITK(RegistrationInterface):
 
         self.fixed_path = fixed_image_path
         self.moving_path = moving_image_path
+        self.working_dir_path = self.fixed_path.parent
+
+        # check that both images exist
+        assert self.fixed_path.exists(
+        ), f"File {self.fixed_path} does not exist."
+        assert self.moving_path.exists(
+        ), f"File {self.moving_path} does not exist."
 
         fixed_image = sitk.ReadImage(fixed_image_path, sitk.sitkFloat32)
         moving_image = sitk.ReadImage(moving_image_path, sitk.sitkFloat32)
 
-        # store the folder where the images are stored
-        self.working_dir_path = self.fixed_path.parent
+        registration = self._create_registration(fixed_image, moving_image, print_progress)
 
+        # register the images
+        result_transformation = registration.Execute(
+            fixed_image, moving_image)
+        result_transformed_image = self._resample(
+            fixed_image, moving_image)
+
+        # save the results
+        self._save_results(result_transformation, result_transformed_image)
+
+        self._print_registratoin_result(registration)
+    
+    def get_transformed_image_path(self):
+        # Return transformed image
+        return self.result_transformed_image_path
+
+    def get_transformation_path(self):
+        # Return transformation
+
+        return self.result_transformation_path
+
+    def _save_results(self, result_transformation, result_transformed_image):
+        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
+                                                                                                  self.fixed_path.stem,
+                                                                                                  self.moving_path.stem,
+                                                                                                  self.method,
+                                                                                                  ".nii",
+                                                                                                  ".tfm")
+        
+        sitk.WriteImage(result_transformed_image, self.result_transformed_image_path)
+        sitk.WriteTransform(result_transformation, self.result_transformation_path)
+
+    def _create_registration(self, fixed_image, moving_image, print_progress):
         registration = sitk.ImageRegistrationMethod()
 
         self._set_similarity_metric(registration)
@@ -80,34 +113,8 @@ class AffineSITK(RegistrationInterface):
         if print_progress:
             registration.AddCommand(
                 sitk.sitkIterationEvent, lambda: self._print_progress(registration))
-
-        # register the images
-        self.result_transformation = registration.Execute(
-            fixed_image, moving_image)
-        self.result_transformed_image = self._resample(
-            fixed_image, moving_image)
-
-        # save the results
-        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
-                                                                                                  self.fixed_path.stem,
-                                                                                                  self.moving_path.stem,
-                                                                                                  self.method,
-                                                                                                  ".nii",
-                                                                                                  ".tfm")
-        
-        sitk.WriteImage(self.result_transformed_image, self.result_transformed_image_path)
-        sitk.WriteTransform(self.result_transformation, self.result_transformation_path)
-
-        self._print_registratoin_result(registration)
-
-    def get_transformed_image_path(self):
-        # Return transformed image
-        return self.result_transformed_image_path
-
-    def get_transformation_path(self):
-        # Return transformation
-
-        return self.result_transformation_path
+                
+        return registration
 
     def _set_optimizer(self, registration):
         if self.optimizer == SITKOptimizer.REGULAR_STEP_GRADIENT_DESCENT:
