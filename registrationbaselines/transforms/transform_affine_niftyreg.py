@@ -5,8 +5,8 @@ import datetime
 
 from typing import List
 
-from ..core import TransformationInterface
-from ..core.configurations import TransformationAffineNiftyRegConfiguration
+from registrationbaselines.transforms._interface_transformation import TransformationInterface
+from registrationbaselines.core.configurations import TransformationAffineNiftyRegConfiguration
 
 REG_TRANSFORM_PATH = Path('/usr/local/bin/reg_transform')
 
