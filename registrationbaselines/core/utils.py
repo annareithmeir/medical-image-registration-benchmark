@@ -24,3 +24,17 @@ def create_result_paths(directory: Path,
     result_transformation_path = result_transformation_path.resolve().as_posix().replace(" ", "_")
 
     return Path(result_transformed_image_path), Path(result_transformation_path)
+
+
+def print_command(cmd_list):
+    """
+        Print the command line as a string, so that it can be copied and pasted into the terminal. For debugging.
+    """
+    print('\n\n')
+
+    full_cmd = ""
+
+    for a in cmd_list:
+        full_cmd += str(a) + " "
+
+    print(full_cmd)
