@@ -1,9 +1,11 @@
+from pathlib import Path
+
 import SimpleITK as sitk
 
 from ..core.enums import SITKSimilarityMetric, SITKOptimizer
 from ..core.registration_interface import RegistrationInterface
 from ..core.configurations import AffineSITKConfiguration, ResampleSITKConfiguration
-
+from ..core.utilities import create_result_paths
 
 class AffineSITK(RegistrationInterface):
     """
@@ -14,6 +16,8 @@ class AffineSITK(RegistrationInterface):
     def __init__(self,
                  configuration_registration: AffineSITKConfiguration,
                  configuration_resample: ResampleSITKConfiguration):
+
+        self.method = "AffneSITK"
 
         # registration configuration
         self.similarity_metric = configuration_registration.similarity_metric
@@ -28,11 +32,14 @@ class AffineSITK(RegistrationInterface):
         self.interpolator_resample = configuration_resample.interpolator
         self.default_pixel_value = configuration_resample.default_pixel_value
 
-        # results
-        self.result_transformation = None
-        self.result_transformed_image = None
+        # paths
+        self.fixed_path = Path()
+        self.moving_path = Path()
+        self.result_transformed_image_path = Path()
+        self.result_transformation_path = Path()
+        self.working_dir_path = Path()
 
-    def register(self, fixed_image: sitk.Image, moving_image: sitk.Image, print_progress=False):
+    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
         """
         Creates an affine transformation model to register the moving image to the fixed image.
 
@@ -43,10 +50,56 @@ class AffineSITK(RegistrationInterface):
         The registration is executed and the result is stored (both the transformation and the transformed image).
 
         """
+
+        self.fixed_path = fixed_image_path
+        self.moving_path = moving_image_path
+        self.working_dir_path = self.fixed_path.parent
+
+        # check that both images exist
+        assert self.fixed_path.exists(
+        ), f"File {self.fixed_path} does not exist."
+        assert self.moving_path.exists(
+        ), f"File {self.moving_path} does not exist."
+
+        fixed_image = sitk.ReadImage(fixed_image_path, sitk.sitkFloat32)
+        moving_image = sitk.ReadImage(moving_image_path, sitk.sitkFloat32)
+
+        registration = self._create_registration(fixed_image, moving_image, print_progress)
+
+        # register the images
+        result_transformation = registration.Execute(
+            fixed_image, moving_image)
+        result_transformed_image = self._resample(result_transformation, fixed_image, moving_image)
+
+        # save the results
+        self._save_results(result_transformation, result_transformed_image)
+
+        self._print_registratoin_result(registration, result_transformation)
+    
+    def get_transformed_image_path(self):
+        # Return transformed image
+        return self.result_transformed_image_path
+
+    def get_transformation_path(self):
+        # Return transformation
+
+        return self.result_transformation_path
+
+    def _save_results(self, result_transformation, result_transformed_image):
+        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
+                                                                                                  self.fixed_path.stem,
+                                                                                                  self.moving_path.stem,
+                                                                                                  self.method,
+                                                                                                  ".nii",
+                                                                                                  ".tfm")
+        
+        sitk.WriteImage(result_transformed_image, self.result_transformed_image_path)
+        sitk.WriteTransform(result_transformation, self.result_transformation_path)
+
+    def _create_registration(self, fixed_image, moving_image, print_progress):
         registration = sitk.ImageRegistrationMethod()
 
         self._set_similarity_metric(registration)
-
         self._set_optimizer(registration)
 
         # create and set affine initial transform
@@ -59,23 +112,8 @@ class AffineSITK(RegistrationInterface):
         if print_progress:
             registration.AddCommand(
                 sitk.sitkIterationEvent, lambda: self._print_progress(registration))
-
-        # register the images and store the result
-        self.result_transformation = registration.Execute(
-            fixed_image, moving_image)
-        self.result_transformed_image = self._resample(
-            fixed_image, moving_image)
-
-        self._print_registratoin_result(registration)
-
-    def get_transformed_image(self):
-        # Return transformed image
-        return self.result_transformed_image
-
-    def get_transformation(self):
-        # Return transformation
-
-        return self.result_transformation
+                
+        return registration
 
     def _set_optimizer(self, registration):
         if self.optimizer == SITKOptimizer.REGULAR_STEP_GRADIENT_DESCENT:
@@ -100,15 +138,15 @@ class AffineSITK(RegistrationInterface):
         else:
             raise ValueError("Invalid similarity metric")
 
-    def _print_registratoin_result(self, registration):
+    def _print_registratoin_result(self, registration, transformation):
         print("-------")
-        print(self.result_transformation)
+        print(transformation)
         print(
             f"Optimizer stop condition: {registration.GetOptimizerStopConditionDescription()}")
         print(f" Iteration: {registration.GetOptimizerIteration()}")
         print(f" Metric value: {registration.GetMetricValue()}")
 
-    def _resample(self, fixed_image: sitk.Image, moving_image: sitk.Image):
+    def _resample(self, transformation, fixed_image: sitk.Image, moving_image: sitk.Image):
         """
         Resample the moving image using the transformation.
         """
@@ -116,7 +154,7 @@ class AffineSITK(RegistrationInterface):
         resampler.SetReferenceImage(fixed_image)
         resampler.SetInterpolator(self.interpolator_resample)
         resampler.SetDefaultPixelValue(self.default_pixel_value)
-        resampler.SetTransform(self.result_transformation)
+        resampler.SetTransform(transformation)
 
         return resampler.Execute(moving_image)
 

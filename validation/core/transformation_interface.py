@@ -1,0 +1,21 @@
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+
+class TransformationInterface(ABC):
+
+    @abstractmethod
+    def __init__(self, configuration):
+        """
+        Abstract base class for transformations.
+        """
+
+    @abstractmethod
+    def apply_transformation(self,
+                             fixed_image_path: Path,
+                             moving_image_path: Path,
+                             transformation_path: Path,
+                             transformation: Path):
+        """
+        Apply a transformation to an image using the provided transformation.
+        """

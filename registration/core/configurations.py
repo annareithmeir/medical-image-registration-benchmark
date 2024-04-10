@@ -1,6 +1,8 @@
 import SimpleITK as sitk
 
-from .enums import SITKSimilarityMetric, SITKOptimizer
+from typing import List
+
+from .enums import SITKSimilarityMetric, SITKOptimizer, TransformationType
 
 
 class AffineSITKConfiguration():
@@ -12,7 +14,7 @@ class AffineSITKConfiguration():
                  min_step: float = 1e-4,
                  number_of_iterations: int = 500,
                  gradient_magnitude_tolerance: float = 1e-8,
-                 interpolator = sitk.sitkLinear):
+                 interpolator=sitk.sitkLinear):
 
         self.similarity_metric = similarity_metric
 
@@ -28,8 +30,40 @@ class AffineSITKConfiguration():
 class ResampleSITKConfiguration():
     """Configuration for resampling using SimpleITK"""
 
-    def __init__(self, interpolator = sitk.sitkHammingWindowedSinc,
+    def __init__(self, interpolator=sitk.sitkHammingWindowedSinc,
                  default_pixel_value: float = 100):
 
         self.interpolator = interpolator
         self.default_pixel_value = default_pixel_value
+
+class AffineNiftyRegConfiguration():
+    """Configuration for the affine registration using NiftyReg"""
+
+    def __init__(self,
+                 transformation_type: TransformationType = TransformationType.AFFINE,
+                 remaining_arguments: List[str] = None) -> None:
+        """
+        Args:
+            transformation_type (TransformationType): Type of transformation to use.
+            remaining_arguments (List[str]): Remaining arguments to pass to NiftyReg. has to be a list of strings, like so:
+            ["-noSym", "-ln", "5"]
+        """
+
+        self.transformation_type = transformation_type
+        self.remaining_arguments = remaining_arguments
+
+class BSplineNiftyRegConfiguration():
+    """Configuration for the affine registration using NiftyReg"""
+
+    def __init__(self, transformation_type: TransformationType = TransformationType.B_SPLINE,
+                 remaining_arguments: List[str] = None) -> None:
+        """
+        Args:
+            transformation_type (TransformationType): Type of transformation to use.
+            remaining_arguments (List[str]): Remaining arguments to pass to NiftyReg. has to be a list of strings, like so:
+            ["-noSym", "-ln", "5"]
+        """
+
+        self.transformation_type = transformation_type
+        self.remaining_arguments = remaining_arguments
+        

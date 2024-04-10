@@ -1,14 +1,14 @@
 from enum import Enum
 
-import SimpleITK as sitk
-
 
 class TransformationType(Enum):
     """
     Enum for the transformation type.
     """
-    AFFINE = 1
-    NON_RIGID = 2
+    NONE = 0
+    RIGID = 1
+    AFFINE = 2
+    B_SPLINE = 3
 
 
 class SITKSimilarityMetric(Enum):
