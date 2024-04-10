@@ -1,13 +1,10 @@
 from pathlib import Path
 import sys
 
-current_dir = Path(__file__).parent.absolute()
-project_root = current_dir.parent
-if str(project_root) not in sys.path:
-    sys.path.append(str(project_root))
+sys.path.append(str(Path(__file__).parent.absolute().parent))
 
-from validation.integrations.transform_affine_niftyreg import TransformAffineNiftyReg
-from validation.core.configurations import TransformationAffineNiftyRegConfiguration
+from registrationbaselines.validation.integrations.transform_affine_niftyreg import TransformAffineNiftyReg
+from registrationbaselines.validation.core.configurations import TransformationAffineNiftyRegConfiguration
 
 
 def main():
