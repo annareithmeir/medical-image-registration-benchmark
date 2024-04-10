@@ -6,7 +6,7 @@ from typing import List
 
 import nibabel as nib
 
-from ..core.registration_interface import RegistrationInterface
+from ._interface_registration import RegistrationInterface
 from ..core.configurations import BSplineNiftyRegConfiguration
 from ..core.enums import TransformationType
 from ..core.utilities import create_result_paths

@@ -3,7 +3,7 @@ import sys
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))
 
-from registrationbaselines.validation.integrations.transform_affine_niftyreg import TransformAffineNiftyReg
+from registrationbaselines.transforms.transform_affine_niftyreg import TransformAffineNiftyReg
 from registrationbaselines.validation.core.configurations import TransformationAffineNiftyRegConfiguration
 
 
