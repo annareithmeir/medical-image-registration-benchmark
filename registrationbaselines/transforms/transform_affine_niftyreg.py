@@ -5,6 +5,7 @@ import datetime
 
 from typing import List
 
+from registrationbaselines.core import utils_niftyreg
 from registrationbaselines.transforms._interface_transformation import TransformationInterface
 from registrationbaselines.core.configurations import TransformationAffineNiftyRegConfiguration
 
@@ -29,36 +30,16 @@ class TransformAffineNiftyReg(TransformationInterface):
                              fixed_image_path: Path,
                              moving_image_path: Path,
                              transformation_path: Path):
-        # example
-        "reg_transform -ref referenceImage.nii -flo tumor.nii -trans transformation.txt -res outputImage.nii"
-        date_time = datetime.datetime.now()
+        """
+        We first need to create a displacement field (set the intent code to NIFTI_INTENT_DISPVECT) from the affine transform and then apply it to the moving image.
+        Then we apply the displacement field to the moving image.
+        """
 
-        output_path = fixed_image_path.parent / f"{moving_image_path.stem}_warped_on_{fixed_image_path.stem}_{self.method}_{date_time}.nii"
-        output_path = Path(output_path.as_posix().replace(" ", "_"))
+        path_displacement = utils_niftyreg.convert_affine_to_displacement_field(fixed_image_path, transformation_path)
 
-        command = [REG_TRANSFORM_PATH.as_posix()]
-        command.extend(["-ref", fixed_image_path.as_posix()])
-        command.extend(["-flo", moving_image_path.as_posix()])
-        command.extend(["-trans", transformation_path.as_posix()])
-        command.extend(["-res", output_path.as_posix()])
+        utils_niftyreg.apply_displacement_field(fixed_image_path, moving_image_path, path_displacement)
 
-        self._print_command_line(command)
-
-        try:
-            p = subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output = p.communicate()
-
-            if not output_path.exists():
-
-                error_message = 'Outputs not written on the disk\n\n'
-                error_message += str(output[1])
-
-                raise FileNotFoundError(error_message)
-
-        except OSError as e:
-            print(e)
-            print('Is reg_transform correctly installed?')
+        os.remove(path_displacement)
     
     @staticmethod
     def _print_command_line(command):
