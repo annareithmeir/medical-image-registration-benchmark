@@ -36,6 +36,7 @@ class ResampleSITKConfiguration():
         self.interpolator = interpolator
         self.default_pixel_value = default_pixel_value
 
+
 class AffineNiftyRegConfiguration():
     """Configuration for the affine registration using NiftyReg"""
 
@@ -51,6 +52,7 @@ class AffineNiftyRegConfiguration():
 
         self.transformation_type = transformation_type
         self.remaining_arguments = remaining_arguments
+
 
 class BSplineNiftyRegConfiguration():
     """Configuration for the affine registration using NiftyReg"""

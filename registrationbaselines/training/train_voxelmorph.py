@@ -1,0 +1,192 @@
+from pathlib import Path
+import sys
+import os
+import argparse
+import time
+import numpy as np
+import torch
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+
+sys.path.append(str(Path(__file__).parent.absolute().parent))
+import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
+from registrationbaselines.core.training_interface import TrainingInterface
+from registrationbaselines.core.train_configurations import VoxelmorphTrainConfiguration
+
+os.environ['NEURITE_BACKEND'] = 'pytorch'
+os.environ['VXM_BACKEND'] = 'pytorch'
+
+
+class VoxelmorphTraining(TrainingInterface):
+    """
+    Training for voxelmorph.
+    """
+
+    def __init__(self, train_dataset: Dataset, val_dataset: Dataset, configuration_training: VoxelmorphTrainConfiguration):
+
+        self.method="voxelmorph"
+
+        #paths
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+        self.result_model_path = Path()
+        self.initial_weights_path = Path()
+        self.config = configuration_training
+
+
+    def scan_to_scan_generator(self):
+        """
+        Reimplementation from vxm to fit with dataset class
+        The basis generator for the desired dataset from the original voxelmorph code
+        invols = [x, y]
+        outvols = [y, zeros]
+
+        :return: Generator with data of form (invols[m,f], outvols[m,f])
+        """
+
+        train_dataloader = DataLoader(self.train_dataset, batch_size=64, shuffle=True)
+        while True:
+            x, y = next(iter(train_dataloader))
+            shape = x.shape[1:-1]
+            zeros = np.zeros((self.config.batch_size, *shape, len(shape)))
+
+            invols = [x, y]
+            outvols = [y, zeros]
+            yield (invols, outvols)
+
+    def train(self, print_progress: bool = False):
+
+        assert len(self.train_dataset) > 0, 'Could not find any training data.'
+
+        # scan-to-scan generator
+        generator = self.scan_to_scan_generator()
+
+        # extract shape from sampled input
+        inshape = self.train_dataset.img_shape
+
+        # prepare model folder
+        model_dir = self.config.result_model_path
+        os.makedirs(model_dir, exist_ok=True)
+
+        # device handling
+        gpus = self.config.gpu.split(',')
+        nb_gpus = len(gpus)
+        device = 'cuda'
+        os.environ['CUDA_VISIBLE_DEVICES'] = self.config.gpu
+        assert np.mod(self.config.batch_size, nb_gpus) == 0, \
+            'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (self.config.batch_size, nb_gpus)
+
+        # enabling cudnn determinism appears to speed up training by a lot
+        torch.backends.cudnn.deterministic = not self.config.cudnn_nondet
+
+        # unet architecture
+        enc_nf = self.config.enc
+        dec_nf = self.config.dec
+
+        if self.config.load_model:
+            # load initial model (if specified)
+            model = vxm.networks.VxmDense.load(self.config.load_model, device)
+        else:
+            # otherwise configure new model
+            model = vxm.networks.VxmDense(
+                inshape=inshape,
+                nb_unet_features=[enc_nf, dec_nf],
+                bidir=self.config.bidir,
+                int_steps=self.config.int_steps,
+                int_downsize=self.config.int_downsize
+            )
+
+        if nb_gpus > 1:
+            # use multiple GPUs via DataParallel
+            model = torch.nn.DataParallel(model)
+            model.save = model.module.save
+
+        # prepare the model for training and send to device
+        model.to(device)
+        model.train()
+
+        # set optimizer
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.config.lr)
+
+        # prepare image loss
+        if self.config.sim_loss == 'ncc':
+            image_loss_func = vxm.losses.NCC().loss
+        elif self.config.sim_loss == 'mse':
+            image_loss_func = vxm.losses.MSE().loss
+        else:
+            raise ValueError('Image loss should be "mse" or "ncc", but found "%s"' % self.config.image_loss)
+
+        # need two image loss functions if bidirectional
+        if self.config.bidir:
+            losses = [image_loss_func, image_loss_func]
+            weights = [0.5, 0.5]
+        else:
+            losses = [image_loss_func]
+            weights = [1]
+
+        # prepare deformation loss
+        losses += [vxm.losses.Grad('l2', loss_mult=self.config.int_downsize).loss]
+        weights += [self.config.reg_weight]
+
+        # training loops
+        for epoch in range(self.config.initial_epoch, self.config.epochs):
+
+            # save model checkpoint
+            if epoch % self.config.save_checkpoint == 0:
+                model.save(os.path.join(model_dir, '%04d.pt' % epoch))
+
+            epoch_loss = []
+            epoch_total_loss = []
+            epoch_step_time = []
+
+            for step in range(self.config.steps_per_epoch):
+
+                step_start_time = time.time()
+
+                # generate inputs (and true outputs) and convert them to tensors
+                inputs, y_true = next(generator)
+                inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
+                y_true = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in y_true]
+
+                # run inputs through the model to produce a warped image and flow field
+                y_pred = model(*inputs)
+
+                # calculate total loss
+                loss = 0
+                loss_list = []
+                for n, loss_function in enumerate(losses):
+                    curr_loss = loss_function(y_true[n], y_pred[n]) * weights[n]
+                    loss_list.append(curr_loss.item())
+                    loss += curr_loss
+
+                epoch_loss.append(loss_list)
+                epoch_total_loss.append(loss.item())
+
+                # backpropagate and optimize
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                # get compute time
+                epoch_step_time.append(time.time() - step_start_time)
+
+            # print epoch info
+            epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config.epochs)
+            time_info = '%.4f sec/step' % np.mean(epoch_step_time)
+            losses_info = ', '.join(['%.4e' % f for f in np.mean(epoch_loss, axis=0)])
+            loss_info = 'loss: %.4e  (%s)' % (np.mean(epoch_total_loss), losses_info)
+            print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
+
+        # final model save
+        model.save(os.path.join(model_dir, '%04d_final.pt' % self.config.epochs))
+
+    def get_trained_model_path(self):
+        return self.result_model_path
+
+    def get_initial_weights_path(self):
+        return self.initial_weights_path
+
+
+
+
+
