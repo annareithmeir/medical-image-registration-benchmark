@@ -4,7 +4,7 @@ import os
 
 import nibabel as nib
 
-import utils
+from registrationbaselines.core import utils
 
 
 # intent codes for nifti files - at the moment we only need NIFTI_INTENT_DISPVECT
@@ -67,7 +67,7 @@ def convert_affine_to_displacement_field(path_fixed: Path,
     Helper function for NiftyReg.
     """
 
-    assert path_transformation.suffixes == ['.txt'], f"Transformation file {path_transformation} is not a txt file."
+    assert path_transformation.as_posix().endswith('.txt'), f"Transformation file {path_transformation} is not a txt file."
 
     path_output = Path(path_transformation.as_posix().replace(".txt", ".nii"))
 
@@ -78,21 +78,7 @@ def convert_affine_to_displacement_field(path_fixed: Path,
 
     utils.print_command(command)
 
-    try:
-        p = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = p.communicate()
-
-        if not path_output.exists():
-
-            error_message = 'Outputs not written on the disk\n\n'
-            error_message += str(output[1])
-
-            raise FileNotFoundError(error_message)
-
-    except OSError as e:
-        print(e)
-        print('Is reg_transform correctly installed?')
+    utils.run_command_in_terminal(command, check = path_output.exists)
 
     set_intent_code(path_output, 'NIFTI_INTENT_DISPVECT')
 
@@ -126,19 +112,7 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
 
     utils.print_command(command_line_list)
 
-    try:
-        p = subprocess.Popen(
-            command_line_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = p.communicate()
-
-        if not path_displacement.exists():
-
-            error_message = "Output volume not written on the disk\n\n"
-            error_message += output[1]
-            raise FileNotFoundError(error_message)
-    except OSError as e:
-        print(e)
-        print('Is reg_transform correctly installed?')
+    utils.run_command_in_terminal(command_line_list, check = path_displacement.exists)
 
     set_intent_code(path_displacement, 'NIFTI_INTENT_DISPVECT')
 

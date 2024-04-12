@@ -7,7 +7,7 @@ from typing import List
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.core.configurations import AffineNiftyRegConfiguration
 from registrationbaselines.core.enums import TransformationType
-from registrationbaselines.core.utils import create_result_paths
+from registrationbaselines.core import utils
 
 ALADIN_PATH = Path(os.path.expanduser('~/bin/reg_aladin'))
 
@@ -57,23 +57,7 @@ class AffineNiftyReg(RegistrationInterface):
 
         self._print_command_line()
 
-        try:
-            p = subprocess.Popen(
-                self.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output = p.communicate()
-
-            if p.returncode != 0 or not self._outputs_exist():
-
-                error_message = ''
-                if not self._outputs_exist():
-                    error_message += 'Outputs not written on the disk\n\n'
-                error_message += str(output[1])
-
-                raise FileNotFoundError(error_message)
-
-        except OSError as e:
-            print(e)
-            print('Is blockmatching correctly installed?')
+        utils.run_command_in_terminal(self.command, self._outputs_exist)
 
     def get_transformed_image_path(self):
         # Return transformed image
@@ -89,7 +73,7 @@ class AffineNiftyReg(RegistrationInterface):
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
+        self.result_transformed_image_path, self.result_transformation_path = utils.create_result_paths(self.working_dir_path,
                                                                                                   self.fixed_path.stem,
                                                                                                   self.moving_path.stem,
                                                                                                   self.method,
