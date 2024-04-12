@@ -16,12 +16,28 @@ def create_result_paths(directory: Path,
     
     date_time = datetime.datetime.now()
 
-    result_transformed_image_path = directory / f"{name_moving}_warped_on_{name_fixed}_{method}_image_{date_time}{extension_image}"
-    result_transformation_path = directory / f"{name_moving}_warped_on_{name_fixed}_{method}_transform_{date_time}{extension_transformatoin}"
+    result_transformed_image_path = directory / f"{name_moving}_warped_on_{name_fixed}_{method}_image_{date_time}"
+    result_transformation_path = directory / f"{name_moving}_warped_on_{name_fixed}_{method}_transform_{date_time}"
 
     # replace spaces with underscores
     result_transformed_image_path = result_transformed_image_path.resolve().as_posix().replace(" ", "_")
     result_transformation_path = result_transformation_path.resolve().as_posix().replace(" ", "_")
+
+    # replace - with underscores
+    result_transformed_image_path = result_transformed_image_path.replace("-", "_")
+    result_transformation_path = result_transformation_path.replace("-", "_")
+
+    # replace : with underscores
+    result_transformed_image_path = result_transformed_image_path.replace(":", "_")
+    result_transformation_path = result_transformation_path.replace(":", "_")
+
+    # replace . with underscores
+    result_transformed_image_path = result_transformed_image_path.replace(".", "_")
+    result_transformation_path = result_transformation_path.replace(".", "_")
+
+    # add the extension
+    result_transformed_image_path += extension_image
+    result_transformation_path += extension_transformatoin
 
     return Path(result_transformed_image_path), Path(result_transformation_path)
 
