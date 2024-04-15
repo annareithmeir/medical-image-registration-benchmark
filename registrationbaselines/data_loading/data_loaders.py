@@ -2,13 +2,12 @@ import random
 import torchio as tio
 from torch.utils.data import Dataset
 from pathlib import Path
-import sys
-sys.path.append(str(Path(__file__).parent.parent.absolute().parent))
+
 
 class DemoImageDataset(Dataset):
     def __init__(self, imgs_path: Path, transforms:list[str] = list(), target_transform=None):
         self.imgs_path = imgs_path
-        self.img_shape = (192, 128, 192)
+        self.img_shape = (1, 192, 128, 192)
         self.transforms = transforms
         # self.target_transform = target_transform # pytorch transforms
         self.imgs_list = None
@@ -62,7 +61,6 @@ class DemoImageDataset(Dataset):
 
     def plot_random_image(self):
         rand_idx=random.randint(0,len(self)-1)
-        # print(rand_idx)
         subject=self.__getitem__(rand_idx, return_as_subject=True)
         subject.plot()
 

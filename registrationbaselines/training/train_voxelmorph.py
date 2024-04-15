@@ -1,20 +1,22 @@
 from pathlib import Path
 import sys
 import os
-import argparse
+import wandb
 import time
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
+os.environ['NEURITE_BACKEND'] = 'pytorch'
+os.environ['VXM_BACKEND'] = 'pytorch'
+
 sys.path.append(str(Path(__file__).parent.absolute().parent))
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.core.training_interface import TrainingInterface
 from registrationbaselines.core.train_configurations import VoxelmorphTrainConfiguration
 
-os.environ['NEURITE_BACKEND'] = 'pytorch'
-os.environ['VXM_BACKEND'] = 'pytorch'
+
 
 
 class VoxelmorphTraining(TrainingInterface):
@@ -22,33 +24,34 @@ class VoxelmorphTraining(TrainingInterface):
     Training for voxelmorph.
     """
 
-    def __init__(self, train_dataset: Dataset, val_dataset: Dataset, configuration_training: VoxelmorphTrainConfiguration):
+    def __init__(self, train_dataset: Dataset, configuration_training: VoxelmorphTrainConfiguration, val_dataset: Dataset=None):
 
         self.method="voxelmorph"
 
         #paths
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
-        self.result_model_path = Path()
-        self.initial_weights_path = Path()
         self.config = configuration_training
 
+        if configuration_training.use_wandb:
+            self.init_wandb(configuration_training.wandb_config)
 
     def scan_to_scan_generator(self):
         """
-        Reimplementation from vxm to fit with dataset class
+        Reimplementation from vxm.generators.py to fit with dataset class
+        (voxelmorph uses an internal generator that prepares the images and an 'empty' deformation in lists for inputs and outputs
         The basis generator for the desired dataset from the original voxelmorph code
-        invols = [x, y]
-        outvols = [y, zeros]
+        invols = [x, y] both of shape (bs, 1, h,d,w)
+        outvols = [y, zeros] zeros of shape (bs,3,h,d,w)
 
         :return: Generator with data of form (invols[m,f], outvols[m,f])
         """
 
-        train_dataloader = DataLoader(self.train_dataset, batch_size=64, shuffle=True)
+        train_dataloader = DataLoader(self.train_dataset, batch_size=self.config.batch_size, shuffle=True)
         while True:
             x, y = next(iter(train_dataloader))
-            shape = x.shape[1:-1]
-            zeros = np.zeros((self.config.batch_size, *shape, len(shape)))
+            shape = x.shape[2:]
+            zeros = torch.from_numpy(np.zeros((self.config.batch_size, len(shape), *shape)))
 
             invols = [x, y]
             outvols = [y, zeros]
@@ -89,7 +92,7 @@ class VoxelmorphTraining(TrainingInterface):
         else:
             # otherwise configure new model
             model = vxm.networks.VxmDense(
-                inshape=inshape,
+                inshape=inshape[1:],
                 nb_unet_features=[enc_nf, dec_nf],
                 bidir=self.config.bidir,
                 int_steps=self.config.int_steps,
@@ -103,6 +106,9 @@ class VoxelmorphTraining(TrainingInterface):
 
         # prepare the model for training and send to device
         model.to(device)
+        self.model = model
+        if self.config.initial_weights_path is not None:
+            self.save_initial_weights()
         model.train()
 
         # set optimizer
@@ -145,8 +151,11 @@ class VoxelmorphTraining(TrainingInterface):
 
                 # generate inputs (and true outputs) and convert them to tensors
                 inputs, y_true = next(generator)
-                inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
-                y_true = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in y_true]
+                print(inputs[0].shape)
+                inputs = [d.to(device).float() for d in inputs]
+                # inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
+                y_true = [d.to(device).float()for d in y_true]
+                # y_true = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in y_true]
 
                 # run inputs through the model to produce a warped image and flow field
                 y_pred = model(*inputs)
@@ -173,19 +182,39 @@ class VoxelmorphTraining(TrainingInterface):
             # print epoch info
             epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config.epochs)
             time_info = '%.4f sec/step' % np.mean(epoch_step_time)
-            losses_info = ', '.join(['%.4e' % f for f in np.mean(epoch_loss, axis=0)])
+            mean_loss = np.mean(epoch_loss, axis=0)
+            losses_info = ', '.join(['%.4e' % f for f in mean_loss])
             loss_info = 'loss: %.4e  (%s)' % (np.mean(epoch_total_loss), losses_info)
             print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
 
+            # wandb logging
+            if self.config.use_wandb:
+                wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss":mean_loss[0], "grad-loss": mean_loss[1]})
+
         # final model save
         model.save(os.path.join(model_dir, '%04d_final.pt' % self.config.epochs))
+        self.model = model
+
+        if self.config.use_wandb:
+            wandb.finish()
 
     def get_trained_model_path(self):
-        return self.result_model_path
+        return self.config.result_model_path
 
     def get_initial_weights_path(self):
         return self.initial_weights_path
 
+    def save_initial_weights(self):
+        assert self.model is not None, "Model is not yet initialized!"
+        torch.save(self.model.state_dict(), self.config.initial_weights_path) # '.pth'
+
+    def init_wandb(self, wandb_config):
+        wandb.init(
+            project=wandb_config.project,
+            group=wandb_config.group,
+            name=wandb_config.name,
+            config=wandb_config.config_dict
+        )
 
 
 

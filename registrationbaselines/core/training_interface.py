@@ -15,6 +15,7 @@ class TrainingInterface(ABC):
 
         self.initial_weights_path = None
         self.train_data_path = None
+        self.model = None
 
     @abstractmethod
     def train(self, print_progress: bool = False):
@@ -33,3 +34,4 @@ class TrainingInterface(ABC):
         """
         Return the initial weights that have been used for training (for reproducibility).
         """
+
