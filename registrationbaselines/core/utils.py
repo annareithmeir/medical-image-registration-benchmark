@@ -1,6 +1,7 @@
 from pathlib import Path
 import datetime
 import subprocess
+import inspect
 
 from typing import Tuple
 
@@ -43,30 +44,17 @@ def create_result_paths(directory: Path,
     return Path(result_transformed_image_path), Path(result_transformation_path)
 
 
-def run_command_in_terminal(command: list[str], check: callable) -> bool:
+def run_command_in_terminal(command: list[str], check: callable = None) -> bool:
     """
         Run a command in the terminal and check the result using the provided lambda function.
     """
-    try:
-        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = p.communicate()
+    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = p.communicate()
 
-        if p.returncode != 0 or not check():
-
-            error_message = ''
-            if not check():
-                error_message += 'Check failed\n\n'
-            if p.returncode != 0:
-                error_message += 'Command returned non-zero exit code\n\n'
-            error_message += str(output[1])
-
-            raise FileNotFoundError(error_message)
-
-    except OSError as e:
-        print(e)
-        print('Is the tool correctly installed?')
-
-        return False
+    if check is not None:
+        if not check():
+            error_message = f'Check function: {check.__name__} failed\n\n'
+            raise FileNotFoundError(error_message + ".\n" + str(output))
     
     return True
 
