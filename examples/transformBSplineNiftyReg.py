@@ -6,7 +6,6 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))
 
 from registrationbaselines.transforms.transform_bspline_niftyreg import TransformBSplineNiftyReg
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg
-from registrationbaselines.core.configurations import TransformationBSplineNiftyRegConfiguration, BSplineNiftyRegConfiguration
 
 
 def main():
@@ -18,13 +17,11 @@ def main():
     path_fixed = Path("registrationbaselines/data/tumor1.nii")
     path_moving = Path("registrationbaselines/data/tumor2.nii")
 
-    registration = BSplineNiftyReg(BSplineNiftyRegConfiguration())
+    registration = BSplineNiftyReg(Path('registrationbaselines/configs/BSplineNiftyReg.yaml'))
     registration.register(path_fixed, path_moving)
 
-    transformation = TransformBSplineNiftyReg(TransformationBSplineNiftyRegConfiguration())
-    path_transformed = transformation.apply_transformation(path_fixed, path_moving, registration.get_transformation_path())
-
-    print(f"Transformed image: {path_transformed}")
+    transformation = TransformBSplineNiftyReg()
+    transformation.apply_transformation(path_fixed, path_moving, registration.get_transformation_path())
 
 
 if __name__ == "__main__":
