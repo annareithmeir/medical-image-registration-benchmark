@@ -92,7 +92,7 @@ class VoxelmorphTraining(TrainingInterface):
         else:
             # otherwise configure new model
             model = vxm.networks.VxmDense(
-                inshape=inshape[1:],
+                inshape=inshape,
                 nb_unet_features=[enc_nf, dec_nf],
                 bidir=self.config.bidir,
                 int_steps=self.config.int_steps,
