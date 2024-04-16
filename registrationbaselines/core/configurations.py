@@ -83,3 +83,20 @@ class TransformationAffineNiftyRegConfiguration():
 
         self.transformation_type = transformation_type
         self.remaining_arguments = remaining_arguments
+
+class TransformationBSplineNiftyRegConfiguration():
+    """
+    Configuration class for the NiftyReg BSpline transformation.
+    """
+
+    def __init__(self, transformation_type: TransformationType = TransformationType.B_SPLINE,
+                 remaining_arguments: List[str] = None) -> None:
+        """
+        Args:
+            transformation_type (TransformationType): Type of transformation to use.
+            remaining_arguments (List[str]): Remaining arguments to pass to NiftyReg. has to be a list of strings, like so:
+            ["-noSym", "-ln", "5"]
+        """
+
+        self.transformation_type = transformation_type
+        self.remaining_arguments = remaining_arguments
