@@ -1,13 +1,10 @@
 from pathlib import Path
-import subprocess
 import os
 
 from typing import List
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core.configurations import AffineNiftyRegConfiguration
-from registrationbaselines.core.enums import TransformationType
-from registrationbaselines.core.utils import create_result_paths
+from registrationbaselines.core import utils_commandline
 
 ALADIN_PATH = Path(os.path.expanduser('~/bin/reg_aladin'))
 
@@ -18,12 +15,11 @@ class AffineNiftyReg(RegistrationInterface):
     No default initialisation, as the choice of registration should be concious.
     """
 
-    def __init__(self, configuration_registration: AffineNiftyRegConfiguration):
+    def __init__(self, configuration_path: Path) -> None:
 
         self.method = "AffineNiftyReg"
-
-        # registration configuration
-        self.transfromation_type = configuration_registration.transformation_type
+        
+        self.configuration = self.read_config(configuration_path)
 
         # paths
         self.fixed_path = Path()
@@ -31,9 +27,6 @@ class AffineNiftyReg(RegistrationInterface):
         self.result_transformed_image_path = Path()
         self.result_transformation_path = Path()
         self.working_dir_path = Path()
-
-        # remaining arguments
-        self.remaining_arguments = configuration_registration.remaining_arguments
 
         # command to call NiftyReg
         self.command: List[str] = []
@@ -55,25 +48,9 @@ class AffineNiftyReg(RegistrationInterface):
 
         self._create_registration_command_list()
 
-        self._print_command_line()
+        utils_commandline.print_command(self.command)
 
-        try:
-            p = subprocess.Popen(
-                self.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output = p.communicate()
-
-            if p.returncode != 0 or not self._outputs_exist():
-
-                error_message = ''
-                if not self._outputs_exist():
-                    error_message += 'Outputs not written on the disk\n\n'
-                error_message += str(output[1])
-
-                raise FileNotFoundError(error_message)
-
-        except OSError as e:
-            print(e)
-            print('Is blockmatching correctly installed?')
+        utils_commandline.run_command_in_terminal(self.command, self._outputs_exist)
 
     def get_transformed_image_path(self):
         # Return transformed image
@@ -89,40 +66,20 @@ class AffineNiftyReg(RegistrationInterface):
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
+        self.result_transformed_image_path, self.result_transformation_path = utils_commandline.create_result_paths(self.working_dir_path,
                                                                                                   self.fixed_path.stem,
                                                                                                   self.moving_path.stem,
                                                                                                   self.method,
                                                                                                   ".nii",
                                                                                                   ".txt")
 
-        self.command = [ALADIN_PATH.as_posix()]
-        self.command += ['-ref', self.fixed_path.as_posix()]
-        self.command += ['-flo', self.moving_path.as_posix()]
-        self.command += ['-res', self.result_transformed_image_path.as_posix()]
+        self.command = [ALADIN_PATH.as_posix(),
+                        '-ref', self.fixed_path.as_posix(),
+                        '-flo', self.moving_path.as_posix(),
+                        '-res', self.result_transformed_image_path.as_posix(),
+                        '-aff', self.result_transformation_path.as_posix()]
 
-        if self.transfromation_type == TransformationType.RIGID:
-            self.command += ['-rigOnly']
-        elif self.transfromation_type == TransformationType.AFFINE:
-            self.command += ['-affDirect']
-        else:
-            raise ValueError(
-                f"Transformation type {self.transfromation_type} not supported.")
-
-        self.command += ['-aff', self.result_transformation_path.as_posix()]
-
-        if self.remaining_arguments is not None:
-            self.command += self.remaining_arguments
-
-    def _print_command_line(self):
-        print('\n\n')
-
-        full_cmd = ""
-
-        for a in self.command:
-            full_cmd += a + " "
-
-        print(full_cmd)
+        self.command = utils_commandline.add_configuration_to_command(self.command, self.configuration)
 
     def _outputs_exist(self):
         """

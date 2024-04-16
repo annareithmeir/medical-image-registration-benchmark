@@ -4,17 +4,15 @@ from registrationbaselines.core import utils_niftyreg
 from registrationbaselines.transforms._interface_transformation import TransformationInterface
 
 
-class TransformAffineNiftyReg(TransformationInterface):
+class TransformBSplineNiftyReg(TransformationInterface):
     """
-    Affine transformation using NiftyReg.
+    BSpline transformation using NiftyReg.
     """
 
-    def __init__(self) -> None:
+    def __init__(self):
         """
         Initialize the transformation model.
         """
-
-        self.method = "AffineNiftyReg"
     
     def apply_transformation(self,
                              fixed_image_path: Path,

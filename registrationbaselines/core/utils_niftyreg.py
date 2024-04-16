@@ -4,7 +4,7 @@ import os
 
 import nibabel as nib
 
-import utils
+from registrationbaselines.core import utils_commandline
 
 
 # intent codes for nifti files - at the moment we only need NIFTI_INTENT_DISPVECT
@@ -21,7 +21,7 @@ INTENT_CODES = ['NIFTI_INTENT_CORREL', 'NIFTI_INTENT_TTEST', 'NIFTI_INTENT_FTEST
                 'NIFTI_INTENT_DISPVECT', 'NIFTI_INTENT_VECTOR', 'NIFTI_INTENT_POINTSET',
                 'NIFTI_INTENT_TRIANGLE', 'NIFTI_INTENT_QUATERNION', 'NIFTI_INTENT_DIMLESS']
 
-REG_TRANSFORM_PATH = Path('/usr/local/bin/reg_transform')
+REG_RESAMPLE_PATH = Path('/usr/local/bin/reg_resample')
 
 
 def set_intent_code(path: Path, intent_code: str) -> None:
@@ -61,44 +61,6 @@ def set_intent_code(path: Path, intent_code: str) -> None:
         print(f"Error saving the file: {e}")
 
 
-def convert_affine_to_displacement_field(path_fixed: Path,
-                                                  path_transformation: Path) -> Path:
-    """
-    Helper function for NiftyReg.
-    """
-
-    assert path_transformation.suffixes == ['.txt'], f"Transformation file {path_transformation} is not a txt file."
-
-    path_output = Path(path_transformation.as_posix().replace(".txt", ".nii"))
-
-    command = [REG_TRANSFORM_PATH.as_posix()]
-    command.extend(["-ref", path_fixed.as_posix()])
-    command.extend(["-disp", path_transformation.as_posix()])
-    command.extend([path_output.as_posix()])
-
-    utils.print_command(command)
-
-    try:
-        p = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = p.communicate()
-
-        if not path_output.exists():
-
-            error_message = 'Outputs not written on the disk\n\n'
-            error_message += str(output[1])
-
-            raise FileNotFoundError(error_message)
-
-    except OSError as e:
-        print(e)
-        print('Is reg_transform correctly installed?')
-
-    set_intent_code(path_output, 'NIFTI_INTENT_DISPVECT')
-
-    return path_output
-
-
 def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
                                                      fixed_path: Path) -> Path:
     """
@@ -124,23 +86,13 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
     command_line_list = ["reg_transform", "-ref", fixed_path.as_posix(), "-disp",
                         control_grid_path.as_posix(), path_displacement]
 
-    utils.print_command(command_line_list)
+    utils_commandline.print_command(command_line_list)
 
-    try:
-        p = subprocess.Popen(
-            command_line_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = p.communicate()
+    utils_commandline.run_command_in_terminal(command_line_list, check = path_displacement.exists)
 
-        if not path_displacement.exists():
-
-            error_message = "Output volume not written on the disk\n\n"
-            error_message += output[1]
-            raise FileNotFoundError(error_message)
-    except OSError as e:
-        print(e)
-        print('Is reg_transform correctly installed?')
-
-    set_intent_code(path_displacement, 'NIFTI_INTENT_DISPVECT')
+    # this has to be done to conform with norms, to e.g. visualise in 3D Slicer, 
+    # but NiftyReg cannot handle it afterwards and we need it to apply atransformation
+    # set_intent_code(path_displacement, 'NIFTI_INTENT_DISPVECT')
 
     # remove the temporary control point grid
     os.remove(control_grid_path)
@@ -148,49 +100,32 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
     return path_displacement
 
 
-def apply_displacement_field(path_fixed: Path, path_moving: Path, path_displacement: Path) -> Path:
+def apply_transformation(path_fixed: Path, path_moving: Path, path_transfromation: Path) -> Path:
     """
-    Apply the displacement field to the moving image.
+    Apply the transformation to the moving image.
+    Works for both affine and non-linear transformations.
     """
 
     assert path_fixed.exists(), f"File {path_fixed} does not exist."
     assert path_moving.exists(), f"File {path_moving} does not exist."
-    assert path_displacement.exists(), f"File {path_displacement} does not exist."
+    assert path_transfromation.exists(), f"File {path_transfromation} does not exist."
 
-    assert path_fixed.suffix == '.nii' or path_fixed.suffixes == ['.nii', '.gz'], \
-        f"File {path_fixed} is not a nifti file."
-    assert path_moving.suffix == '.nii' or path_moving.suffixes == ['.nii', '.gz'], \
-        f"File {path_moving} is not a nifti file."
-    assert path_displacement.suffix == '.nii' or path_displacement.suffixes == ['.nii', '.gz'], \
-        f"File {path_displacement} is not a nifti file."
-
-    path_output, _ = utils.create_result_paths(
-        path_fixed.parent, path_fixed.stem, path_moving.stem, "AffineNiftyReg", ".nii", ".nii")
-
-    # create command
-    command = ["reg_resample",
-                         "-ref", path_fixed.as_posix(),
-                        "-flo", path_moving.as_posix(),
-                        "-res", path_output.as_posix()]
+    if path_transfromation.suffix == ".txt":
+        method = "AffineNiftyReg"
+    else:
+        method = "BSplineNiftyReg"
     
-    utils.print_command(command)
+    path_output, _ = utils_commandline.create_result_paths(
+        path_fixed.parent, path_fixed.stem, path_moving.stem, method, ".nii", ".nii")
+    
+    command = [REG_RESAMPLE_PATH.as_posix(),
+               "-ref", path_fixed.as_posix(),
+               "-flo", path_moving.as_posix(),
+               "-trans", path_transfromation.as_posix(),
+               "-res", path_output.as_posix()]
+    
+    utils_commandline.print_command(command)
 
-    try:
-        p = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = p.communicate()
-
-        if not path_output.exists():
-
-            error_message = 'Outputs not written on the disk\n\n'
-            error_message += str(output[1])
-
-            raise FileNotFoundError(error_message)
-
-    except OSError as e:
-        print(e)
-        print('Is reg_transform correctly installed?')
-
-    set_intent_code(path_output, 'NIFTI_INTENT_DISPVECT')
+    utils_commandline.run_command_in_terminal(command, check=path_output.exists)
 
     return path_output

@@ -1,4 +1,5 @@
 registration/__pycache__/
 *.pyc
+.vscode/settings.json
 
 tmp
