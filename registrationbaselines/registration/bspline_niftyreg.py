@@ -1,15 +1,10 @@
 from pathlib import Path
-import subprocess
 import os
 
 from typing import List
 
-import registrationbaselines.core.utils_niftyreg
-
-from ._interface_registration import RegistrationInterface
-from ..core.configurations import BSplineNiftyRegConfiguration
-from ..core.enums import TransformationType
-from ..core import utils, utils_niftyreg
+from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.core import utils_commandline, utils_niftyreg
 
 
 F3D_PATH = Path(os.path.expanduser('~/bin/reg_f3d'))
@@ -21,12 +16,11 @@ class BSplineNiftyReg(RegistrationInterface):
     No default initialisation, as the choice of registration should be concious.
     """
 
-    def __init__(self, configuration_registration: BSplineNiftyRegConfiguration):
+    def __init__(self, configuration_path: Path) -> None:
 
         self.method = "BSplineNiftyReg"
 
-        # registration configuration
-        self.transfromation_type = configuration_registration.transformation_type
+        self.configuration = self.read_config(configuration_path)
 
         # paths
         self.fixed_path = Path()
@@ -35,9 +29,6 @@ class BSplineNiftyReg(RegistrationInterface):
         self.result_control_grid_path = Path()
         self.result_transformation_path = Path()
         self.working_dir_path = Path()
-
-        # remaining arguments
-        self.remaining_arguments = configuration_registration.remaining_arguments
 
         # command to call NiftyReg
         self.command: List[str] = []
@@ -52,32 +43,14 @@ class BSplineNiftyReg(RegistrationInterface):
         self.working_dir_path = self.fixed_path.parent
 
         # check that both images exist
-        assert self.fixed_path.exists(
-        ), f"File {self.fixed_path} does not exist."
-        assert self.moving_path.exists(
-        ), f"File {self.moving_path} does not exist."
+        assert self.fixed_path.exists(), f"File {self.fixed_path} does not exist."
+        assert self.moving_path.exists(), f"File {self.moving_path} does not exist."
 
         self._create_registration_command_list()
 
-        utils.print_command(self.command)
+        utils_commandline.print_command(self.command)
 
-        try:
-            p = subprocess.Popen(
-                self.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output = p.communicate()
-
-            if p.returncode != 0 or not self._outputs_exist():
-
-                error_message = ''
-                if not self._outputs_exist():
-                    error_message += 'Outputs not written on the disk\n\n'
-                error_message += str(output[1])
-
-                raise FileNotFoundError(error_message)
-
-        except OSError as e:
-            print(e)
-            print('Is blockmatching correctly installed?')
+        utils_commandline.run_command_in_terminal(self.command, self._outputs_exist)
         
         self.result_transformation_path = utils_niftyreg.convert_control_point_grid_to_displacement_field(self.result_control_grid_path, self.fixed_path)
 
@@ -95,29 +68,23 @@ class BSplineNiftyReg(RegistrationInterface):
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.result_control_grid_path = utils.create_result_paths(self.working_dir_path,
+        self.result_transformed_image_path, self.result_control_grid_path = utils_commandline.create_result_paths(self.working_dir_path,
                                                                                                   self.fixed_path.stem,
                                                                                                   self.moving_path.stem,
                                                                                                   self.method,
                                                                                                   ".nii",
                                                                                                   ".nii")
 
-        self.command = [F3D_PATH.as_posix()]
-        self.command += ['-ref', self.fixed_path.as_posix()]
-        self.command += ['-flo', self.moving_path.as_posix()]
-        self.command += ['-res', self.result_transformed_image_path.as_posix()]
-
-        if self.transfromation_type == TransformationType.B_SPLINE:
-            # control point grid is only temporary, we want to remove it later
-            self.result_control_grid_path = Path(self.result_control_grid_path.as_posix().replace(".nii", "_temp.nii"))
-
-            self.command += ['-cpp', self.result_control_grid_path]
-        else:
-            raise ValueError(
-                f"Transformation type {self.transfromation_type} not supported.")
+        # control point grid is only temporary, we want to remove it later
+        self.result_control_grid_path = Path(self.result_control_grid_path.as_posix().replace(".nii", "_temp.nii"))
         
-        if self.remaining_arguments is not None:
-            self.command += self.remaining_arguments
+        self.command = [F3D_PATH.as_posix(),
+                        '-ref', self.fixed_path.as_posix(),
+                        '-flo', self.moving_path.as_posix(),
+                        '-res', self.result_transformed_image_path.as_posix(),
+                        '-cpp', self.result_control_grid_path.as_posix()]
+
+        self.command = utils_commandline.add_configuration_to_command(self.command, self.configuration)
 
     def _outputs_exist(self):
         """
