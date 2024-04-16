@@ -17,7 +17,7 @@ class SyNANTsReg(RegistrationInterface):
         Initialize the registration model.
         """
         
-        self.method = "SyNANTsReg"
+        self.method = "SyNANTs"
         
         self.configuration = self.read_config(configuration_path)
         
