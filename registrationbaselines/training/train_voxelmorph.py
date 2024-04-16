@@ -36,7 +36,7 @@ class VoxelmorphTraining(TrainingInterface):
         if configuration_training.use_wandb:
             self.init_wandb(configuration_training.wandb_config)
 
-    def scan_to_scan_generator(self):
+    def scan_to_scan_generator(self, dataset: Dataset):
         """
         Reimplementation from vxm.generators.py to fit with dataset class
         (voxelmorph uses an internal generator that prepares the images and an 'empty' deformation in lists for inputs and outputs
@@ -47,9 +47,9 @@ class VoxelmorphTraining(TrainingInterface):
         :return: Generator with data of form (invols[m,f], outvols[m,f])
         """
 
-        train_dataloader = DataLoader(self.train_dataset, batch_size=self.config.batch_size, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=self.config.batch_size, shuffle=True)
         while True:
-            x, y = next(iter(train_dataloader))
+            x, y = next(iter(dataloader))
             shape = x.shape[2:]
             zeros = torch.from_numpy(np.zeros((self.config.batch_size, len(shape), *shape)))
 
@@ -60,9 +60,13 @@ class VoxelmorphTraining(TrainingInterface):
     def train(self, print_progress: bool = False):
 
         assert len(self.train_dataset) > 0, 'Could not find any training data.'
+        print('Training with dataset of length ', len(self.train_dataset))
+        print('Validation with dataset of length ', len(self.val_dataset))
 
         # scan-to-scan generator
-        generator = self.scan_to_scan_generator()
+        generator = self.scan_to_scan_generator(self.train_dataset)
+        if self.val_dataset is not None:
+            val_generator = self.scan_to_scan_generator(self.val_dataset)
 
         # extract shape from sampled input
         inshape = self.train_dataset.img_shape
@@ -142,6 +146,8 @@ class VoxelmorphTraining(TrainingInterface):
         # training loops
         for epoch in range(self.config.initial_epoch, self.config.epochs):
 
+            model.train()
+
             # save model checkpoint
             if epoch % self.config.save_checkpoint == 0:
                 model.save(os.path.join(model_dir, '%04d.pt' % epoch))
@@ -156,7 +162,6 @@ class VoxelmorphTraining(TrainingInterface):
 
                 # generate inputs (and true outputs) and convert them to tensors
                 inputs, y_true = next(generator)
-                print(inputs[0].shape)
                 inputs = [d.to(device).float() for d in inputs]
                 # inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
                 y_true = [d.to(device).float()for d in y_true]
@@ -184,17 +189,40 @@ class VoxelmorphTraining(TrainingInterface):
                 # get compute time
                 epoch_step_time.append(time.time() - step_start_time)
 
+
+            # Validation
+            val_loss_list=list()
+            val_loss = 0
+            if self.val_dataset is not None:
+                model.eval()
+                with torch.no_grad():
+                    val_inputs, val_y_true = next(val_generator)
+                    val_inputs = [d.to(device).float() for d in val_inputs]
+                    val_y_true = [d.to(device).float() for d in val_y_true]
+                    for n, loss_function in enumerate(losses):
+                        val_y_pred = model(*val_inputs)
+                        val_curr_loss = loss_function(val_y_true[n], val_y_pred[n]) * weights[n]
+                        val_loss_list.append(val_curr_loss.item())
+                        # val_loss += val_curr_loss
+
+
             # print epoch info
             epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config.epochs)
             time_info = '%.4f sec/step' % np.mean(epoch_step_time)
             mean_loss = np.mean(epoch_loss, axis=0)
             losses_info = ', '.join(['%.4e' % f for f in mean_loss])
-            loss_info = 'loss: %.4e  (%s)' % (np.mean(epoch_total_loss), losses_info)
+            if self.val_dataset is not None:
+                loss_info = 'loss: %.4e  (%s), validation loss: %.4e' % (np.mean(epoch_total_loss), losses_info, np.mean(val_loss_list))
+            else:
+                loss_info = 'loss: %.4e  (%s)' % (np.mean(epoch_total_loss), losses_info)
             print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
 
             # wandb logging
             if self.config.use_wandb:
-                wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss":mean_loss[0], "grad-loss": mean_loss[1]})
+                if self.val_dataset is not None:
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss":mean_loss[0], "grad-loss": mean_loss[1], "val-loss": np.mean(val_loss_list)})
+                else:
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss":mean_loss[0], "grad-loss": mean_loss[1]})
 
         # final model save
         model.save(os.path.join(model_dir, '%04d_final.pt' % self.config.epochs))

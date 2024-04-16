@@ -3,11 +3,6 @@ import torchio as tio
 from torch.utils.data import Dataset
 from pathlib import Path
 
-# todo parent class with all repetitive code?
-# todo include keypoints and seg maps
-# todo decide if load as is or rotate images in getitem
-# todo add 2d option?
-
 class DemoImageDataset(Dataset):
     def __init__(self, imgs_path: Path, transforms:list[str] = list(), target_transform=None):
         self.imgs_path = imgs_path
@@ -79,8 +74,9 @@ class DemoImageDataset(Dataset):
 
 class L2RLungCTDataset(Dataset):
 
-    def __init__(self, imgs_path: Path, transforms: list[str] = list(), target_transform=None):
+    def __init__(self, imgs_path: Path, transforms: list[str] = list(), target_transform=None, idxs: list[int] = None):
 
+        self.idxs = idxs
         self.imgs_path = imgs_path
         self.transforms = transforms
         self.target_transform = target_transform
@@ -94,6 +90,9 @@ class L2RLungCTDataset(Dataset):
 
         self.imgs_list = None
         self.__load_imgs_list__()
+        if idxs is not None: # create subsets for e.g. validation and training
+            self.imgs_list=[self.imgs_list[i] for i in idxs]
+            # print("sliced:", idxs)
 
     def __len__(self):
         return len(self.imgs_list)
@@ -142,5 +141,6 @@ class L2RLungCTDataset(Dataset):
         rand_idx=random.randint(0,len(self)-1)
         subject=self.__getitem__(rand_idx, return_as_subject=True)
         subject.plot()
+
 
 

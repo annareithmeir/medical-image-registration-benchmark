@@ -5,6 +5,7 @@ import sys
 
 import torch.cuda
 import wandb
+import numpy as np
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 
 from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
@@ -48,18 +49,39 @@ class TestDLModelsTraining(unittest.TestCase):
         vxm_training = VoxelmorphTraining(dataset, vxm_config)
         vxm_training.train()
 
+    def test_voxelmorph_training_L2RLunGCT_train_val_split(self):
+        idxs = np.arange(20)
+        np.random.shuffle(idxs)
+        train_idx, val_idx = idxs[:15], idxs[15:]
+        print(train_idx, val_idx)
+        train_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+                                   transforms=["normalize"], idxs=list(train_idx))
+        val_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+                                   transforms=["normalize"], idxs=list(val_idx))
+        self.assertEqual(len(train_dataset), 15)
+        self.assertEqual(len(val_dataset), 5)
+
     def test_voxelmorph_training_L2RLunGCT_wandb(self):
-        dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
-                                   transforms=["normalize"])
+        idxs = np.arange(20)
+        np.random.shuffle(idxs)
+        train_idx, val_idx = idxs[:15], idxs[15:]
+        print(train_idx, val_idx)
+        train_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+                                         transforms=["normalize"], idxs=list(train_idx))
+        val_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+                                       transforms=["normalize"], idxs=list(val_idx))
+
+        print("train dataset:", len(train_dataset), " val dataset: ", len(val_dataset))
+
         wandb_config = WandbConfiguration(project="voxelmorph", name="test2")
         vxm_config = VoxelmorphTrainConfiguration(
             result_model_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test",
             initial_weights_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test/_w.pt", epochs=3,
-            steps_per_epoch=len(dataset)//5,
-            use_wandb=False,
+            steps_per_epoch=len(train_dataset)//5,
+            use_wandb=True,
             batch_size=5,
             wandb_config=wandb_config)
-        vxm_training = VoxelmorphTraining(dataset, vxm_config)
+        vxm_training = VoxelmorphTraining(train_dataset, vxm_config, val_dataset)
         vxm_training.train()
 
     def test_gpu(self):
