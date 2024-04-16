@@ -2,10 +2,8 @@ from pathlib import Path
 
 import SimpleITK as sitk
 
-from ..core.enums import SITKSimilarityMetric, SITKOptimizer
-from ._interface_registration import RegistrationInterface
-from ..core.configurations import AffineSITKConfiguration, ResampleSITKConfiguration
-from ..core.utils import create_result_paths
+from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.core.utils_commandline import create_result_paths
 
 class AffineSITK(RegistrationInterface):
     """
@@ -14,23 +12,16 @@ class AffineSITK(RegistrationInterface):
     """
 
     def __init__(self,
-                 configuration_registration: AffineSITKConfiguration,
-                 configuration_resample: ResampleSITKConfiguration):
+                 configuration_path_registration: Path,
+                 configuration_path_resample: Path) -> None:
 
         self.method = "AffneSITK"
 
         # registration configuration
-        self.similarity_metric = configuration_registration.similarity_metric
-        self.optimizer = configuration_registration.optimizer
-        self.learning_rate = configuration_registration.learning_rate
-        self.min_step = configuration_registration.min_step
-        self.number_of_iterations = configuration_registration.number_of_iterations
-        self.gradient_magnitude_tolerance = configuration_registration.gradient_magnitude_tolerance
-        self.interpolator_registration = configuration_registration.interpolator
+        self.config_reg = self.read_config(configuration_path_registration)
 
         # resample configuration
-        self.interpolator_resample = configuration_resample.interpolator
-        self.default_pixel_value = configuration_resample.default_pixel_value
+        self.config_resample = self.read_config(configuration_path_resample)
 
         # paths
         self.fixed_path = Path()
@@ -107,7 +98,10 @@ class AffineSITK(RegistrationInterface):
             fixed_image, moving_image, sitk.AffineTransform(3), sitk.CenteredTransformInitializerFilter.GEOMETRY)
         registration.SetInitialTransform(initial_transform)
 
-        registration.SetInterpolator(self.interpolator_registration)
+        if self.config_reg['interpolator'] == "sitkLinear":
+            registration.SetInterpolator(sitk.sitkLinear)
+        else:
+            raise ValueError("Invalid interpolator")
 
         if print_progress:
             registration.AddCommand(
@@ -116,28 +110,36 @@ class AffineSITK(RegistrationInterface):
         return registration
 
     def _set_optimizer(self, registration):
-        if self.optimizer == SITKOptimizer.REGULAR_STEP_GRADIENT_DESCENT:
+        if self.config_reg['optimiser'] == "regular_step_gradient_descent":
             registration.SetOptimizerAsRegularStepGradientDescent(
-                learningRate=self.learning_rate,
-                minStep=self.min_step,
-                numberOfIterations=self.number_of_iterations,
-                gradientMagnitudeTolerance=self.gradient_magnitude_tolerance,
+                learningRate=self.config_reg['learning_rate'],
+                minStep=self.config_reg['min_step'],
+                numberOfIterations=self.config_reg['number_of_iterations'],
+                gradientMagnitudeTolerance=self.config_reg['gradient_magnitude_tolerance'],
             )
             registration.SetOptimizerScalesFromIndexShift()
         else:
             raise ValueError("Invalid optimizer")
 
     def _set_similarity_metric(self, registration):
-        if self.similarity_metric == SITKSimilarityMetric.NCC:
+        if self.config_reg['similarity_metric'] == "NCC":
             registration.SetMetricAsCorrelation()
-        elif self.similarity_metric == SITKSimilarityMetric.MATTES_MI:
+        elif self.config_reg['similarity_metric'] == "MATTES_MI":
             registration.SetMetricAsMattesMutualInformation(
                 numberOfHistogramBins=50)
-        elif self.similarity_metric == SITKSimilarityMetric.MSE:
+        elif self.config_reg['similarity_metric'] == "MSE":
             registration.SetMetricAsMeanSquares()
         else:
             raise ValueError("Invalid similarity metric")
 
+    def _set_interpolator(self, object):
+        if self.config_resample['interpolator'] == "sitkLinear":
+            object.SetInterpolator(sitk.sitkLinear)
+        elif self.config_resample['interpolator'] == "sitkHammingWindowedSinc":
+            object.SetInterpolator(sitk.sitkHammingWindowedSinc)
+        else:
+            raise ValueError("Invalid interpolator")
+    
     def _print_registratoin_result(self, registration, transformation):
         print("-------")
         print(transformation)
@@ -152,8 +154,8 @@ class AffineSITK(RegistrationInterface):
         """
         resampler = sitk.ResampleImageFilter()
         resampler.SetReferenceImage(fixed_image)
-        resampler.SetInterpolator(self.interpolator_resample)
-        resampler.SetDefaultPixelValue(self.default_pixel_value)
+        self._set_interpolator(resampler)
+        resampler.SetDefaultPixelValue(self.config_resample['default_pixel_value'])
         resampler.SetTransform(transformation)
 
         return resampler.Execute(moving_image)
