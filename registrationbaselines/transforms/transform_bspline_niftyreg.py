@@ -2,9 +2,6 @@ from pathlib import Path
 
 from registrationbaselines.core import utils_niftyreg
 from registrationbaselines.transforms._interface_transformation import TransformationInterface
-from registrationbaselines.core.configurations import TransformationBSplineNiftyRegConfiguration
-
-REG_TRANSFORM_PATH = Path('/usr/local/bin/reg_transform')
 
 
 class TransformBSplineNiftyReg(TransformationInterface):
@@ -12,14 +9,10 @@ class TransformBSplineNiftyReg(TransformationInterface):
     BSpline transformation using NiftyReg.
     """
 
-    def __init__(self, configuration: TransformationBSplineNiftyRegConfiguration):
+    def __init__(self):
         """
         Initialize the transformation model.
         """
-        self.transformation_type = configuration.transformation_type
-        self.remaining_arguments = configuration.remaining_arguments
-
-        self.method = "BSplineNiftyReg"
     
     def apply_transformation(self,
                              fixed_image_path: Path,
