@@ -4,10 +4,10 @@ import os
 
 from typing import List
 
-from registrationbaselines.core.registration_interface import RegistrationInterface
+from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.core.configurations import AffineNiftyRegConfiguration
 from registrationbaselines.core.enums import TransformationType
-from registrationbaselines.core.utilities import create_result_paths
+from registrationbaselines.core.utils import create_result_paths
 
 ALADIN_PATH = Path(os.path.expanduser('~/bin/reg_aladin'))
 

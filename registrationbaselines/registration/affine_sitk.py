@@ -3,9 +3,9 @@ from pathlib import Path
 import SimpleITK as sitk
 
 from ..core.enums import SITKSimilarityMetric, SITKOptimizer
-from ..core.registration_interface import RegistrationInterface
+from ._interface_registration import RegistrationInterface
 from ..core.configurations import AffineSITKConfiguration, ResampleSITKConfiguration
-from ..core.utilities import create_result_paths
+from ..core.utils import create_result_paths
 
 class AffineSITK(RegistrationInterface):
     """
