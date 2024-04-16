@@ -71,9 +71,14 @@ class VoxelmorphTraining(TrainingInterface):
         model_dir = self.config.result_model_path
         os.makedirs(model_dir, exist_ok=True)
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print('Using device:', device)
+        print()
+
         # device handling
         gpus = self.config.gpu.split(',')
         nb_gpus = len(gpus)
+        print('nb_gpus: ', nb_gpus)
         device = 'cuda'
         os.environ['CUDA_VISIBLE_DEVICES'] = self.config.gpu
         assert np.mod(self.config.batch_size, nb_gpus) == 0, \

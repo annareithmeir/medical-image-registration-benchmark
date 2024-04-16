@@ -50,12 +50,13 @@ class TestDataloaders(unittest.TestCase):
 
     def test_L2RLungCTDataset(self):
         dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
-                                   transforms=["normalize"])
+                                   transforms=["normalize", "resample"])
         self.assertEqual(len(dataset), 20)
         dataset.plot_random_image()
 
         m, f = dataset.__getitem__(0)
         self.assertEqual(m.shape[1:], dataset.img_shape)
+        self.assertEqual(dataset.spacing, (1,1,1))
 
 
 

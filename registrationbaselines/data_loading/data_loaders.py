@@ -3,14 +3,24 @@ import torchio as tio
 from torch.utils.data import Dataset
 from pathlib import Path
 
+# todo parent class with all repetitive code?
+# todo include keypoints and seg maps
+# todo decide if load as is or rotate images in getitem
+# todo add 2d option?
 
 class DemoImageDataset(Dataset):
     def __init__(self, imgs_path: Path, transforms:list[str] = list(), target_transform=None):
         self.imgs_path = imgs_path
-        self.img_shape = (192, 128, 192)
         self.ndim = 3
         self.transforms = transforms
         # self.target_transform = target_transform # pytorch transforms
+
+        if "resample" in transforms:
+            self. spacing = (1,1,1)
+            self.img_shape = (336, 160, 336)
+        else:
+            self.spacing = (1,1,1)
+            self.img_shape = (192, 128, 192)
         self.imgs_list = None
 
         self.__load_imgs_list__()
@@ -36,6 +46,7 @@ class DemoImageDataset(Dataset):
         if "resample" in self.transforms:
             resample = tio.Resample(1)
             subject = resample(subject)
+
 
         img_m = subject["image_m"].data
         img_f = subject["image_f"].data
@@ -74,8 +85,12 @@ class L2RLungCTDataset(Dataset):
         self.transforms = transforms
         self.target_transform = target_transform
         self.ndim = 3
-        self. spacing = (1.75, 1.25, 1.75)
-        self.img_shape = (192, 192, 208)
+        if "resample" in transforms:
+            self. spacing = (1,1,1)
+            self.img_shape = (336, 240, 364)
+        else:
+            self. spacing = (1.75, 1.25, 1.75)
+            self.img_shape = (192, 192, 208)
 
         self.imgs_list = None
         self.__load_imgs_list__()
@@ -101,6 +116,7 @@ class L2RLungCTDataset(Dataset):
         if "resample" in self.transforms:
             resample = tio.Resample(1)
             subject = resample(subject)
+            self.img_shape=subject["image_m"].data.shape[1:]
 
         img_m = subject["image_m"].data
         img_f = subject["image_f"].data
