@@ -1,9 +1,4 @@
 from pathlib import Path
-import subprocess
-import os
-import datetime
-
-from typing import List
 
 from registrationbaselines.core import utils_niftyreg
 from registrationbaselines.transforms._interface_transformation import TransformationInterface
@@ -35,14 +30,3 @@ class TransformAffineNiftyReg(TransformationInterface):
         """
 
         return utils_niftyreg.apply_transformation(fixed_image_path, moving_image_path, transformation_path)
-    
-    @staticmethod
-    def _print_command_line(command):
-        print('\n\n')
-
-        full_cmd = ""
-
-        for a in command:
-            full_cmd += a + " "
-
-        print(full_cmd)
