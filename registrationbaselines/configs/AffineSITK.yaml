@@ -1,0 +1,10 @@
+# standard input and output paths are not defined here,
+# because we want to do it in the register() function directly
+
+similarity_metric:            NCC
+optimiser:                    regular_step_gradient_descent
+learning_rate:                2.0
+min_step:                     1.e-4
+number_of_iterations:         500
+gradient_magnitude_tolerance: 1.e-8
+interpolator:                 sitkLinear
