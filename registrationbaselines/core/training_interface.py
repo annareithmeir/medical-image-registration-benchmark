@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
+import yaml
 
 
 class TrainingInterface(ABC):
@@ -8,7 +9,7 @@ class TrainingInterface(ABC):
     """
 
     @abstractmethod
-    def __init__(self, configuration):
+    def __init__(self, config_path):
         """
         Initialize the training procedure.
         """
@@ -34,4 +35,13 @@ class TrainingInterface(ABC):
         """
         Return the initial weights that have been used for training (for reproducibility).
         """
+
+    @staticmethod
+    def read_config(file_path: Path):
+        """
+        Read the configuration file.
+        """
+
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return yaml.safe_load(file)
 

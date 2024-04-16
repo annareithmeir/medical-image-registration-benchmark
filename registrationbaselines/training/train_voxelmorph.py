@@ -16,7 +16,9 @@ import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.core.training_interface import TrainingInterface
 from registrationbaselines.core.train_configurations import VoxelmorphTrainConfiguration
 
-
+import gc
+gc.collect()
+torch.cuda.empty_cache()
 
 
 class VoxelmorphTraining(TrainingInterface):
@@ -24,17 +26,21 @@ class VoxelmorphTraining(TrainingInterface):
     Training for voxelmorph.
     """
 
-    def __init__(self, train_dataset: Dataset, configuration_training: VoxelmorphTrainConfiguration, val_dataset: Dataset=None):
+    def __init__(self, train_dataset: Dataset, config_path: Path(), val_dataset: Dataset=None):
 
         self.method="voxelmorph"
 
         #paths
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
-        self.config = configuration_training
+        self.config = self.read_config(config_path)
+        self.base_dir = Path(__file__).parent.parent.absolute().parent
 
-        if configuration_training.use_wandb:
-            self.init_wandb(configuration_training.wandb_config)
+        print(self.config)
+        print(type(self.config['enc']))
+
+        if self.config['use_wandb']:
+            self.init_wandb(self.base_dir / self.config['wandb_config_path'])
 
     def scan_to_scan_generator(self, dataset: Dataset):
         """
@@ -47,11 +53,11 @@ class VoxelmorphTraining(TrainingInterface):
         :return: Generator with data of form (invols[m,f], outvols[m,f])
         """
 
-        dataloader = DataLoader(dataset, batch_size=self.config.batch_size, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=self.config['batch_size'], shuffle=True)
         while True:
             x, y = next(iter(dataloader))
             shape = x.shape[2:]
-            zeros = torch.from_numpy(np.zeros((self.config.batch_size, len(shape), *shape)))
+            zeros = torch.from_numpy(np.zeros((self.config['batch_size'], len(shape), *shape)))
 
             invols = [x, y]
             outvols = [y, zeros]
@@ -61,7 +67,8 @@ class VoxelmorphTraining(TrainingInterface):
 
         assert len(self.train_dataset) > 0, 'Could not find any training data.'
         print('Training with dataset of length ', len(self.train_dataset))
-        print('Validation with dataset of length ', len(self.val_dataset))
+        if self.val_dataset is not None:
+            print('Validation with dataset of length ', len(self.val_dataset))
 
         # scan-to-scan generator
         generator = self.scan_to_scan_generator(self.train_dataset)
@@ -72,7 +79,7 @@ class VoxelmorphTraining(TrainingInterface):
         inshape = self.train_dataset.img_shape
 
         # prepare model folder
-        model_dir = self.config.result_model_path
+        model_dir = self.base_dir / self.config['result_model_path']
         os.makedirs(model_dir, exist_ok=True)
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -80,32 +87,32 @@ class VoxelmorphTraining(TrainingInterface):
         print()
 
         # device handling
-        gpus = self.config.gpu.split(',')
+        gpus = self.config['gpu'].split(',')
         nb_gpus = len(gpus)
         print('nb_gpus: ', nb_gpus)
         device = 'cuda'
-        os.environ['CUDA_VISIBLE_DEVICES'] = self.config.gpu
-        assert np.mod(self.config.batch_size, nb_gpus) == 0, \
-            'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (self.config.batch_size, nb_gpus)
+        os.environ['CUDA_VISIBLE_DEVICES'] = self.config['gpu']
+        assert np.mod(self.config['batch_size'], nb_gpus) == 0, \
+            'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (self.config['batch_size'], nb_gpus)
 
         # enabling cudnn determinism appears to speed up training by a lot
-        torch.backends.cudnn.deterministic = not self.config.cudnn_nondet
+        torch.backends.cudnn.deterministic = not self.config['cudnn_nondet']
 
         # unet architecture
-        enc_nf = self.config.enc
-        dec_nf = self.config.dec
+        enc_nf = self.config['enc']
+        dec_nf = self.config['dec']
 
-        if self.config.load_model:
+        if self.config['load_model']:
             # load initial model (if specified)
-            model = vxm.networks.VxmDense.load(self.config.load_model, device)
+            model = vxm.networks.VxmDense.load(self.config['load_model'], device)
         else:
             # otherwise configure new model
             model = vxm.networks.VxmDense(
                 inshape=inshape,
                 nb_unet_features=[enc_nf, dec_nf],
-                bidir=self.config.bidir,
-                int_steps=self.config.int_steps,
-                int_downsize=self.config.int_downsize
+                bidir=self.config['bidir'],
+                int_steps=self.config['int_steps'],
+                int_downsize=self.config['int_downsize']
             )
 
         if nb_gpus > 1:
@@ -116,23 +123,23 @@ class VoxelmorphTraining(TrainingInterface):
         # prepare the model for training and send to device
         model.to(device)
         self.model = model
-        if self.config.initial_weights_path is not None:
+        if self.config['initial_weights_path'] is not None:
             self.save_initial_weights()
         model.train()
 
         # set optimizer
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.config.lr)
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.config['lr'])
 
         # prepare image loss
-        if self.config.sim_loss == 'ncc':
+        if self.config['sim_loss'] == 'ncc':
             image_loss_func = vxm.losses.NCC().loss
-        elif self.config.sim_loss == 'mse':
+        elif self.config['sim_loss'] == 'mse':
             image_loss_func = vxm.losses.MSE().loss
         else:
-            raise ValueError('Image loss should be "mse" or "ncc", but found "%s"' % self.config.image_loss)
+            raise ValueError('Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
 
         # need two image loss functions if bidirectional
-        if self.config.bidir:
+        if self.config['bidir']:
             losses = [image_loss_func, image_loss_func]
             weights = [0.5, 0.5]
         else:
@@ -140,23 +147,23 @@ class VoxelmorphTraining(TrainingInterface):
             weights = [1]
 
         # prepare deformation loss
-        losses += [vxm.losses.Grad('l2', loss_mult=self.config.int_downsize).loss]
-        weights += [self.config.reg_weight]
+        losses += [vxm.losses.Grad('l2', loss_mult=self.config['int_downsize']).loss]
+        weights += [self.config['reg_weight']]
 
         # training loops
-        for epoch in range(self.config.initial_epoch, self.config.epochs):
+        for epoch in range(self.config['initial_epoch'], self.config['epochs']):
 
             model.train()
 
             # save model checkpoint
-            if epoch % self.config.save_checkpoint == 0:
+            if epoch % self.config['save_checkpoint'] == 0:
                 model.save(os.path.join(model_dir, '%04d.pt' % epoch))
 
             epoch_loss = []
             epoch_total_loss = []
             epoch_step_time = []
 
-            for step in range(self.config.steps_per_epoch):
+            for step in range(self.config['steps_per_epoch']):
 
                 step_start_time = time.time()
 
@@ -164,7 +171,7 @@ class VoxelmorphTraining(TrainingInterface):
                 inputs, y_true = next(generator)
                 inputs = [d.to(device).float() for d in inputs]
                 # inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
-                y_true = [d.to(device).float()for d in y_true]
+                y_true = [d.to(device).float() for d in y_true]
                 # y_true = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in y_true]
 
                 # run inputs through the model to produce a warped image and flow field
@@ -211,7 +218,7 @@ class VoxelmorphTraining(TrainingInterface):
 
 
             # print epoch info
-            epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config.epochs)
+            epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config['epochs'])
             time_info = '%.4f sec/step' % np.mean(epoch_step_time)
             mean_loss = np.mean(epoch_loss, axis=0)
             losses_info = ', '.join(['%.4e' % f for f in mean_loss])
@@ -222,35 +229,37 @@ class VoxelmorphTraining(TrainingInterface):
             print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
 
             # wandb logging
-            if self.config.use_wandb:
+            if self.config['use_wandb']:
                 if self.val_dataset is not None:
                     wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss":mean_loss[0], "grad-loss": mean_loss[1], "val-loss": np.mean(val_loss_list)})
                 else:
                     wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss":mean_loss[0], "grad-loss": mean_loss[1]})
 
         # final model save
-        model.save(os.path.join(model_dir, '%04d_final.pt' % self.config.epochs))
+        model.save(os.path.join(model_dir, '%04d_final.pt' % self.config['epochs']))
         self.model = model
 
-        if self.config.use_wandb:
+        if self.config['use_wandb']:
             wandb.finish()
 
     def get_trained_model_path(self):
-        return self.config.result_model_path
+        return self.config['result_model_path']
 
     def get_initial_weights_path(self):
         return self.initial_weights_path
 
     def save_initial_weights(self):
         assert self.model is not None, "Model is not yet initialized!"
-        torch.save(self.model.state_dict(), self.config.initial_weights_path) # '.pth'
+        torch.save(self.model.state_dict(), self.base_dir / self.config['initial_weights_path']) # '.pth'
 
-    def init_wandb(self, wandb_config):
+    def init_wandb(self, wandb_config_path):
+        wandb_config = self.read_config(wandb_config_path)
+        print(wandb_config)
         wandb.init(
-            project=wandb_config.project,
-            group=wandb_config.group,
-            name=wandb_config.name,
-            config=wandb_config.config_dict
+            project=wandb_config['project'],
+            group=wandb_config['group'],
+            name=wandb_config['name'],
+            config=wandb_config['config_dict']
         )
 
 
