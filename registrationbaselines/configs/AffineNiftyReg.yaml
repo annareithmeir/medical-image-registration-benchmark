@@ -1,0 +1,75 @@
+# standard input and output paths are not defined here,
+# because we want to do it in the register() function directly
+
+noSym:     false
+rigOnly:   false
+affDirect: false
+inaff:     false
+rmask:     false
+fmask:     false
+maxit:     false
+ln:        false
+lp:        false
+smooR:     false
+smooF:     false
+refLowThr: false
+refUpThr:  false
+floLowThr: false
+floUpThr:  false
+pad:       false
+nac:       false
+comm:      false
+comi:      false
+interp:    false
+iso:       false
+pv:        false
+pi:        false
+speeeeed:  false
+omp:       false
+voff:      false
+
+
+
+#[reg_aladin] * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+#[reg_aladin] Block Matching algorithm for global registration.
+#[reg_aladin] Based on Modat et al., "Global image registration using a symmetric block-matching approach"
+#[reg_aladin] J. Med. Img. 1(2) 024003, 2014, doi: 10.1117/1.JMI.1.2.024003
+#[reg_aladin] For any comment, please contact Marc Modat (m.modat@ucl.ac.uk)
+#[reg_aladin] * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+#[reg_aladin] Usage: reg_aladin -ref <filename> -flo <filename> [OPTIONS].
+#[reg_aladin] 	-ref <filename>	Reference image filename (also called Target or Fixed) (mandatory)
+#[reg_aladin] 	-flo <filename>	Floating image filename (also called Source or moving) (mandatory)
+#[reg_aladin]
+#[reg_aladin] * * OPTIONS * *
+#[reg_aladin] 	-noSym 			The symmetric version of the algorithm is used by default. Use this flag to disable it.
+#[reg_aladin] 	-rigOnly		To perform a rigid registration only. (Rigid+affine by default)
+#[reg_aladin] 	-affDirect		Directly optimize 12 DoF affine. (Default is rigid initially then affine)
+#[reg_aladin] 	-aff <filename>		Filename which contains the output affine transformation. [outputAffine.txt]
+#[reg_aladin] 	-inaff <filename>	Filename which contains an input affine transformation. (Affine*Reference=Floating) [none]
+#[reg_aladin] 	-rmask <filename>	Filename of a mask image in the reference space.
+#[reg_aladin] 	-fmask <filename>	Filename of a mask image in the floating space. (Only used when symmetric turned on)
+#[reg_aladin] 	-res <filename>		Filename of the resampled image. [outputResult.nii]
+#[reg_aladin] 	-maxit <int>		Maximal number of iterations of the trimmed least square approach to perform per level. [5]
+#[reg_aladin] 	-ln <int>		Number of levels to use to generate the pyramids for the coarse-to-fine approach. [3]
+#[reg_aladin] 	-lp <int>		Number of levels to use to run the registration once the pyramids have been created. [ln]
+#[reg_aladin] 	-smooR <float>		Standard deviation in mm (voxel if negative) of the Gaussian kernel used to smooth the Reference image. [0]
+#[reg_aladin] 	-smooF <float>		Standard deviation in mm (voxel if negative) of the Gaussian kernel used to smooth the Floating image. [0]
+#[reg_aladin] 	-refLowThr <float>	Lower threshold value applied to the reference image. [0]
+#[reg_aladin] 	-refUpThr <float>	Upper threshold value applied to the reference image. [0]
+#[reg_aladin] 	-floLowThr <float>	Lower threshold value applied to the floating image. [0]
+#[reg_aladin] 	-floUpThr <float>	Upper threshold value applied to the floating image. [0]
+#[reg_aladin] 	-pad <float>		Padding value [nan]
+#[reg_aladin] 	-nac			Use the nifti header origin to initialise the transformation. (Image centres are used by default)
+#[reg_aladin] 	-comm			Use the input masks centre of mass to initialise the transformation. (Image centres are used by default)
+#[reg_aladin] 	-comi			Use the input images centre of mass to initialise the transformation. (Image centres are used by default)
+#[reg_aladin] 	-interp			Interpolation order to use internally to warp the floating image.
+#[reg_aladin] 	-iso			Make floating and reference images isotropic if required.
+#[reg_aladin] 	-pv <int>		Percentage of blocks to use in the optimisation scheme. [50]
+#[reg_aladin] 	-pi <int>		Percentage of blocks to consider as inlier in the optimisation scheme. [50]
+#[reg_aladin] 	-speeeeed		Go faster
+#[reg_aladin] 	-omp <int>		Number of thread to use with OpenMP. [12/12]
+#[reg_aladin] 	-voff			Turns verbose off [on]
+#[reg_aladin]
+#[reg_aladin] 	--version		Print current version and exit
+#[reg_aladin] 				(1.5.77)
+#[reg_aladin] * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *

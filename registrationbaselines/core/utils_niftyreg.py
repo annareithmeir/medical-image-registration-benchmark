@@ -4,7 +4,7 @@ import os
 
 import nibabel as nib
 
-from registrationbaselines.core import utils
+from registrationbaselines.core import utils_commandline
 
 
 # intent codes for nifti files - at the moment we only need NIFTI_INTENT_DISPVECT
@@ -21,7 +21,7 @@ INTENT_CODES = ['NIFTI_INTENT_CORREL', 'NIFTI_INTENT_TTEST', 'NIFTI_INTENT_FTEST
                 'NIFTI_INTENT_DISPVECT', 'NIFTI_INTENT_VECTOR', 'NIFTI_INTENT_POINTSET',
                 'NIFTI_INTENT_TRIANGLE', 'NIFTI_INTENT_QUATERNION', 'NIFTI_INTENT_DIMLESS']
 
-REG_TRANSFORM_PATH = Path('/usr/local/bin/reg_transform')
+REG_RESAMPLE_PATH = Path('/usr/local/bin/reg_resample')
 
 
 def set_intent_code(path: Path, intent_code: str) -> None:
@@ -86,9 +86,9 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
     command_line_list = ["reg_transform", "-ref", fixed_path.as_posix(), "-disp",
                         control_grid_path.as_posix(), path_displacement]
 
-    utils.print_command(command_line_list)
+    utils_commandline.print_command(command_line_list)
 
-    utils.run_command_in_terminal(command_line_list, check = path_displacement.exists)
+    utils_commandline.run_command_in_terminal(command_line_list, check = path_displacement.exists)
 
     # this has to be done to conform with norms, to e.g. visualise in 3D Slicer, 
     # but NiftyReg cannot handle it afterwards and we need it to apply atransformation
@@ -115,17 +115,17 @@ def apply_transformation(path_fixed: Path, path_moving: Path, path_transfromatio
     else:
         method = "BSplineNiftyReg"
     
-    path_output, _ = utils.create_result_paths(
+    path_output, _ = utils_commandline.create_result_paths(
         path_fixed.parent, path_fixed.stem, path_moving.stem, method, ".nii", ".nii")
     
-    command = ["reg_resample",
+    command = [REG_RESAMPLE_PATH.as_posix(),
                "-ref", path_fixed.as_posix(),
                "-flo", path_moving.as_posix(),
                "-trans", path_transfromation.as_posix(),
                "-res", path_output.as_posix()]
     
-    utils.print_command(command)
+    utils_commandline.print_command(command)
 
-    utils.run_command_in_terminal(command, check=path_output.exists)
+    utils_commandline.run_command_in_terminal(command, check=path_output.exists)
 
     return path_output

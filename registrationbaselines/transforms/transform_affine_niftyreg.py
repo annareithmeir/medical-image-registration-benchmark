@@ -2,9 +2,6 @@ from pathlib import Path
 
 from registrationbaselines.core import utils_niftyreg
 from registrationbaselines.transforms._interface_transformation import TransformationInterface
-from registrationbaselines.core.configurations import TransformationAffineNiftyRegConfiguration
-
-REG_TRANSFORM_PATH = Path('/usr/local/bin/reg_transform')
 
 
 class TransformAffineNiftyReg(TransformationInterface):
@@ -12,12 +9,10 @@ class TransformAffineNiftyReg(TransformationInterface):
     Affine transformation using NiftyReg.
     """
 
-    def __init__(self, configuration: TransformationAffineNiftyRegConfiguration):
+    def __init__(self) -> None:
         """
         Initialize the transformation model.
         """
-        self.transformation_type = configuration.transformation_type
-        self.remaining_arguments = configuration.remaining_arguments
 
         self.method = "AffineNiftyReg"
     

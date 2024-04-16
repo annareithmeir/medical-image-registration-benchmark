@@ -1,0 +1,156 @@
+# standard input and output paths are not defined here,
+# because we want to do it in the register() function directly
+
+aff:        false
+incpp:      false
+
+rmask:      false
+smooR:      false
+smooF:      false
+rLwTh:      false
+rUpTh:      false
+fLwTh:      false
+fUpTh:      false
+
+sx:         false
+sy:         false
+sz:         false
+
+be:         false
+le:         false
+jl:         false
+noAppJL:    false
+land:       false
+
+nmi:        false
+rbn:        false
+fbn:        false
+lncc:       false
+ssd:        false
+ssdn:       false
+mind:       false
+mindssc:    false
+kld:        false
+rr:         false
+
+maxit:      false
+ln:         false
+lp:         false
+nopy:       false
+noConj:     false
+pert:       false
+
+vel:        false
+nogce:      false
+fmask:      false
+
+omp:        false
+
+smoothGrad: false
+pad:        false
+voff:       false
+
+
+#[reg_f3d] * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+#[reg_f3d] Fast Free-Form Deformation (F3D) algorithm for non-rigid registration.
+#[reg_f3d] Based on Modat et al., "Fast Free-Form Deformation using
+#[reg_f3d] graphics processing units", CMPB, 2010
+#[reg_f3d] For any comment, please contact Marc Modat (m.modat@ucl.ac.uk)
+#[reg_f3d] * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+#[reg_f3d] Usage:	reg_f3d -ref <filename> -flo <filename> [OPTIONS].
+#[reg_f3d] 	-ref <filename>	Filename of the reference image (mandatory)
+#[reg_f3d] 	-flo <filename>	Filename of the floating image (mandatory)
+#[reg_f3d] ***************
+#[reg_f3d] *** OPTIONS ***
+#[reg_f3d] ***************
+#[reg_f3d] *** Initial transformation options (One option will be considered):
+#[reg_f3d] 	-aff <filename>		Filename which contains an affine transformation (Affine*Reference=Floating)
+#[reg_f3d] 	-incpp <filename>	Filename ofloatf control point grid input
+#[reg_f3d] 				The coarse spacing is defined by this file.
+#[reg_f3d]
+#[reg_f3d] *** Output options:
+#[reg_f3d] 	-cpp <filename>		Filename of control point grid [outputCPP.nii]
+#[reg_f3d] 	-res <filename> 	Filename of the resampled image [outputResult.nii]
+#[reg_f3d]
+#[reg_f3d] *** Input image options:
+#[reg_f3d] 	-rmask <filename>		Filename of a mask image in the reference space
+#[reg_f3d] 	-smooR <float>			Smooth the reference image using the specified sigma (mm) [0]
+#[reg_f3d] 	-smooF <float>			Smooth the floating image using the specified sigma (mm) [0]
+#[reg_f3d] 	--rLwTh <float>			Lower threshold to apply to the reference image intensities [none]. Identical value for every timepoint.*
+#[reg_f3d] 	--rUpTh <float>			Upper threshold to apply to the reference image intensities [none]. Identical value for every timepoint.*
+#[reg_f3d] 	--fLwTh <float>			Lower threshold to apply to the floating image intensities [none]. Identical value for every timepoint.*
+#[reg_f3d] 	--fUpTh <float>			Upper threshold to apply to the floating image intensities [none]. Identical value for every timepoint.*
+#[reg_f3d] 	-rLwTh <timepoint> <float>	Lower threshold to apply to the reference image intensities [none]*
+#[reg_f3d] 	-rUpTh <timepoint> <float>	Upper threshold to apply to the reference image intensities [none]*
+#[reg_f3d] 	-fLwTh <timepoint> <float>	Lower threshold to apply to the floating image intensities [none]*
+#[reg_f3d] 	-fUpTh <timepoint> <float>	Upper threshold to apply to the floating image intensities [none]*
+#[reg_f3d] 	* The scl_slope and scl_inter from the nifti header are taken into account for the thresholds
+#[reg_f3d]
+#[reg_f3d] *** Spline options (All defined at full resolution):
+#[reg_f3d] 	-sx <float>		Final grid spacing along the x axis in mm (in voxel if negative value) [5 voxels]
+#[reg_f3d] 	-sy <float>		Final grid spacing along the y axis in mm (in voxel if negative value) [sx value]
+#[reg_f3d] 	-sz <float>		Final grid spacing along the z axis in mm (in voxel if negative value) [sx value]
+#[reg_f3d]
+#[reg_f3d] *** Regularisation options:
+#[reg_f3d] 	-be <float>		Weight of the bending energy (second derivative of the transformation) penalty term [0.001]
+#[reg_f3d] 	-le <float>		Weight of first order penalty term (symmetric and anti-symmetric part of the Jacobian) [0.01]
+#[reg_f3d] 	-jl <float>		Weight of log of the Jacobian determinant penalty term [0.0]
+#[reg_f3d] 	-noAppJL		To not approximate the JL value only at the control point position
+#[reg_f3d] 	-land <float> <file>	Use of a set of landmarks which distance should be minimised
+#[reg_f3d] 				The first argument corresponds to the weight given to this regularisation (between 0 and 1)
+#[reg_f3d] 				The second argument corresponds to a text file containing the landmark positions in millimeter as
+#[reg_f3d] 				<refX> <refY> <refZ> <floX> <floY> <floZ>\n for 3D images and
+#[reg_f3d] 				<refX> <refY> <floX> <floY>\n for 2D images
+#[reg_f3d]
+#[reg_f3d] *** Measure of similarity options:
+#[reg_f3d] *** NMI with 64 bins is used except if specified otherwise
+#[reg_f3d] 	--nmi			NMI. Used NMI even when one or several other measures are specified
+#[reg_f3d] 	--rbn <int>		NMI. Number of bin to use for the reference image histogram. Identical value for every timepoint
+#[reg_f3d] 	--fbn <int>		NMI. Number of bin to use for the floating image histogram. Identical value for every timepoint
+#[reg_f3d] 	-rbn <tp> <int>		NMI. Number of bin to use for the reference image histogram for the specified time point
+#[reg_f3d] 	-fbn <tp> <int>		NMI. Number of bin to use for the floating image histogram for the specified time point
+#[reg_f3d] 	--lncc <float>		LNCC. Standard deviation of the Gaussian kernel. Identical value for every timepoint
+#[reg_f3d] 	-lncc <tp> <float>	LNCC. Standard deviation of the Gaussian kernel for the specified timepoint
+#[reg_f3d] 	--ssd 			SSD. Used for all time points - images are normalized between 0 and 1 before computing the measure
+#[reg_f3d] 	-ssd <tp> 		SSD. Used for the specified timepoint - images are normalized between 0 and 1 before computing the measure
+#[reg_f3d] 	--ssdn 			SSD. Used for all time points - images are NOT normalized between 0 and 1 before computing the measure
+#[reg_f3d] 	-ssdn <tp> 		SSD. Used for the specified timepoint - images are NOT normalized between 0 and 1 before computing the measure
+#[reg_f3d] 	--mind <offset>		MIND and the offset to use to compute the descriptor
+#[reg_f3d] 	--mindssc <offset>	MIND-SCC and the offset to use to compute the descriptor
+#[reg_f3d] 	--kld			KLD. Used for all time points
+#[reg_f3d] 	-kld <tp>		KLD. Used for the specified timepoint
+#[reg_f3d] 	* For the Kullback–Leibler divergence, reference and floating are expected to be probabilities
+#[reg_f3d] 	-rr			Intensities are thresholded between the 2 and 98% ile
+#[reg_f3d] *** Options for setting the weights for each timepoint for each similarity
+#[reg_f3d] *** Note, the options above should be used first and will set a default weight of 1
+#[reg_f3d] *** The options below should be used afterwards to set the desired weight if different to 1
+#[reg_f3d] 	-nmiw <tp> <float>	NMI Weight. Weight to use for the NMI similarity measure for the specified timepoint
+#[reg_f3d] 	-lnccw <tp> <float>	LNCC Weight. Weight to use for the LNCC similarity measure for the specified timepoint
+#[reg_f3d] 	-ssdw <tp> <float>	SSD Weight. Weight to use for the SSD similarity measure for the specified timepoint
+#[reg_f3d] 	-kldw <tp> <float>	KLD Weight. Weight to use for the KLD similarity measure for the specified timepoint
+#[reg_f3d] 	-wSim <filename>	Weight to apply to the measure of simillarity at each voxel position
+#[reg_f3d]
+#[reg_f3d] *** Optimisation options:
+#[reg_f3d] 	-maxit <int>		Maximal number of iteration at the final level [150]
+#[reg_f3d] 	-ln <int>		Number of level to perform [3]
+#[reg_f3d] 	-lp <int>		Only perform the first levels [ln]
+#[reg_f3d] 	-nopy			Do not use a pyramidal approach
+#[reg_f3d] 	-noConj			To not use the conjuage gradient optimisation but a simple gradient ascent
+#[reg_f3d] 	-pert <int>		To add perturbation step(s) after each optimisation scheme
+#[reg_f3d]
+#[reg_f3d] *** F3D2 options:
+#[reg_f3d] 	-vel 			Use a velocity field integration to generate the deformation
+#[reg_f3d] 	-nogce 			Do not use the gradient accumulation through exponentiation
+#[reg_f3d] 	-fmask <filename>	Filename of a mask image in the floating space
+#[reg_f3d]
+#[reg_f3d]
+#[reg_f3d] *** OpenMP-related options:
+#[reg_f3d] 	-omp <int>		Number of thread to use with OpenMP. [12/12]
+#[reg_f3d]
+#[reg_f3d] *** Other options:
+#[reg_f3d] 	-smoothGrad <float>	To smooth the metric derivative (in mm) [0]
+#[reg_f3d] 	-pad <float>		Padding value [nan]
+#[reg_f3d] 	-voff			To turn verbose off
+#[reg_f3d] 	--version		Print current version and exit
+#[reg_f3d] 				(1.5.77)
+#[reg_f3d] * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
