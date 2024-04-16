@@ -90,7 +90,9 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
 
     utils.run_command_in_terminal(command_line_list, check = path_displacement.exists)
 
-    set_intent_code(path_displacement, 'NIFTI_INTENT_DISPVECT')
+    # this has to be done to conform with norms, to e.g. visualise in 3D Slicer, 
+    # but NiftyReg cannot handle it afterwards and we need it to apply atransformation
+    # set_intent_code(path_displacement, 'NIFTI_INTENT_DISPVECT')
 
     # remove the temporary control point grid
     os.remove(control_grid_path)
@@ -108,8 +110,13 @@ def apply_transformation(path_fixed: Path, path_moving: Path, path_transfromatio
     assert path_moving.exists(), f"File {path_moving} does not exist."
     assert path_transfromation.exists(), f"File {path_transfromation} does not exist."
 
+    if path_transfromation.suffix == ".txt":
+        method = "AffineNiftyReg"
+    else:
+        method = "BSplineNiftyReg"
+    
     path_output, _ = utils.create_result_paths(
-        path_fixed.parent, path_fixed.stem, path_moving.stem, "AffineNiftyReg", ".nii", ".nii")
+        path_fixed.parent, path_fixed.stem, path_moving.stem, method, ".nii", ".nii")
     
     command = ["reg_resample",
                "-ref", path_fixed.as_posix(),
