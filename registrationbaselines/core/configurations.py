@@ -68,7 +68,8 @@ class BSplineNiftyRegConfiguration():
 
         self.transformation_type = transformation_type
         self.remaining_arguments = remaining_arguments
-        
+
+
 class TransformationAffineNiftyRegConfiguration():
     """
     Configuration class for the NiftyReg affine transformation.

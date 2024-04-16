@@ -192,18 +192,22 @@ class VoxelmorphTraining(TrainingInterface):
 
             # Validation
             val_loss_list=list()
-            val_loss = 0
             if self.val_dataset is not None:
                 model.eval()
                 with torch.no_grad():
-                    val_inputs, val_y_true = next(val_generator)
-                    val_inputs = [d.to(device).float() for d in val_inputs]
-                    val_y_true = [d.to(device).float() for d in val_y_true]
-                    for n, loss_function in enumerate(losses):
+                    for i in range(len(self.val_dataset)):
+                        val_inputs, val_y_true = next(val_generator)
+                        val_inputs = [d.to(device).float() for d in val_inputs]
+                        val_y_true = [d.to(device).float() for d in val_y_true]
+
                         val_y_pred = model(*val_inputs)
-                        val_curr_loss = loss_function(val_y_true[n], val_y_pred[n]) * weights[n]
-                        val_loss_list.append(val_curr_loss.item())
-                        # val_loss += val_curr_loss
+
+                        val_loss = 0
+
+                        for n, loss_function in enumerate(losses):
+                            val_curr_loss = loss_function(val_y_true[n], val_y_pred[n]) * weights[n]
+                            val_loss += val_curr_loss
+                        val_loss_list.append(val_loss.item())
 
 
             # print epoch info

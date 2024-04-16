@@ -65,7 +65,7 @@ class TestDLModelsTraining(unittest.TestCase):
         idxs = np.arange(20)
         np.random.shuffle(idxs)
         train_idx, val_idx = idxs[:15], idxs[15:]
-        print(train_idx, val_idx)
+        #print(train_idx, val_idx)
         train_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
                                          transforms=["normalize"], idxs=list(train_idx))
         val_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
@@ -76,7 +76,7 @@ class TestDLModelsTraining(unittest.TestCase):
         wandb_config = WandbConfiguration(project="voxelmorph", name="test2")
         vxm_config = VoxelmorphTrainConfiguration(
             result_model_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test",
-            initial_weights_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test/_w.pt", epochs=3,
+            initial_weights_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test/_w.pt", epochs=100,
             steps_per_epoch=len(train_dataset)//5,
             use_wandb=True,
             batch_size=5,
