@@ -1,7 +1,7 @@
 # Weights and Biases Configuration for training run
 
 
-project:      Voxelmorph
+project:      LapIRN #Voxelmorph
 group:        null
 name:         test_new
 config_dict:  null

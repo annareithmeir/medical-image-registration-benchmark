@@ -8,14 +8,15 @@ import wandb
 import numpy as np
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 
-from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
-from registrationbaselines.data_loading.data_loaders import DemoImageDataset, L2RLungCTDataset
-# from registrationbaselines.core.train_configurations import VoxelmorphTrainConfiguration
-# from registrationbaselines.core.train_configurations import WandbConfiguration
 
-class TestDLModelsTraining(unittest.TestCase):
+
+from registrationbaselines.data_loading.data_loaders import DemoImageDataset, L2RLungCTDataset
+
+
+class TestVoxelmorphTraining(unittest.TestCase):
 
     def test_voxelmorph_training(self):
+        from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
         base_dir = Path(__file__).parent.parent.absolute().parent
         dataset = DemoImageDataset(imgs_path=base_dir / "registrationbaselines/data/training_dataset", transforms=["clip_bones"])
         # vxm_config = VoxelmorphTrainConfiguration(result_model_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test",initial_weights_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test/_w.pt", epochs=3, steps_per_epoch=1)
@@ -24,8 +25,8 @@ class TestDLModelsTraining(unittest.TestCase):
         vxm_training = VoxelmorphTraining(dataset, vxm_config_file)
         vxm_training.train()
 
-
     def test_voxelmorph_training_wandb(self):
+        from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
         base_dir = Path(__file__).parent.parent.absolute().parent
         dataset = DemoImageDataset(imgs_path=base_dir / "registrationbaselines/data/training_dataset",
                                    transforms=["clip_bones"])
@@ -34,6 +35,7 @@ class TestDLModelsTraining(unittest.TestCase):
         vxm_training.train()
 
     def test_voxelmorph_training_L2RLunGCT_train_val_split(self):
+        from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
         idxs = np.arange(20)
         np.random.shuffle(idxs)
         train_idx, val_idx = idxs[:15], idxs[15:]
@@ -46,6 +48,7 @@ class TestDLModelsTraining(unittest.TestCase):
         self.assertEqual(len(val_dataset), 5)
 
     def test_voxelmorph_training_L2RLunGCT_wandb(self):
+        from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
         idxs = np.arange(20)
         np.random.shuffle(idxs)
         train_idx, val_idx = idxs[:15], idxs[15:]
@@ -65,6 +68,27 @@ class TestDLModelsTraining(unittest.TestCase):
     def test_gpu(self):
         print(torch.cuda.is_available())
         print(torch.cuda.current_device())
+
+class TestLapirnTraining(unittest.TestCase):
+
+    def test_lapirn_training(self):
+        from registrationbaselines.training.train_lapirn import LapIRNTraining
+        idxs = np.arange(20)
+        np.random.shuffle(idxs)
+        train_idx, val_idx = idxs[:15], idxs[15:]
+        # print(train_idx, val_idx)
+        base_dir = Path(__file__).parent.parent.absolute().parent
+        train_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+                                         transforms=["normalize"], idxs=list(train_idx))
+        val_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+                                       transforms=["normalize"], idxs=list(val_idx))
+
+        print("train dataset:", len(train_dataset), " val dataset: ", len(val_dataset))
+
+        lapirn_config_file = base_dir / "registrationbaselines/configs/TrainLapirn.yaml"
+        lapirn_training = LapIRNTraining(train_dataset, lapirn_config_file)
+        lapirn_training.train()
+
 
 
 if __name__ == '__main__':

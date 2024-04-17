@@ -1,4 +1,3 @@
-import os
 import unittest
 from pathlib import Path
 from torch.utils.data import DataLoader
@@ -7,7 +6,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 
 from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
 from registrationbaselines.data_loading.data_loaders import DemoImageDataset, L2RLungCTDataset
-from registrationbaselines.core.train_configurations import VoxelmorphTrainConfiguration
+
 
 class TestDataloaders(unittest.TestCase):
 
@@ -36,10 +35,9 @@ class TestDataloaders(unittest.TestCase):
         base_dir = Path(__file__).parent.parent.absolute().parent
         dataset = DemoImageDataset(imgs_path=base_dir / "registrationbaselines/data/training_dataset",
                                    transforms=["clip_bones"])
-        vxm_config = VoxelmorphTrainConfiguration(
-            result_model_path= base_dir / "tmp/test.pt", epochs=1,
-            steps_per_epoch=1, batch_size=2)
-        vxm_training = VoxelmorphTraining(dataset, vxm_config)
+
+        vxm_config_file = base_dir / "registrationbaselines/configs/TrainVoxelmorph.yaml"
+        vxm_training = VoxelmorphTraining(dataset, vxm_config_file)
 
         gen = vxm_training.scan_to_scan_generator()
         ins,outs=next(iter(gen))

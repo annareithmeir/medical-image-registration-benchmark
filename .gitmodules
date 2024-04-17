@@ -1,3 +1,6 @@
 [submodule "registrationbaselines/dl_repos/voxelmorph"]
 	path = registrationbaselines/dl_repos/voxelmorph
 	url = https://github.com/voxelmorph/voxelmorph.git
+[submodule "registrationbaselines/dl_repos/LapIRN"]
+	path = registrationbaselines/dl_repos/LapIRN
+	url = https://github.com/cwmok/LapIRN.git

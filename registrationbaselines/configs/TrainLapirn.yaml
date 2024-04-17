@@ -1,0 +1,29 @@
+# Voxelmorph training configuration, taking all default parameters from original repo
+
+# General training args
+result_model_path: "tmp/test_lapirn"
+initial_weights_path: "tmp/test_lapirn/_w.pt"
+batch_size: 1
+epochs: 3
+steps_per_epoch: 3
+load_model: null
+initial_epoch: 0
+lr: 0.0001
+
+#LapIRN specific args
+iteration_lvl1: 6 #30001
+iteration_lvl2: 6 #30001
+iteration_lvl3: 12 #60001
+antifold_weight: 0. # between 0 and 1000
+smooth_weight: 1.0 # between 0.1 and 10
+start_channel: 7
+freeze_step: 2000
+range_flow: 0.4
+
+# wandb and torch args
+use_wandb: False
+wandb_config_path: "registrationbaselines/configs/Wandb.yaml"
+gpu: '0'
+cudnn_nondet: False
+save_checkpoint: 20
+model_name: test_model
