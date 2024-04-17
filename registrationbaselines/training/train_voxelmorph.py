@@ -14,7 +14,6 @@ os.environ['VXM_BACKEND'] = 'pytorch'
 sys.path.append(str(Path(__file__).parent.absolute().parent))
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.core.training_interface import TrainingInterface
-from registrationbaselines.core.train_configurations import VoxelmorphTrainConfiguration
 
 import gc
 gc.collect()
