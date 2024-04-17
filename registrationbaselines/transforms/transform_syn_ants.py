@@ -26,6 +26,9 @@ class TransformSyNANTs(TransformationInterface):
         Returns the path to the transformed image.
         """
         
+        # ensure that the transformation is .h5
+        assert transformation_path.suffix == ".h5", "Transformation should be .h5"
+        
         moving_image_warped = ants.apply_transforms(fixed=ants.image_read(fixed_image_path.as_posix()),
                                                     moving=ants.image_read(moving_image_path.as_posix()),
                                                     transformlist=[transformation_path.as_posix()])
