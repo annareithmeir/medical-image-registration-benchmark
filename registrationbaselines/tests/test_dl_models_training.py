@@ -15,24 +15,6 @@ from registrationbaselines.data_loading.data_loaders import DemoImageDataset, L2
 
 class TestDLModelsTraining(unittest.TestCase):
 
-    def test_voxelmorph_training(self):
-        base_dir = Path(__file__).parent.parent.absolute().parent
-        dataset = DemoImageDataset(imgs_path=base_dir / "registrationbaselines/data/training_dataset", transforms=["clip_bones"])
-        # vxm_config = VoxelmorphTrainConfiguration(result_model_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test",initial_weights_path="/home/anna/PycharmProjects/registrationbaselines/tmp/test/_w.pt", epochs=3, steps_per_epoch=1)
-
-        vxm_config_file = base_dir / "registrationbaselines/configs/TrainVoxelmorph.yaml"
-        vxm_training = VoxelmorphTraining(dataset, vxm_config_file)
-        vxm_training.train()
-
-
-    def test_voxelmorph_training_wandb(self):
-        base_dir = Path(__file__).parent.parent.absolute().parent
-        dataset = DemoImageDataset(imgs_path=base_dir / "registrationbaselines/data/training_dataset",
-                                   transforms=["clip_bones"])
-        vxm_config_file = base_dir / "registrationbaselines/configs/TrainVoxelmorph.yaml"
-        vxm_training = VoxelmorphTraining(dataset, vxm_config_file)
-        vxm_training.train()
-
     def test_voxelmorph_training_L2RLunGCT_train_val_split(self):
         idxs = np.arange(20)
         np.random.shuffle(idxs)
