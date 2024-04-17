@@ -11,9 +11,9 @@ initial_epoch: 0
 lr: 0.0001
 
 #LapIRN specific args
-iteration_lvl1: 6 #30001
-iteration_lvl2: 6 #30001
-iteration_lvl3: 12 #60001
+iteration_lvl1: 30 #30001
+iteration_lvl2: 30 #30001
+iteration_lvl3: 60 #60001
 antifold_weight: 0. # between 0 and 1000
 smooth_weight: 1.0 # between 0.1 and 10
 start_channel: 7
@@ -21,7 +21,7 @@ freeze_step: 2000
 range_flow: 0.4
 
 # wandb and torch args
-use_wandb: False
+use_wandb: True
 wandb_config_path: "registrationbaselines/configs/Wandb.yaml"
 gpu: '0'
 cudnn_nondet: False

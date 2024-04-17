@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 import os
 import wandb
@@ -98,8 +99,15 @@ class LapIRNTraining(TrainingInterface):
         #     lossall[:, 0:3000] = temp_lossall[:, 0:3000]
 
         while step <= self.config['iteration_lvl1']:
-            # print("lvl1 step "+str(step)+"/"+str(self.config['iteration_lvl1']))
+
+            epoch_loss = []
+            epoch_total_loss = []
+            epoch_step_time = []
+            val_loss_list = []
+
             for X, Y in training_generator:
+
+                step_start_time = time.time()
 
                 X = X.to(device).float()
                 Y = Y.to(device).float()
@@ -127,11 +135,18 @@ class LapIRNTraining(TrainingInterface):
                 loss.backward()  # backpropagation, compute gradients
                 optimizer.step()  # apply gradients
 
+                # get compute time
+                epoch_step_time.append(time.time() - step_start_time)
+
+                loss_list = [loss.item(), loss_multiNCC.item(), loss_Jacobian.item(), loss_regulation.item()]
+                epoch_loss.append(loss_list)
+                epoch_total_loss.append(loss.item())
+
                 lossall[:, step] = np.array(
                     [loss.item(), loss_multiNCC.item(), loss_Jacobian.item(), loss_regulation.item()])
                 print(
-                    "\r" + 'step {0}/{1} -> training loss {2:.4f} - sim_NCC {3:4f} - Jdet {4:.10f} -smo {5:.4f}'.format(
-                        step, self.config['iteration_lvl1'], loss.item(), loss_multiNCC.item(), loss_Jacobian.item(), loss_regulation.item()), flush=True)
+                    "\r" + 'step {0}/{1} -> training loss {2:.4f} - sim_NCC {3:4f} - Jdet {4:.10f} -smo {5:.4f} -time {6}'.format(
+                        step, self.config['iteration_lvl1'], loss.item(), loss_multiNCC.item(), loss_Jacobian.item(), loss_regulation.item(), epoch_step_time[-1]), flush=True)
 
                 # with lr 1e-3 + with bias
                 if (step % self.config['save_checkpoint'] == 0):
@@ -144,6 +159,14 @@ class LapIRNTraining(TrainingInterface):
                 if step > self.config['iteration_lvl1']:
                     break
             print("one epoch pass")
+            # wandb logging
+            if self.config['use_wandb']:
+                mean_loss = np.mean(epoch_loss, axis=0)
+                if self.val_dataset is not None:
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[1], "grad-loss": mean_loss[3],
+                               "val-loss": np.mean(val_loss_list)})
+                else:
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[1], "grad-loss": mean_loss[3]})
 
         modelname = self.base_dir / self.config['result_model_path'] / (self.config['model_name'] + 'stagelvl1_final.pth')
         torch.save(model.state_dict(), modelname)
@@ -200,7 +223,15 @@ class LapIRNTraining(TrainingInterface):
         #     lossall[:, 0:3000] = temp_lossall[:, 0:3000]
 
         while step <= self.config['iteration_lvl2']:
+
+            epoch_loss = []
+            epoch_total_loss = []
+            epoch_step_time = []
+            val_loss_list = []
+
             for X, Y in training_generator:
+
+                step_start_time = time.time()
 
                 X = X.to(device).float()
                 Y = Y.to(device).float()
@@ -228,12 +259,19 @@ class LapIRNTraining(TrainingInterface):
                 loss.backward()  # backpropagation, compute gradients
                 optimizer.step()  # apply gradients
 
+                # get compute time
+                epoch_step_time.append(time.time() - step_start_time)
+
+                loss_list = [loss.item(), loss_multiNCC.item(), loss_Jacobian.item(), loss_regulation.item()]
+                epoch_loss.append(loss_list)
+                epoch_total_loss.append(loss.item())
+
                 lossall[:, step] = np.array(
                     [loss.item(), loss_multiNCC.item(), loss_Jacobian.item(), loss_regulation.item()])
                 print(
-                    "\r" + 'step {0}/{1} -> training loss {2:.4f} - sim_NCC {3:4f} - Jdet {4:.10f} -smo {5:.4f}'.format(
+                    "\r" + 'step {0}/{1} -> training loss {2:.4f} - sim_NCC {3:4f} - Jdet {4:.10f} -smo {5:.4f} -time {6}'.format(
                         step, self.config['iteration_lvl2'], loss.item(), loss_multiNCC.item(), loss_Jacobian.item(),
-                        loss_regulation.item()), flush=True)
+                        loss_regulation.item(), epoch_step_time[-1]), flush=True)
 
                 # with lr 1e-3 + with bias
                 if (step % self.config['save_checkpoint'] == 0):
@@ -249,6 +287,15 @@ class LapIRNTraining(TrainingInterface):
                 if step > self.config['iteration_lvl2']:
                     break
             print("one epoch pass")
+            # wandb logging
+            if self.config['use_wandb']:
+                mean_loss = np.mean(epoch_loss, axis=0)
+                if self.val_dataset is not None:
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[1], "grad-loss": mean_loss[3],
+                               "val-loss": np.mean(val_loss_list)})
+                else:
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[1], "grad-loss": mean_loss[3]})
+
         modelname = self.base_dir / self.config['result_model_path'] / (self.config['model_name'] + 'stagelvl2_final.pth')
         torch.save(model.state_dict(), modelname)
         np.save(self.base_dir / self.config['result_model_path'] / ('loss' + self.config['model_name'] + 'stagelvl2.npy'),
@@ -305,7 +352,15 @@ class LapIRNTraining(TrainingInterface):
         #     lossall[:, 0:3000] = temp_lossall[:, 0:3000]
 
         while step <= self.config['iteration_lvl3']:
+
+            epoch_loss = []
+            epoch_total_loss = []
+            epoch_step_time = []
+            val_loss_list = []
+
             for X, Y in training_generator:
+
+                step_start_time = time.time()
 
                 X = X.to(device).float()
                 Y = Y.to(device).float()
@@ -333,12 +388,19 @@ class LapIRNTraining(TrainingInterface):
                 loss.backward()  # backpropagation, compute gradients
                 optimizer.step()  # apply gradients
 
+                # get compute time
+                epoch_step_time.append(time.time() - step_start_time)
+
+                loss_list = [loss.item(), loss_multiNCC.item(), loss_Jacobian.item(), loss_regulation.item()]
+                epoch_loss.append(loss_list)
+                epoch_total_loss.append(loss.item())
+
                 lossall[:, step] = np.array(
-                    [loss.item(), loss_multiNCC.item(), loss_Jacobian.item(), loss_regulation.item()])
+                    loss_list)
                 print(
-                    "\r" + 'step {0}/{1} -> training loss {2:.4f} - sim_NCC {3:4f} - Jdet {4:.10f} -smo {5:.4f}'.format(
+                    "\r" + 'step {0}/{1} -> training loss {2:.4f} - sim_NCC {3:4f} - Jdet {4:.10f} -smo {5:.4f} -time {6}'.format(
                         step, self.config['iteration_lvl3'], loss.item(), loss_multiNCC.item(), loss_Jacobian.item(),
-                        loss_regulation.item()), flush=True)
+                        loss_regulation.item(), epoch_step_time[-1]), flush=True)
 
                 # with lr 1e-3 + with bias
                 if (step % self.config['save_checkpoint'] == 0):
@@ -356,6 +418,15 @@ class LapIRNTraining(TrainingInterface):
                 if step > self.config['iteration_lvl3']:
                     break
             print("one epoch pass")
+
+            # wandb logging
+            if self.config['use_wandb']:
+                mean_loss = np.mean(epoch_loss, axis=0)
+                if self.val_dataset is not None:
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[1], "grad-loss": mean_loss[3], "val-loss": np.mean(val_loss_list)})
+                else:
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[1], "grad-loss": mean_loss[3]})
+
         modelname = self.base_dir / self.config['result_model_path'] / (self.config['model_name'] + 'stagelvl3_final.pth')
         torch.save(model.state_dict(), modelname)
         np.save(self.base_dir / self.config['result_model_path'] / ('loss' + self.config['model_name'] + 'stagelvl3.npy'), lossall)
