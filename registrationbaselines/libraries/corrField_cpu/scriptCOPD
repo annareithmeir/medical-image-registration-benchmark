@@ -1,0 +1,23 @@
+#!/bin/sh
+
+DATA_DIR="/Users/mattias/Documents/COPD"
+
+g++ evalCOPD.cpp -lpthread -msse4.2 -O3 -lz -std=c++11 -o evalCOPD
+g++ processCOPD.cpp -lpthread -msse4.2 -O3 -lz -std=c++11 -o processCOPD
+g++ corrField.cpp -lpthread -msse4.2 -O3 -lz -std=c++11 -o corrField
+g++ applyCorrField.cpp -lpthread -msse4.2 -O3 -lz -std=c++11 -o applyCorrField
+
+NUM1=2
+
+FIXED_IM="${DATA_DIR}/fixed${NUM1}.nii.gz"
+MOVING_IM="${DATA_DIR}/moving${NUM1}.nii.gz"
+FIXED_MASK="${DATA_DIR}/copd_mask${NUM1}.nii.gz"
+WARPED_IM="${DATA_DIR}/warped${NUM1}.nii.gz"
+
+./processCOPD -f ${DATA_DIR} -C ${NUM1} -F ${FIXED_IM} -M ${MOVING_IM}
+./corrField -F ${FIXED_IM} -M ${MOVING_IM} -m ${FIXED_MASK} -O testField.dat
+./evalCOPD -f ${DATA_DIR} -F ${FIXED_IM} -O testField.dat -C ${NUM1}
+./applyCorrField -M ${MOVING_IM} -O testField.dat -W ${WARPED_IM}
+
+#Average TRE for case#2: 1.555 mm, median: 2.813 mm, maximum: 14.154 mm
+
