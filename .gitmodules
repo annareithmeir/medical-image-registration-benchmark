@@ -1,6 +1,3 @@
 [submodule "registrationbaselines/dl_repos/voxelmorph"]
 	path = registrationbaselines/dl_repos/voxelmorph
 	url = https://github.com/voxelmorph/voxelmorph.git
-[submodule "registrationbaselines/libraries/pyLDDMM"]
-	path = registrationbaselines/libraries/pyLDDMM
-	url = https://github.com/SteffenCzolbe/pyLDDMM.git
