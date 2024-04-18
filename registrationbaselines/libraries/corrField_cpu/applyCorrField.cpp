@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <x86intrin.h>
 #include <pthread.h>
+#include <string>
 
 using namespace std;
 
@@ -23,9 +24,9 @@ struct Image{
 };
 
 struct Options{
-    char* file_warped;
-    char* file_corr;
-    char* file_moving;
+    std::string file_moving;
+    std::string file_corr;
+    std::string file_warped;
 };
 
 
@@ -41,7 +42,7 @@ void writeOutput(TypeFO* data,string filestr,int length){
 }
 
 template <typename TypeF>
-vector<TypeF> readFile(char filename[]){
+vector<TypeF> readFile(std::string filename){
     //opens file for binary-input
     ifstream file(filename,ios::binary|ios::ate);
     vector<TypeF> invalues;
@@ -143,12 +144,7 @@ Options parseArguments(int argc,char* argv[]){
     
     // parsing the input
     int requiredArgs=0;
-    opts.file_moving=new char[200];
-    opts.file_corr=new char[200];
-    opts.file_warped=new char[200];
-    
-    
-    
+
     for(int k=1;k<argc;k++){
         if(argv[k][0]=='-'){
             if(argin.find(argv[k][1])==argin.end()){
@@ -156,15 +152,15 @@ Options parseArguments(int argc,char* argv[]){
             }
             switch(argin[argv[k][1]]){
                 case 0: //M
-                    sprintf(opts.file_moving,"%s",argv[k+1]);
+                    opts.file_moving = argv[k + 1];
                     requiredArgs++;
                     break;
                 case 1: //O
-                    sprintf(opts.file_corr,"%s",argv[k+1]);
+                    opts.file_corr = argv[k + 1];
                     requiredArgs++;
                     break;
                 case 2: //W
-                    sprintf(opts.file_warped,"%s",argv[k+1]);
+                    opts.file_warped = argv[k + 1];
                     requiredArgs++;
                     break;
                 
