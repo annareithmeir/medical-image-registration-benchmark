@@ -47,10 +47,9 @@ class BSplineNiftyReg(RegistrationInterface):
         assert self.moving_path.exists(), f"File {self.moving_path} does not exist."
 
         self._create_registration_command_list()
-
-        utils_commandline.print_command(self.command)
-
-        utils_commandline.run_command_in_terminal(self.command, self._outputs_exist)
+        utils_commandline.run_command_in_terminal(self.command,
+                                                  self._outputs_exist,
+                                                  print_command_list=True)
         
         self.result_transformation_path = utils_niftyreg.convert_control_point_grid_to_displacement_field(self.result_control_grid_path, self.fixed_path)
 

@@ -86,9 +86,9 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
     command_line_list = ["reg_transform", "-ref", fixed_path.as_posix(), "-disp",
                         control_grid_path.as_posix(), path_displacement]
 
-    utils_commandline.print_command(command_line_list)
-
-    utils_commandline.run_command_in_terminal(command_line_list, check = path_displacement.exists)
+    utils_commandline.run_command_in_terminal(command_line_list,
+                                              check = path_displacement.exists,
+                                              print_command_list=True)
 
     # this has to be done to conform with norms, to e.g. visualise in 3D Slicer, 
     # but NiftyReg cannot handle it afterwards and we need it to apply atransformation
@@ -124,8 +124,8 @@ def apply_transformation(path_fixed: Path, path_moving: Path, path_transfromatio
                "-trans", path_transfromation.as_posix(),
                "-res", path_output.as_posix()]
     
-    utils_commandline.print_command(command)
-
-    utils_commandline.run_command_in_terminal(command, check=path_output.exists)
+    utils_commandline.run_command_in_terminal(command,
+                                              check=path_output.exists,
+                                              print_command_list=True)
 
     return path_output
