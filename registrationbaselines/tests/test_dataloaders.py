@@ -1,3 +1,4 @@
+import os
 import unittest
 from pathlib import Path
 from torch.utils.data import DataLoader
@@ -6,7 +7,6 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 
 from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
 from registrationbaselines.data_loading.data_loaders import DemoImageDataset, L2RLungCTDataset
-
 
 class TestDataloaders(unittest.TestCase):
 
