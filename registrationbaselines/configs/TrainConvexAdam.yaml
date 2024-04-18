@@ -1,0 +1,27 @@
+# ConvexAdamtraining configuration, taking all default parameters from original repo
+
+# General training args
+result_model_path: "tmp/test_convexadam"
+initial_weights_path: "tmp/test_convexadam/_w.pt"
+batch_size: 1
+
+#ConvexAdam specific args
+mind_r: True
+mind_d: True
+grid_sp: 6
+lambda_weight: 1.25
+disp_hw: 4
+niter: 80
+smooth: 0
+grid_sp_adam: 2
+ic: True
+use_mask: False
+
+
+# wandb and torch args
+use_wandb: True
+wandb_config_path: "registrationbaselines/configs/Wandb.yaml"
+gpu: '0'
+cudnn_nondet: False
+save_checkpoint: 20
+model_name: test_model
