@@ -74,6 +74,14 @@ class DeformableCorrField(RegistrationInterface):
         """
         self.mask_path = mask_path
     
+    def __check_if_image_has_isotropic_voxel_size(self, image_path: Path) -> None:
+        # Check if the voxel size is isotropic
+        image = nib.load(image_path)
+        voxel_size = image.header.get_zooms()
+        
+        if not np.allclose(voxel_size, voxel_size[0]):
+            raise ValueError(f"Voxel size of {image_path} is not isotropic: {voxel_size}")
+    
     def __create_empty_fixed_image_mask(self) -> None:
         # Create a mask with the same dimensions as the fixed image
         fixed_image = nib.load(self.fixed_path)
