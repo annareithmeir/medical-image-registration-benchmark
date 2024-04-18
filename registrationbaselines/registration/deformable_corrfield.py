@@ -1,11 +1,13 @@
 from pathlib import Path
-import os
 import warnings
 
 from typing import List
 
+import nibabel as nib
+import numpy as np
+
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline
+from registrationbaselines.core import utils_commandline, utils_nifti
 
 
 class DeformableCorrField(RegistrationInterface):
@@ -34,27 +36,32 @@ class DeformableCorrField(RegistrationInterface):
     def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False) -> None:
         """
             Registration using corrField.
+            
+            This is a 3 step process.
+            1. Register both images to create correspondences - this needs a mask (correspondences are only searched in the mask area)
+            2. Apply the correspondences to the moving image.
+            3. The warped image has to be rotated by 180 degrees around the x-axis to be in the same orientation as the fixed image.
         """
-
+        
         self.fixed_path = fixed_image_path
         self.moving_path = moving_image_path
-        self.mask_path = self.fixed_path  # todo we need a real mask
-
-        # check that both images exist
-        assert self.fixed_path.exists(), f"File {self.fixed_path} does not exist."
-        assert self.moving_path.exists(), f"File {self.moving_path} does not exist."
         
-        # need to be ".nii.gz"
-        assert self.fixed_path.suffixes == [".nii", ".gz"], f"File {self.fixed_path} is not a .nii.gz file."
-        assert self.moving_path.suffixes == [".nii", ".gz"], f"File {self.moving_path} is not a .nii.gz file."
+        self.__chek_all_inputs()
         
-        self._create_registration_command()
-        utils_commandline.print_command(self.command_register)
-        utils_commandline.run_command_in_terminal(self.command_register, self.correspondence_path.exists)
+        self.__create_registration_command()
+        utils_commandline.run_command_in_terminal(self.command_register,
+                                                  self.correspondence_path.exists,
+                                                  print_command_list=True)
 
-        self._create_transformation_command()
-        utils_commandline.print_command(self.command_transform)
-        utils_commandline.run_command_in_terminal(self.command_transform, self.result_transformed_image_path.exists)
+        self.__create_transformation_command()
+        utils_commandline.run_command_in_terminal(self.command_transform,
+                                                  self.result_transformed_image_path.exists,
+                                                  print_command_list=True)
+        
+        self.__rotate_warped_image_by_180_around_x_axis()
+        
+        # we don't need the mask anymore so let's delete it
+        self.mask_path.unlink()
         
     def get_transformed_image_path(self):
         # Return transformed image
@@ -63,9 +70,8 @@ class DeformableCorrField(RegistrationInterface):
     def get_transformation_path(self):
         # Return transformation
         
-        warnings.warn("CorrField doesn't provide a transformation, only a correspondences file.")
+        warnings.warn("CorrField doesn't provide a transformation, only a correspondences file (for now).")
         
-
         return self.correspondence_path
 
     def set_fixed_mask(self, mask_path: Path) -> None:
@@ -73,6 +79,30 @@ class DeformableCorrField(RegistrationInterface):
         You may want to set a non-dummy mask for the registration.
         """
         self.mask_path = mask_path
+    
+    def __chek_all_inputs(self):
+        """
+        Helper function to check all inputs.
+        """
+        # check that both images exist
+        assert self.fixed_path.exists(), f"File {self.fixed_path} does not exist."
+        assert self.moving_path.exists(), f"File {self.moving_path} does not exist."
+        
+        # if no mask is given, create a dummy mask
+        if self.mask_path == Path():
+            self.mask_path = Path(self.fixed_path.as_posix().replace(".nii", "_mask.nii"))
+            self.__create_empty_fixed_image_mask()
+        assert self.mask_path.exists(), f"File {self.mask_path} does not exist."
+        
+        # need to be ".nii.gz"
+        assert self.fixed_path.suffixes == [".nii", ".gz"], f"File {self.fixed_path} is not a .nii.gz file."
+        assert self.moving_path.suffixes == [".nii", ".gz"], f"File {self.moving_path} is not a .nii.gz file."
+        assert self.mask_path.suffixes == [".nii", ".gz"], f"File {self.moving_path} is not a .nii.gz file."
+        
+        # check all voxel sizes
+        self.__check_if_image_has_isotropic_voxel_size(self.fixed_path)
+        self.__check_if_image_has_isotropic_voxel_size(self.moving_path)
+        self.__check_if_image_has_isotropic_voxel_size(self.mask_path)
     
     def __check_if_image_has_isotropic_voxel_size(self, image_path: Path) -> None:
         # Check if the voxel size is isotropic
