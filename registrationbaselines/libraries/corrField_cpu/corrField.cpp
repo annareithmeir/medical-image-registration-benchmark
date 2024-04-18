@@ -68,6 +68,7 @@
 #include <sys/time.h>
 #include <x86intrin.h>
 #include <pthread.h>
+#include <string>
 
 using namespace std;
 
@@ -78,10 +79,10 @@ struct Image{
 };
 
 struct Options{
-    char* file_fixed;
-    char* file_mask;
-    char* file_moving;
-    char* file_output;
+    std::string file_fixed;
+    std::string file_mask;
+    std::string file_moving;
+    std::string file_output;
     int* maxlen_;
     int* radius_;
     int* hw_;
@@ -104,7 +105,7 @@ void writeOutput(TypeFO* data,string filestr,int length){
 }
 
 template <typename TypeF>
-vector<TypeF> readFile(char filename[]){
+vector<TypeF> readFile(std::string filename){
     //opens file for binary-input
     ifstream file(filename,ios::binary|ios::ate);
     vector<TypeF> invalues;
@@ -378,11 +379,7 @@ Options parseArguments(int argc,char* argv[]){
     
     // parsing the input
     int requiredArgs=0;
-    opts.file_fixed=new char[200];
-    opts.file_mask=new char[200];
-    opts.file_moving=new char[200];
-    opts.file_output=new char[200];
-    
+
     opts.alpha=1.0;
     opts.sigma=1.4;
     
@@ -410,19 +407,19 @@ Options parseArguments(int argc,char* argv[]){
             }
             switch(argin[argv[k][1]]){
                 case 0: //F
-                    sprintf(opts.file_fixed,"%s",argv[k+1]);
+                    opts.file_fixed = argv[k + 1];
                     requiredArgs++;
                     break;
                 case 1: //M
-                    sprintf(opts.file_moving,"%s",argv[k+1]);
+                    opts.file_moving = argv[k + 1];
                     requiredArgs++;
                     break;
                 case 2: //m
-                    sprintf(opts.file_mask,"%s",argv[k+1]);
+                    opts.file_mask = argv[k + 1];
                     requiredArgs++;
                     break;
                 case 3: //O
-                    sprintf(opts.file_output,"%s",argv[k+1]);
+                    opts.file_output = argv[k + 1];
                     requiredArgs++;
                     break;
                 case 4: //a
