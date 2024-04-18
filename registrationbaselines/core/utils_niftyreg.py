@@ -37,7 +37,7 @@ def set_intent_code(path: Path, intent_code: str) -> None:
     """
 
     assert path.exists(), f"File {path} does not exist."
-    assert path.suffix == '.nii' or path.suffix == '.nii.gz', \
+    assert path.suffixes == ['.nii'] or path.suffixes == ['.nii', '.gz'], \
         f"File {path} is not a nifti file."
     assert intent_code in INTENT_CODES, \
         f"Intent code {intent_code} is not valid."

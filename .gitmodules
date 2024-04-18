@@ -1,0 +1,3 @@
+[submodule "registrationbaselines/dl_repos/voxelmorph"]
+	path = registrationbaselines/dl_repos/voxelmorph
+	url = https://github.com/voxelmorph/voxelmorph.git
