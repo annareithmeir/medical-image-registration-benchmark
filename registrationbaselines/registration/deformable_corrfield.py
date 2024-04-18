@@ -74,6 +74,14 @@ class DeformableCorrField(RegistrationInterface):
         """
         self.mask_path = mask_path
     
+    def __create_empty_fixed_image_mask(self) -> None:
+        # Create a mask with the same dimensions as the fixed image
+        fixed_image = nib.load(self.fixed_path)
+        mask = np.ones(fixed_image.shape)
+        
+        # Save the mask
+        nib.save(nib.Nifti1Image(mask, fixed_image.affine), self.mask_path)
+    
     def __rotate_warped_image_by_180_around_x_axis(self) -> None:
         # transform the image
         rotation_matrix_180_around_x = np.array([
