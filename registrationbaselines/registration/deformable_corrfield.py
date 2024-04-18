@@ -68,7 +68,12 @@ class DeformableCorrField(RegistrationInterface):
 
         return self.correspondence_path
 
-    def _create_registration_command(self):
+    def set_fixed_mask(self, mask_path: Path) -> None:
+        """
+        You may want to set a non-dummy mask for the registration.
+        """
+        self.mask_path = mask_path
+    
         """
         Create the command line list for the registration.
         """
