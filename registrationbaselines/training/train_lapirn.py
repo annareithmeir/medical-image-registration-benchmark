@@ -21,6 +21,8 @@ from registrationbaselines.dl_repos.LapIRN.Code.Functions import generate_grid, 
 from registrationbaselines.dl_repos.LapIRN.Code.miccai2020_model_stage import Miccai2020_LDR_laplacian_unit_disp_add_lvl1, \
     Miccai2020_LDR_laplacian_unit_disp_add_lvl2, Miccai2020_LDR_laplacian_unit_disp_add_lvl3, SpatialTransform_unit, \
     SpatialTransformNearest_unit, smoothloss, neg_Jdet_loss, NCC, multi_resolution_NCC
+from registrationbaselines.dl_repos.LapIRN.Code.miccai2020_model_stage import Miccai2020_LDR_laplacian_unit_add_lvl1, \
+    Miccai2020_LDR_laplacian_unit_add_lvl2, Miccai2020_LDR_laplacian_unit_add_lvl3
 
 import gc
 gc.collect()
@@ -51,6 +53,8 @@ class LapIRNTraining(TrainingInterface):
         self.imgshape4 = tuple(int(x / 4) for x in self.train_dataset.img_shape)
         print(self.imgshape, self.imgshape2, self.imgshape4)
 
+        self.use_diff_version = self.config["use_diff_version"]
+
         if not os.path.isdir(self.base_dir / self.config['result_model_path']):
             os.mkdir(self.base_dir / self.config['result_model_path'])
 
@@ -64,8 +68,13 @@ class LapIRNTraining(TrainingInterface):
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print(device)
 
-        model = Miccai2020_LDR_laplacian_unit_disp_add_lvl1(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape4,
-                                                            range_flow=self.config['range_flow']).to(device)
+        if self.use_diff_version:
+            model = Miccai2020_LDR_laplacian_unit_add_lvl1(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape4,
+                                                                range_flow=self.config['range_flow']).to(device)
+        else:
+            model = Miccai2020_LDR_laplacian_unit_disp_add_lvl1(2, 3, self.config['start_channel'], is_train=True,
+                                                                imgshape=self.imgshape4,
+                                                                range_flow=self.config['range_flow']).to(device)
 
         loss_similarity = NCC(win=3)
         loss_Jdet = neg_Jdet_loss
@@ -93,12 +102,12 @@ class LapIRNTraining(TrainingInterface):
             val_generator = DataLoader(self.val_dataset, batch_size=1, shuffle=False)
 
         step = 0
-        # if self.config['load_model'] is not None:
-        #     print("Loading weight: ", self.config['load_model'])
-        #     step = 3000
-        #     model.load_state_dict(torch.load(self.config['load_model']))
-        #     temp_lossall = np.load("../Model/loss_LDR_LPBA_NCC_lap_share_preact_1_05_3000.npy")
-        #     lossall[:, 0:3000] = temp_lossall[:, 0:3000]
+        if self.config['load_model'] is not None:
+            print("Loading model from: ", self.base_dir / self.config['load_model'])
+            step = 3000
+            model.load_state_dict(torch.load(self.base_dir / self.config['load_model']))
+            #temp_lossall = np.load("../Model/loss_LDR_LPBA_NCC_lap_share_preact_1_05_3000.npy")
+            #lossall[:, 0:3000] = temp_lossall[:, 0:3000]
 
         while step <= self.config['iteration_lvl1']:
 
@@ -208,9 +217,14 @@ class LapIRNTraining(TrainingInterface):
         print("Training lvl2...")
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-        model_lvl1 = Miccai2020_LDR_laplacian_unit_disp_add_lvl1(2, 3, self.config['start_channel'], is_train=True,
-                                                                 imgshape=self.imgshape4,
-                                                                 range_flow=self.config['range_flow']).to(device)
+        if self.use_diff_version:
+            model_lvl1 = Miccai2020_LDR_laplacian_unit_add_lvl1(2, 3, self.config['start_channel'], is_train=True,
+                                                                     imgshape=self.imgshape4,
+                                                                     range_flow=self.config['range_flow']).to(device)
+        else:
+            model_lvl1 = Miccai2020_LDR_laplacian_unit_disp_add_lvl1(2, 3, self.config['start_channel'], is_train=True,
+                                                                     imgshape=self.imgshape4,
+                                                                     range_flow=self.config['range_flow']).to(device)
 
 
         model_lvl1.load_state_dict(torch.load(self.base_dir / self.config['result_model_path'] / (self.config['model_name'] + 'stagelvl1_final.pth')))
@@ -220,8 +234,14 @@ class LapIRNTraining(TrainingInterface):
         for param in model_lvl1.parameters():
             param.requires_grad = False
 
-        model = Miccai2020_LDR_laplacian_unit_disp_add_lvl2(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape2,
-                                                            range_flow=self.config['range_flow'], model_lvl1=model_lvl1).to(device)
+        if self.use_diff_version:
+            model = Miccai2020_LDR_laplacian_unit_disp_add_lvl2(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape2,
+                                                                range_flow=self.config['range_flow'], model_lvl1=model_lvl1).to(device)
+        else:
+            model = Miccai2020_LDR_laplacian_unit_disp_add_lvl2(2, 3, self.config['start_channel'], is_train=True,
+                                                                imgshape=self.imgshape2,
+                                                                range_flow=self.config['range_flow'],
+                                                                model_lvl1=model_lvl1).to(device)
 
         loss_similarity = multi_resolution_NCC(win=5, scale=2)
         loss_smooth = smoothloss
@@ -248,13 +268,10 @@ class LapIRNTraining(TrainingInterface):
             val_generator = DataLoader(self.val_dataset, batch_size=1, shuffle=False)
 
         step = 0
-        # if load_model is True:
-        #     model_path = "../Model/LDR_LPBA_NCC_lap_share_preact_1_05_3000.pth"
-        #     print("Loading weight: ", model_path)
-        #     step = 3000
-        #     model.load_state_dict(torch.load(model_path))
-        #     temp_lossall = np.load("../Model/loss_LDR_LPBA_NCC_lap_share_preact_1_05_3000.npy")
-        #     lossall[:, 0:3000] = temp_lossall[:, 0:3000]
+        if self.config['load_model'] is not None:
+            print("Loading model from: ", self.base_dir / self.config['load_model'])
+            step = 3000
+            model.load_state_dict(torch.load(self.base_dir / self.config['load_model']))
 
         while step <= self.config['iteration_lvl2']:
 
@@ -371,10 +388,16 @@ class LapIRNTraining(TrainingInterface):
         print("Training lvl3...")
         device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-        model_lvl1 = Miccai2020_LDR_laplacian_unit_disp_add_lvl1(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape4,
-                                                                 range_flow=self.config['range_flow']).to(device)
-        model_lvl2 = Miccai2020_LDR_laplacian_unit_disp_add_lvl2(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape2,
-                                                                 range_flow=self.config['range_flow'], model_lvl1=model_lvl1).to(device)
+        if self.use_diff_version:
+            model_lvl1 = Miccai2020_LDR_laplacian_unit_add_lvl1(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape4,
+                                                                     range_flow=self.config['range_flow']).to(device)
+            model_lvl2 = Miccai2020_LDR_laplacian_unit_add_lvl2(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape2,
+                                                                     range_flow=self.config['range_flow'], model_lvl1=model_lvl1).to(device)
+        else:
+            model_lvl1 = Miccai2020_LDR_laplacian_unit_disp_add_lvl1(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape4,
+                                                                     range_flow=self.config['range_flow']).to(device)
+            model_lvl2 = Miccai2020_LDR_laplacian_unit_disp_add_lvl2(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape2,
+                                                                     range_flow=self.config['range_flow'], model_lvl1=model_lvl1).to(device)
 
         model_lvl2.load_state_dict(torch.load(self.base_dir / self.config['result_model_path'] / (self.config['model_name'] + 'stagelvl2_final.pth')))
         print("Loading weight for model_lvl2...", self.base_dir / self.config['result_model_path'] / (self.config['model_name'] + 'stagelvl2_final.pth'))
@@ -383,8 +406,14 @@ class LapIRNTraining(TrainingInterface):
         for param in model_lvl2.parameters():
             param.requires_grad = False
 
-        model = Miccai2020_LDR_laplacian_unit_disp_add_lvl3(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape,
-                                                            range_flow=self.config['range_flow'], model_lvl2=model_lvl2).to(device)
+        if self.use_diff_version:
+            model = Miccai2020_LDR_laplacian_unit_add_lvl3(2, 3, self.config['start_channel'], is_train=True, imgshape=self.imgshape,
+                                                                range_flow=self.config['range_flow'], model_lvl2=model_lvl2).to(device)
+        else:
+            model = Miccai2020_LDR_laplacian_unit_disp_add_lvl3(2, 3, self.config['start_channel'], is_train=True,
+                                                                imgshape=self.imgshape,
+                                                                range_flow=self.config['range_flow'],
+                                                                model_lvl2=model_lvl2).to(device)
 
         loss_similarity = multi_resolution_NCC(win=7, scale=3)
         loss_smooth = smoothloss
@@ -412,13 +441,10 @@ class LapIRNTraining(TrainingInterface):
             val_generator = DataLoader(self.val_dataset, batch_size=1, shuffle=False)
 
         step = 0
-        # if load_model is True:
-        #     model_path = "../Model/LDR_LPBA_NCC_lap_share_preact_1_05_3000.pth"
-        #     print("Loading weight: ", model_path)
-        #     step = 3000
-        #     model.load_state_dict(torch.load(model_path))
-        #     temp_lossall = np.load("../Model/loss_LDR_LPBA_NCC_lap_share_preact_1_05_3000.npy")
-        #     lossall[:, 0:3000] = temp_lossall[:, 0:3000]
+        if self.config['load_model'] is not None:
+            print("Loading model from: ", self.base_dir / self.config['load_model'])
+            step = 3000
+            model.load_state_dict(torch.load(self.base_dir / self.config['load_model']))
 
         while step <= self.config['iteration_lvl3']:
 

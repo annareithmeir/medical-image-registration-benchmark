@@ -15,10 +15,11 @@ iteration_lvl1: 30 #30001
 iteration_lvl2: 30 #30001
 iteration_lvl3: 60 #60001
 antifold_weight: 0. # between 0 and 1000
-smooth_weight: 1.0 # between 0.1 and 10
+smooth_weight: 1.0 # between 0.1 and 10. 1 (disp), 3.5 (diff)
 start_channel: 7
 freeze_step: 2000
 range_flow: 0.4
+use_diff_version: True #False
 
 # wandb and torch args
 use_wandb: True
