@@ -74,6 +74,22 @@ class DeformableCorrField(RegistrationInterface):
         """
         self.mask_path = mask_path
     
+    def __rotate_warped_image_by_180_around_x_axis(self) -> None:
+        # transform the image
+        rotation_matrix_180_around_x = np.array([
+            [1, 0,  0, 0],
+            [0, -1, 0, 0],  # Invert y-axis
+            [0, 0, -1, 0],  # Invert z-axis
+            [0, 0,  0, 1]
+        ])
+        new_image = utils_nifti.transform_nifti_image_with_matrix(self.result_transformed_image_path,
+                                                                  rotation_matrix_180_around_x,
+                                                                  just_replace_existing_affine=False)
+
+        # Save the transformed image
+        nib.save(new_image, self.result_transformed_image_path)
+        
+    def __create_registration_command(self):
         """
         Create the command line list for the registration.
         """
@@ -93,7 +109,7 @@ class DeformableCorrField(RegistrationInterface):
         
         self.command_register = utils_commandline.add_configuration_to_command(self.command_register, self.configuration)
 
-    def _create_transformation_command(self):
+    def __create_transformation_command(self):
         """
         Create the command line list for the registration.
         """
@@ -103,15 +119,5 @@ class DeformableCorrField(RegistrationInterface):
                                   '-O', self.correspondence_path.as_posix(),
                                   '-W', self.result_transformed_image_path.as_posix()
                                   ]
-
-
-    def _outputs_exist(self):
-        """
-        We need this because it's not clear that blockmatching returns non-zero
-        when failed
-        """
-        if self.correspondence_path.exists():
-            return True
-
-        return False
+    
     
