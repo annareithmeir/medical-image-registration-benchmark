@@ -89,7 +89,7 @@ class VoxelmorphTraining(TrainingInterface):
         gpus = self.config['gpu'].split(',')
         nb_gpus = len(gpus)
         print('nb_gpus: ', nb_gpus)
-        device = 'cuda'
+        #device = 'cuda'
         os.environ['CUDA_VISIBLE_DEVICES'] = self.config['gpu']
         assert np.mod(self.config['batch_size'], nb_gpus) == 0, \
             'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (self.config['batch_size'], nb_gpus)
@@ -146,7 +146,7 @@ class VoxelmorphTraining(TrainingInterface):
             weights = [1]
 
         # prepare deformation loss
-        losses += [vxm.losses.Grad('l2', loss_mult=self.config['int_downsize']).loss]
+        losses += [vxm.losses.cuda('l2', loss_mult=self.config['int_downsize']).loss]
         weights += [self.config['reg_weight']]
 
         # training loops
