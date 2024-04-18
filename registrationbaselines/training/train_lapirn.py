@@ -89,6 +89,8 @@ class LapIRNTraining(TrainingInterface):
         #                                      shuffle=True, num_workers=2)
 
         training_generator = DataLoader(self.train_dataset, batch_size=self.config['batch_size'], shuffle=True)
+        if self.val_dataset is not None:
+            val_generator = DataLoader(self.val_dataset, batch_size=1, shuffle=False)
 
         step = 0
         # if self.config['load_model'] is not None:
@@ -103,7 +105,6 @@ class LapIRNTraining(TrainingInterface):
             epoch_loss = []
             epoch_total_loss = []
             epoch_step_time = []
-            val_loss_list = []
 
             for X, Y in training_generator:
 
@@ -159,6 +160,37 @@ class LapIRNTraining(TrainingInterface):
                 if step > self.config['iteration_lvl1']:
                     break
             print("one epoch pass")
+
+            #validation
+            val_loss_list = list()
+            if self.val_dataset is not None:
+                model.eval()
+                with torch.no_grad():
+                    for X, Y in val_generator:
+
+                        X = X.to(device).float()
+                        Y = Y.to(device).float()
+
+                        # output_disp_e0, warpped_inputx_lvl1_out, down_y, output_disp_e0_v, e0
+                        F_X_Y, X_Y, Y_4x, F_xy, _ = model(X, Y)
+
+                        # 3 level deep supervision NCC
+                        loss_multiNCC = loss_similarity(X_Y, Y_4x)
+                        F_X_Y_norm = transform_unit_flow_to_flow_cuda(F_X_Y.permute(0, 2, 3, 4, 1).clone())
+                        loss_Jacobian = loss_Jdet(F_X_Y_norm, grid_4)
+
+                        # reg2 - use velocity
+                        _, _, x, y, z = F_X_Y.shape
+                        F_X_Y[:, 0, :, :, :] = F_X_Y[:, 0, :, :, :] * (z - 1)
+                        F_X_Y[:, 1, :, :, :] = F_X_Y[:, 1, :, :, :] * (y - 1)
+                        F_X_Y[:, 2, :, :, :] = F_X_Y[:, 2, :, :, :] * (x - 1)
+                        loss_regulation = loss_smooth(F_X_Y)
+
+                        loss = loss_multiNCC + self.config['antifold_weight'] * loss_Jacobian + self.config[
+                            'smooth_weight'] * loss_regulation
+
+                        val_loss_list.append(loss.item())
+
             # wandb logging
             if self.config['use_wandb']:
                 mean_loss = np.mean(epoch_loss, axis=0)
@@ -212,6 +244,8 @@ class LapIRNTraining(TrainingInterface):
         # training_generator = DataLoader(Dataset_epoch(names, norm=False), batch_size=self.config['batch_size'],
         #                                      shuffle=True, num_workers=2)
         training_generator = DataLoader(self.train_dataset, batch_size=self.config['batch_size'], shuffle=True)
+        if self.val_dataset is not None:
+            val_generator = DataLoader(self.val_dataset, batch_size=1, shuffle=False)
 
         step = 0
         # if load_model is True:
@@ -227,7 +261,6 @@ class LapIRNTraining(TrainingInterface):
             epoch_loss = []
             epoch_total_loss = []
             epoch_step_time = []
-            val_loss_list = []
 
             for X, Y in training_generator:
 
@@ -287,6 +320,39 @@ class LapIRNTraining(TrainingInterface):
                 if step > self.config['iteration_lvl2']:
                     break
             print("one epoch pass")
+
+            # validation
+            val_loss_list = list()
+            if self.val_dataset is not None:
+                model.eval()
+                with torch.no_grad():
+                    for X, Y in val_generator:
+                        X = X.to(device).float()
+                        Y = Y.to(device).float()
+
+                        # output_disp_e0, warpped_inputx_lvl1_out, down_y, output_disp_e0_v, e0
+                        F_X_Y, X_Y, Y_4x, F_xy, F_xy_lvl1, _ = model(X, Y)
+
+                        # 3 level deep supervision NCC
+                        loss_multiNCC = loss_similarity(X_Y, Y_4x)
+
+                        F_X_Y_norm = transform_unit_flow_to_flow_cuda(F_X_Y.permute(0, 2, 3, 4, 1).clone())
+
+                        loss_Jacobian = loss_Jdet(F_X_Y_norm, grid_2)
+
+                        # reg2 - use velocity
+                        _, _, x, y, z = F_X_Y.shape
+                        F_X_Y[:, 0, :, :, :] = F_X_Y[:, 0, :, :, :] * (z - 1)
+                        F_X_Y[:, 1, :, :, :] = F_X_Y[:, 1, :, :, :] * (y - 1)
+                        F_X_Y[:, 2, :, :, :] = F_X_Y[:, 2, :, :, :] * (x - 1)
+                        loss_regulation = loss_smooth(F_X_Y)
+
+                        loss = loss_multiNCC + self.config['antifold_weight'] * loss_Jacobian + self.config[
+                            'smooth_weight'] * loss_regulation
+
+                        val_loss_list.append(loss.item())
+
+
             # wandb logging
             if self.config['use_wandb']:
                 mean_loss = np.mean(epoch_loss, axis=0)
@@ -342,6 +408,9 @@ class LapIRNTraining(TrainingInterface):
         # training_generator = DataLoader(Dataset_epoch(names, norm=False), batch_size=1,
         #                                      shuffle=True, num_workers=2)
         training_generator = DataLoader(self.train_dataset, batch_size=self.config['batch_size'], shuffle=True)
+        if self.val_dataset is not None:
+            val_generator = DataLoader(self.val_dataset, batch_size=1, shuffle=False)
+
         step = 0
         # if load_model is True:
         #     model_path = "../Model/LDR_LPBA_NCC_lap_share_preact_1_05_3000.pth"
@@ -356,7 +425,6 @@ class LapIRNTraining(TrainingInterface):
             epoch_loss = []
             epoch_total_loss = []
             epoch_step_time = []
-            val_loss_list = []
 
             for X, Y in training_generator:
 
@@ -418,6 +486,37 @@ class LapIRNTraining(TrainingInterface):
                 if step > self.config['iteration_lvl3']:
                     break
             print("one epoch pass")
+
+            # validation
+            val_loss_list = list()
+            if self.val_dataset is not None:
+                model.eval()
+                with torch.no_grad():
+                    for X, Y in val_generator:
+                        X = X.to(device).float()
+                        Y = Y.to(device).float()
+
+                        # output_disp_e0, warpped_inputx_lvl1_out, down_y, output_disp_e0_v, e0
+                        F_X_Y, X_Y, Y_4x, F_xy, F_xy_lvl1, F_xy_lvl2, _ = model(X, Y)
+
+                        # 3 level deep supervision NCC
+                        loss_multiNCC = loss_similarity(X_Y, Y_4x)
+
+                        F_X_Y_norm = transform_unit_flow_to_flow_cuda(F_X_Y.permute(0, 2, 3, 4, 1).clone())
+
+                        loss_Jacobian = loss_Jdet(F_X_Y_norm, grid)
+
+                        # reg2 - use velocity
+                        _, _, x, y, z = F_X_Y.shape
+                        F_X_Y[:, 0, :, :, :] = F_X_Y[:, 0, :, :, :] * (z - 1)
+                        F_X_Y[:, 1, :, :, :] = F_X_Y[:, 1, :, :, :] * (y - 1)
+                        F_X_Y[:, 2, :, :, :] = F_X_Y[:, 2, :, :, :] * (x - 1)
+                        loss_regulation = loss_smooth(F_X_Y)
+
+                        loss = loss_multiNCC + self.config['antifold_weight'] * loss_Jacobian + self.config[
+                            'smooth_weight'] * loss_regulation
+
+                        val_loss_list.append(loss.item())
 
             # wandb logging
             if self.config['use_wandb']:

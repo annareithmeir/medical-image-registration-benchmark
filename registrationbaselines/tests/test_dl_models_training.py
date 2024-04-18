@@ -50,6 +50,7 @@ class TestVoxelmorphTraining(unittest.TestCase):
         print(torch.cuda.is_available())
         print(torch.cuda.current_device())
 
+
 class TestLapirnTraining(unittest.TestCase):
 
     def test_lapirn_training(self):
@@ -67,7 +68,7 @@ class TestLapirnTraining(unittest.TestCase):
         print("train dataset:", len(train_dataset), " val dataset: ", len(val_dataset))
 
         lapirn_config_file = base_dir / "registrationbaselines/configs/TrainLapirn.yaml"
-        lapirn_training = LapIRNTraining(train_dataset, lapirn_config_file)
+        lapirn_training = LapIRNTraining(train_dataset, lapirn_config_file, val_dataset)
         lapirn_training.train()
 
 
