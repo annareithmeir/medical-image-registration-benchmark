@@ -150,7 +150,7 @@ class DeformableCorrField(RegistrationInterface):
         self.command_register = ["registrationbaselines/libraries/corrField_cpu/corrField_ubuntu",
                         '-F', self.fixed_path.as_posix(),
                         '-M', self.moving_path.as_posix(),
-                        '-m', self.fixed_path.as_posix(),  
+                        '-m', self.mask_path.as_posix(),  
                         '-O', self.correspondence_path.as_posix()]
         
         self.command_register = utils_commandline.add_configuration_to_command(self.command_register, self.configuration)
