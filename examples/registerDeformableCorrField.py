@@ -10,7 +10,8 @@ def main() -> None:
 
     registration = DeformableCorrField(Path('registrationbaselines/configs/DeformableCorrField.yaml'))
 
-    registration.register(Path("registrationbaselines/data/tumor1.nii.gz"), Path("registrationbaselines/data/tumor2.nii.gz"), True)
+    registration.register(Path("registrationbaselines/data/affinely_registered_NiftyReg/tumor1_resampled111_normalized.nii.gz").absolute(),
+                          Path("registrationbaselines/data/affinely_registered_NiftyReg/tumor2_resampled111_normalized.nii.gz").absolute())
 
 
 if __name__ == "__main__":
