@@ -13,8 +13,8 @@ def main():
     The registration already outputs the transformed file, but we can check if our transformation works.
     """
 
-    path_fixed = Path("registrationbaselines/data/tumor1.nii")
-    path_moving = Path("registrationbaselines/data/tumor2.nii")
+    path_fixed = Path("registrationbaselines/data/unregistered/tumor1.nii")
+    path_moving = Path("registrationbaselines/data/unregistered/tumor2.nii")
 
     registration = AffineNiftyReg(Path('registrationbaselines/configs/AffineNiftyReg.yaml'))
     registration.register(path_fixed, path_moving)
