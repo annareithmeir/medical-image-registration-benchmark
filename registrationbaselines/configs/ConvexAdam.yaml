@@ -1,0 +1,23 @@
+# ConvexAdam config
+
+result_transformation_path : /home/anna/PycharmProjects/registrationbaselines/tmp
+
+# General training args
+batch_size: 1
+
+#ConvexAdam specific args
+mind_r: 1
+mind_d: 2
+grid_sp: 6 # kernel size for feature 3davgpool, 6
+lambda_weight: 1.25
+disp_hw: 1 #4
+selected_niter: 80
+selected_smooth: 0
+grid_sp_adam: 1 #2
+ic: True
+use_mask: False
+
+
+# torch args
+gpu: '0'
+cudnn_nondet: False
