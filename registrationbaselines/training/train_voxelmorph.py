@@ -62,7 +62,7 @@ class VoxelmorphTraining(TrainingInterface):
             outvols = [y, zeros]
             yield (invols, outvols)
 
-    def train(self, print_progress: bool = False):
+    def train(self):
 
         assert len(self.train_dataset) > 0, 'Could not find any training data.'
         print('Training with dataset of length ', len(self.train_dataset))
@@ -253,7 +253,6 @@ class VoxelmorphTraining(TrainingInterface):
 
     def init_wandb(self, wandb_config_path):
         wandb_config = self.read_config(wandb_config_path)
-        print(wandb_config)
         wandb.init(
             project=wandb_config['project'],
             group=wandb_config['group'],

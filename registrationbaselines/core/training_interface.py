@@ -19,7 +19,7 @@ class TrainingInterface(ABC):
         self.model = None
 
     @abstractmethod
-    def train(self, print_progress: bool = False):
+    def train(self):
         """
         Train with given training data.
         """
