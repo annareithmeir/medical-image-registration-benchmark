@@ -21,8 +21,6 @@ INTENT_CODES = ['NIFTI_INTENT_CORREL', 'NIFTI_INTENT_TTEST', 'NIFTI_INTENT_FTEST
                 'NIFTI_INTENT_DISPVECT', 'NIFTI_INTENT_VECTOR', 'NIFTI_INTENT_POINTSET',
                 'NIFTI_INTENT_TRIANGLE', 'NIFTI_INTENT_QUATERNION', 'NIFTI_INTENT_DIMLESS']
 
-REG_RESAMPLE_PATH = Path('/usr/local/bin/reg_resample')
-
 
 def set_intent_code(path: Path, intent_code: str) -> None:
     """
@@ -83,12 +81,15 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
         path_displacement = Path(
             control_grid_path.as_posix().replace("_temp.nii", ".nii"))
 
-    command_line_list = ["reg_transform", "-ref", fixed_path.as_posix(), "-disp",
-                        control_grid_path.as_posix(), path_displacement]
+    path_reg_transform = Path("registrationbaselines/libraries/NiftyReg/reg_transform_ubuntu").absolute()
+    command_line_list = [path_reg_transform.as_posix(),
+                         "-ref", fixed_path.as_posix(),
+                         "-disp", control_grid_path.as_posix(),
+                         path_displacement]
 
-    utils_commandline.print_command(command_line_list)
-
-    utils_commandline.run_command_in_terminal(command_line_list, check = path_displacement.exists)
+    utils_commandline.run_command_in_terminal(command_line_list,
+                                              check = path_displacement.exists,
+                                              print_command_list=True)
 
     # this has to be done to conform with norms, to e.g. visualise in 3D Slicer, 
     # but NiftyReg cannot handle it afterwards and we need it to apply atransformation
@@ -118,14 +119,15 @@ def apply_transformation(path_fixed: Path, path_moving: Path, path_transfromatio
     path_output, _ = utils_commandline.create_result_paths(
         path_fixed.parent, path_fixed.stem, path_moving.stem, method, ".nii", ".nii")
     
-    command = [REG_RESAMPLE_PATH.as_posix(),
+    path_reg_resample = Path("registrationbaselines/libraries/NiftyReg/reg_resample_ubuntu").absolute()
+    command = [path_reg_resample.as_posix(),
                "-ref", path_fixed.as_posix(),
                "-flo", path_moving.as_posix(),
                "-trans", path_transfromation.as_posix(),
                "-res", path_output.as_posix()]
     
-    utils_commandline.print_command(command)
-
-    utils_commandline.run_command_in_terminal(command, check=path_output.exists)
+    utils_commandline.run_command_in_terminal(command,
+                                              check=path_output.exists,
+                                              print_command_list=True)
 
     return path_output

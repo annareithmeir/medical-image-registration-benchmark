@@ -44,10 +44,16 @@ def create_result_paths(directory: Path,
     return Path(result_transformed_image_path), Path(result_transformation_path)
 
 
-def run_command_in_terminal(command: list[str], check: callable = None) -> bool:
+def run_command_in_terminal(command: list[str],
+                            check: callable = None,
+                            print_command_list: bool = False) -> bool:
     """
         Run a command in the terminal and check the result using the provided lambda function.
     """
+    
+    if print_command_list:
+        print_command(command)
+    
     p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output = p.communicate()
 

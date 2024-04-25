@@ -10,7 +10,7 @@ def main() -> None:
 
     registration = AffineSITK(Path('registrationbaselines/configs/AffineSITK.yaml'), Path('registrationbaselines/configs/ResampleSITK.yaml'))
 
-    registration.register(Path("registrationbaselines/data/tumor1.nii"), Path("registrationbaselines/data/tumor2.nii"), True)
+    registration.register(Path("registrationbaselines/data/unregistered/tumor1.nii"), Path("registrationbaselines/data/unregistered/tumor2.nii"))
 
 
 if __name__ == "__main__":

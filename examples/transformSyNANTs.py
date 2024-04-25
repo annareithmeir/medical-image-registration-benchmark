@@ -4,7 +4,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.absolute().parent))
 
 from registrationbaselines.transforms.transform_syn_ants import TransformSyNANTs
-from registrationbaselines.registration.syn_ants import SyNANTsReg 
+from registrationbaselines.registration.syn_ants import SyNANTs 
 
 
 def main():
@@ -13,10 +13,10 @@ def main():
     The registration already outputs the transformed file, but we can check if our transformation works.
     """
 
-    path_fixed = Path("registrationbaselines/data/tumor1.nii")
-    path_moving = Path("registrationbaselines/data/tumor2.nii")
+    path_fixed = Path("registrationbaselines/data/affinely_registered_NiftyReg/tumor1.nii.gz")
+    path_moving = Path("registrationbaselines/data/affinely_registered_NiftyReg/tumor2.nii.gz")
 
-    registration = SyNANTsReg(Path('registrationbaselines/configs/BSplineNiftyReg.yaml'))
+    registration = SyNANTs(Path('registrationbaselines/configs/BSplineNiftyReg.yaml'))
     registration.register(path_fixed, path_moving)
 
     transformation = TransformSyNANTs()

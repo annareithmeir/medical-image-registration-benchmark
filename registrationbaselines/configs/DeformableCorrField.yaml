@@ -1,0 +1,20 @@
+a: false
+L: false
+N: false
+Q: false
+R: false
+S: false
+s: false
+
+# =============================================================
+# Usage (required input arguments):
+# ./corrField -F fixed.nii.gz -M moving.nii.gz -m fixed_mask.nii.gz -O output.dat
+# optional parameters:
+#  -a <regularisation parameter alpha> (default 1.0)
+#  -L <maximum search radius - each level> (default 16x8)
+#  -N <cube-length of non-maximum suppression> (default 6x3)
+#  -Q <quantisation of search step size> (default 2x1)
+#  -R <size (radius) of patch for similarity> (default 3x2)
+#  -S <skipping of patch for similarity> (default 2x1)
+#  -s <sigma of Foerstner operator> (default 1.4)
+# =============================================================
