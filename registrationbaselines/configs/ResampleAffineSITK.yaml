@@ -1,2 +1,2 @@
 interpolator:        sitkHammingWindowedSinc
-default_pixel_value: 100
+default_pixel_value: 0
