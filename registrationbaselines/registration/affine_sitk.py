@@ -132,11 +132,11 @@ class AffineSITK(RegistrationInterface):
         else:
             raise ValueError("Invalid similarity metric")
 
-    def _set_interpolator(self, object):
+    def _set_interpolator(self, sitk_object):
         if self.config_resample['interpolator'] == "sitkLinear":
-            object.SetInterpolator(sitk.sitkLinear)
+            sitk_object.SetInterpolator(sitk.sitkLinear)
         elif self.config_resample['interpolator'] == "sitkHammingWindowedSinc":
-            object.SetInterpolator(sitk.sitkHammingWindowedSinc)
+            sitk_object.SetInterpolator(sitk.sitkHammingWindowedSinc)
         else:
             raise ValueError("Invalid interpolator")
     
