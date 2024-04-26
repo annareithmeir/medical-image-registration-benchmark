@@ -1,6 +1,3 @@
-# standard input and output paths are not defined here,
-# because we want to do it in the register() function directly
-
 # matcher
 histogram_levels_int8:        128
 histogram_levels_float:       1024
