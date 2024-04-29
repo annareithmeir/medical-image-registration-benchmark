@@ -15,9 +15,9 @@ train_idx, val_idx = idxs[:15], idxs[15:]
 
 base_dir = Path(__file__).parent.parent.absolute()
 
-train_dataset = L2RLungCTDataset(imgs_path=Path("/home/fryderyk/Documents/data/LungCT"),
+train_dataset = L2RLungCTDataset(imgs_path=Path("/u/home/koeglf/Documents/data/LungCT"),
                                 transforms=["normalize"], idxs=list(train_idx))
-val_dataset = L2RLungCTDataset(imgs_path=Path("/home/fryderyk/Documents/data/LungCT"),
+val_dataset = L2RLungCTDataset(imgs_path=Path("/u/home/koeglf/Documents/data/LungCT"),
                             transforms=["normalize"], idxs=list(val_idx))
 
 print("train dataset:", len(train_dataset), " val dataset: ", len(val_dataset))
