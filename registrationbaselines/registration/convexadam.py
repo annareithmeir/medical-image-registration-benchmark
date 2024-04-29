@@ -32,9 +32,9 @@ class ConvexAdam(RegistrationInterface):
         # paths
         self.fixed_path = Path()
         self.moving_path = Path()
-        self.result_transformed_image_path = Path()
+        self.result_transformed_image_path = os.path.join(self.config["result_path"], 'warped.nii.gz')
         self.result_control_grid_path = Path()
-        self.result_transformation_path = Path()
+        self.result_transformation_path = os.path.join(self.config["result_path"], 'disp.nii.gz')
 
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
@@ -58,7 +58,11 @@ class ConvexAdam(RegistrationInterface):
         img_fixed = img_fixed.float()
         img_moving = img_moving.float()
 
-        print(img_moving.detach().numpy().shape)
+        #only for unequal example images
+        img_fixed = F.pad(input=img_fixed, pad=(72,72,0,0,0,0), mode='constant', value=0)
+        img_moving = F.pad(input=img_moving, pad=(63,63,0,0,0,0), mode='constant', value=0)
+
+        assert img_fixed.shape == img_moving.shape
 
         displacements = self.convex_adam_pt(
             img_fixed=img_fixed,
@@ -77,9 +81,7 @@ class ConvexAdam(RegistrationInterface):
             path_moving_mask=self.mask_moving
         )
 
-        affine = nib.load(self.fixed_path).affine
-        disp_nii = nib.Nifti1Image(displacements, affine)
-        nib.save(disp_nii, os.path.join(self.result_transformation_path, 'disp.nii.gz'))
+        self._save_results(displacements, None)
 
     def convex_adam_pt(self,
             img_fixed: Union[torch.Tensor, np.ndarray, sitk.Image],
@@ -130,7 +132,6 @@ class ConvexAdam(RegistrationInterface):
             features_mov_smooth = F.avg_pool3d(features_mov, grid_sp, stride=grid_sp)
 
             n_ch = features_fix_smooth.shape[1]
-            print(H, D, W, n_ch, disp_hw, grid_sp)
 
         # compute correlation volume with SSD
         ssd, ssd_argmin = correlate(features_fix_smooth, features_mov_smooth, disp_hw, grid_sp, (H, W, D), n_ch)
@@ -228,7 +229,25 @@ class ConvexAdam(RegistrationInterface):
         y = disp_hr[0, 1, :, :, :].cpu().half().data.numpy()
         z = disp_hr[0, 2, :, :, :].cpu().half().data.numpy()
         displacements = np.stack((x, y, z), 3).astype(float)
+
         return displacements
+
+
+    def _save_results(self, displacement_field: np.ndarray, moved_image: np.ndarray) -> None:
+        """
+        @displacement_field: np array of shape (h,w,d,3)
+        """
+
+        print("saving disp to ", self.result_transformation_path)
+        if not os.path.exists(self.config["result_path"]):
+            os.makedirs(self.config["result_path"])
+
+        affine = nib.load(self.fixed_path).affine
+        nib.save(nib.Nifti1Image(displacement_field, affine=affine), self.result_transformation_path)
+
+        # TODO move image
+        #nib.save(nib.Nifti1Image(moved_image, affine=affine), self.result_transformed_image_path)
+
 
     def _extract_features(self,
             img_fixed: torch.Tensor,
