@@ -49,6 +49,9 @@ import torch
 # import voxelmorph with pytorch backend
 os.environ['NEURITE_BACKEND'] = 'pytorch'
 os.environ['VXM_BACKEND'] = 'pytorch'
+
+sys.path.append(str(Path(__file__).parent.absolute().parent))
+
 import registrationbaselines.dl_repos.voxelmorph as vxm   # nopep8
 
 # parse commandline args
