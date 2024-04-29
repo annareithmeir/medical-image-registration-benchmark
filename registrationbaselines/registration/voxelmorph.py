@@ -95,7 +95,7 @@ class VoxelmorphReg(RegistrationInterface):
         return device
     
     
-    def __save_results(self, result_transformation, result_transformed_image):
+    def __save_results(self, result_transformed_image, result_transformation):
         self.path_result_transformed_image, self.path_result_transformation = \
             utils_commandline.create_result_paths(self.path_fixed.parent,
                                                   self.path_fixed.stem,
