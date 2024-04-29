@@ -13,7 +13,7 @@ idxs = np.arange(5)
 np.random.shuffle(idxs)
 train_idx, val_idx = idxs[:15], idxs[15:]
 
-base_dir = Path(__file__).parent.parent.absolute().parent
+base_dir = Path(__file__).parent.parent.absolute()
 
 train_dataset = L2RLungCTDataset(imgs_path=Path("/home/fryderyk/Documents/data/LungCT"),
                                 transforms=["normalize"], idxs=list(train_idx))
