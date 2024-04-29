@@ -146,7 +146,7 @@ class VoxelmorphTraining(TrainingInterface):
             weights = [1]
 
         # prepare deformation loss
-        losses += [vxm.losses.cuda('l2', loss_mult=self.config['int_downsize']).loss]
+        losses += [vxm.losses.Grad('l2', loss_mult=self.config['int_downsize']).loss]
         weights += [self.config['reg_weight']]
 
         # training loops
