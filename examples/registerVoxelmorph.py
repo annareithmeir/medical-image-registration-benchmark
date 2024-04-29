@@ -12,8 +12,8 @@ def main() -> None:
 
     registration = VoxelmorphReg(Path('registrationbaselines/configs/RegisterVoxelmorph.yaml'))
     
-    path_fixed = Path("/home/fryderyk/Documents/data/LungCT/imagesTr/LungCT_0001_0000.nii.gz")
-    path_moving = Path("/home/fryderyk/Documents/data/LungCT/imagesTr/LungCT_0001_0001.nii.gz")
+    path_fixed = Path("/u/home/koeglf/Documents/data/LungCT/imagesTr/LungCT_0001_0000.nii.gz")
+    path_moving = Path("/u/home/koeglf/Documents/data/LungCT/imagesTr/LungCT_0001_0001.nii.gz")
 
     registration.register(path_fixed, path_moving, True)
 
