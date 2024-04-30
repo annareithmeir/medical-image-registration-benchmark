@@ -102,7 +102,7 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
 
 def apply_transformation(path_fixed: Path, path_moving: Path, path_transfromation: Path) -> Path:
     """
-    Apply the transformation to the moving image.
+    Apply the transformation to the moving image.~~~
     Works for both affine and non-linear transformations.
     """
 

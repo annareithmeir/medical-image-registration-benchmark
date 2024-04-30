@@ -17,11 +17,13 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
+from registrationbaselines.core.utils_niftyreg import set_intent_code
 
 
 import gc
 gc.collect()
 torch.cuda.empty_cache()
+
 
 class ConvexAdam(RegistrationInterface):
     def __init__(self, config_path: Path):
@@ -32,9 +34,9 @@ class ConvexAdam(RegistrationInterface):
         # paths
         self.fixed_path = Path()
         self.moving_path = Path()
-        self.result_transformed_image_path = os.path.join(self.config["result_path"], 'warped.nii.gz')
+        self.result_transformed_image_path = Path(self.config["result_path"]) / 'warped_new.nii.gz'
         self.result_control_grid_path = Path()
-        self.result_transformation_path = os.path.join(self.config["result_path"], 'disp.nii.gz')
+        self.result_transformation_path = Path(self.config["result_path"]) / 'disp_new.nii.gz'
 
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
@@ -59,8 +61,10 @@ class ConvexAdam(RegistrationInterface):
         img_moving = img_moving.float()
 
         #only for unequal example images
-        img_fixed = F.pad(input=img_fixed, pad=(72,72,0,0,0,0), mode='constant', value=0)
-        img_moving = F.pad(input=img_moving, pad=(63,63,0,0,0,0), mode='constant', value=0)
+        #img_fixed = F.pad(input=img_fixed, pad=(72,72,0,0,0,0), mode='constant', value=0)
+        #img_moving = F.pad(input=img_moving, pad=(63,63,0,0,0,0), mode='constant', value=0)
+
+        #img_moving = img_fixed
 
         assert img_fixed.shape == img_moving.shape
 
@@ -81,7 +85,17 @@ class ConvexAdam(RegistrationInterface):
             path_moving_mask=self.mask_moving
         )
 
-        self._save_results(displacements, None)
+        H, W, D = img_moving.shape
+
+        # displacements = torch.zeros(displacements.shape).numpy() # even with zero disp, only black image is result ...
+        #displacements = torch.rand(displacements.shape).numpy() # even with zero disp, only black image is result ...
+        displacements = np.expand_dims(displacements, axis=3)
+        print(displacements.shape)
+        img_warped = F.grid_sample(img_moving.float().view(1,1,H,W,D),torch.from_numpy(displacements).float().view(1,H,W,D,3),align_corners=False,mode='nearest').numpy()
+
+        self._save_results(displacements, img_warped)
+        set_intent_code(self.result_transformation_path, 'NIFTI_INTENT_DISPVECT')
+
 
     def convex_adam_pt(self,
             img_fixed: Union[torch.Tensor, np.ndarray, sitk.Image],
@@ -233,7 +247,7 @@ class ConvexAdam(RegistrationInterface):
         return displacements
 
 
-    def _save_results(self, displacement_field: np.ndarray, moved_image: np.ndarray) -> None:
+    def _save_results(self, displacement_field: np.ndarray, img_warped: np.ndarray) -> None:
         """
         @displacement_field: np array of shape (h,w,d,3)
         """
@@ -244,9 +258,7 @@ class ConvexAdam(RegistrationInterface):
 
         affine = nib.load(self.fixed_path).affine
         nib.save(nib.Nifti1Image(displacement_field, affine=affine), self.result_transformation_path)
-
-        # TODO move image
-        #nib.save(nib.Nifti1Image(moved_image, affine=affine), self.result_transformed_image_path)
+        nib.save(nib.Nifti1Image(img_warped, affine=affine), self.result_transformed_image_path)
 
 
     def _extract_features(self,
