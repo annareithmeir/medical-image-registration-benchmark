@@ -21,9 +21,9 @@ class TestVoxelmorphTraining(unittest.TestCase):
         np.random.shuffle(idxs)
         train_idx, val_idx = idxs[:15], idxs[15:]
         print(train_idx, val_idx)
-        train_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+        train_dataset = L2RLungCTDataset(imgs_path=self.lung_dataset_path,
                                    transforms=["normalize"], idxs=list(train_idx))
-        val_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+        val_dataset = L2RLungCTDataset(imgs_path=self.lung_dataset_path,
                                    transforms=["normalize"], idxs=list(val_idx))
         self.assertEqual(len(train_dataset), 15)
         self.assertEqual(len(val_dataset), 5)
@@ -35,9 +35,9 @@ class TestVoxelmorphTraining(unittest.TestCase):
         train_idx, val_idx = idxs[:15], idxs[15:]
         #print(train_idx, val_idx)
         base_dir = Path(__file__).parent.parent.absolute().parent
-        train_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+        train_dataset = L2RLungCTDataset(imgs_path=self.lung_dataset_path,
                                          transforms=["normalize"], idxs=list(train_idx))
-        val_dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+        val_dataset = L2RLungCTDataset(imgs_path=self.lung_dataset_path,
                                        transforms=["normalize"], idxs=list(val_idx))
 
         print("train dataset:", len(train_dataset), " val dataset: ", len(val_dataset))
