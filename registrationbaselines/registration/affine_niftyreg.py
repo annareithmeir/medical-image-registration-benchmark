@@ -47,10 +47,9 @@ class AffineNiftyReg(RegistrationInterface):
         ), f"File {self.moving_path} does not exist."
 
         self._create_registration_command_list()
-
-        utils_commandline.print_command(self.command)
-
-        utils_commandline.run_command_in_terminal(self.command, self._outputs_exist)
+        utils_commandline.run_command_in_terminal(self.command,
+                                                  self._outputs_exist,
+                                                  print_command_list=True)
 
     def get_transformed_image_path(self):
         # Return transformed image
