@@ -6,6 +6,7 @@ result_path : /home/anna/PycharmProjects/registrationbaselines/tmp/convexadam
 batch_size: 1
 
 #ConvexAdam specific args
+features: MIND # MIND or nnUNet. If MIND then mind_r and mind_d must be set.
 mind_r: 2
 mind_d: 1
 grid_sp: 6 # kernel size for feature 3davgpool, 6
