@@ -3,7 +3,7 @@ from pathlib import Path
 import SimpleITK as sitk
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core.utils_commandline import create_result_paths
+from registrationbaselines.core import utils_commandline
 
 class AffineSITK(RegistrationInterface):
     """
@@ -77,12 +77,12 @@ class AffineSITK(RegistrationInterface):
         return self.result_transformation_path
 
     def _save_results(self, result_transformation, result_transformed_image):
-        self.result_transformed_image_path, self.result_transformation_path = create_result_paths(self.working_dir_path,
-                                                                                                  self.fixed_path.stem,
-                                                                                                  self.moving_path.stem,
-                                                                                                  self.method,
-                                                                                                  ".nii",
-                                                                                                  ".tfm")
+        self.result_transformed_image_path, self.result_transformation_path = utils_commandline.create_result_paths(self.working_dir_path,
+                                                                                                                    self.fixed_path.stem,
+                                                                                                                    self.moving_path.stem,
+                                                                                                                    self.method,
+                                                                                                                    ".nii",
+                                                                                                                    ".tfm")
         
         sitk.WriteImage(result_transformed_image, self.result_transformed_image_path)
         sitk.WriteTransform(result_transformation, self.result_transformation_path)
@@ -132,11 +132,11 @@ class AffineSITK(RegistrationInterface):
         else:
             raise ValueError("Invalid similarity metric")
 
-    def _set_interpolator(self, object):
+    def _set_interpolator(self, sitk_object):
         if self.config_resample['interpolator'] == "sitkLinear":
-            object.SetInterpolator(sitk.sitkLinear)
+            sitk_object.SetInterpolator(sitk.sitkLinear)
         elif self.config_resample['interpolator'] == "sitkHammingWindowedSinc":
-            object.SetInterpolator(sitk.sitkHammingWindowedSinc)
+            sitk_object.SetInterpolator(sitk.sitkHammingWindowedSinc)
         else:
             raise ValueError("Invalid interpolator")
     

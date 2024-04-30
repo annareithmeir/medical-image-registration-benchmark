@@ -10,7 +10,8 @@ def main() -> None:
 
     registration = BSplineNiftyReg(Path('registrationbaselines/configs/BSplineNiftyReg.yaml'))
 
-    registration.register(Path("registrationbaselines/data/tumor1.nii"), Path("registrationbaselines/data/tumor2.nii"), True)
+    registration.register(Path("registrationbaselines/data/affinely_registered_NiftyReg/tumor1.nii.gz"),
+                          Path("registrationbaselines/data/affinely_registered_NiftyReg/tumor2.nii.gz"), True)
 
 
 if __name__ == "__main__":
