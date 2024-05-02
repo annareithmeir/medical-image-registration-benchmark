@@ -7,6 +7,7 @@ from pathlib import Path
 import torch
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.core.utils_niftyreg import set_intent_code
+from registrationbaselines.dl_repos.LapIRN.Code.Functions import save_img, save_flow
 
 import sys
 sys.path.append(str(Path(__file__).parent.absolute().parent))
@@ -39,8 +40,8 @@ class LapIRNReg(RegistrationInterface):
         # from config
         self.base_dir = Path(__file__).parent.parent.absolute().parent
         self.path_model = self.base_dir / Path(self.config["inference_model_path"])
-        self.result_transformed_image_path = self.base_dir / Path(self.config["result_path"]) / 'warped_new.nii.gz'
-        self.result_transformation_path = self.base_dir / Path(self.config["result_path"]) / 'disp_new.nii.gz'
+        self.result_transformed_image_path = self.base_dir / Path(self.config["result_path"]) / 'warped_lapirn.nii.gz'
+        self.result_transformation_path = self.base_dir / Path(self.config["result_path"]) / 'disp_lapirn_wo.nii.gz'
 
         self.device = self.__handle_device_selection()
 
@@ -80,19 +81,13 @@ class LapIRNReg(RegistrationInterface):
         grid = torch.from_numpy(np.reshape(grid, (1,) + grid.shape)).cuda().float()
 
         # predict
-        with torch.no_grad():
+        with (torch.no_grad()):
             F_X_Y = model(moving_img, fixed_img)
 
             X_Y = transform(moving_img, F_X_Y.permute(0, 2, 3, 4, 1), grid).data.cpu().numpy()[0, 0, :, :, :]
 
             F_X_Y_cpu = F_X_Y.data.cpu().numpy()[0, :, :, :, :].transpose(1, 2, 3, 0)
             F_X_Y_cpu = transform_unit_flow_to_flow(F_X_Y_cpu)
-
-            # save_flow(F_X_Y_cpu, savepath + '/warpped_flow.nii.gz')
-            # save_img(X_Y, savepath + '/warpped_moving.nii.gz')
-
-        # moved = moved.detach().cpu().numpy().squeeze()
-        # warp = warp.detach().cpu().numpy().squeeze()
 
         self.__save_results(X_Y, F_X_Y_cpu)
 
@@ -143,21 +138,16 @@ class LapIRNReg(RegistrationInterface):
         return subject["image_m"].data.squeeze(), subject["image_f"].data.squeeze()
 
     def __save_results(self, result_transformed_image, result_transformation):
-        # self.path_result_transformed_image, self.path_result_transformation = \
-        #     utils_commandline.create_result_paths(self.path_fixed.parent,
-        #                                           self.path_fixed.stem,
-        #                                           self.path_moving.stem,
-        #                                           self.method,
-        #                                           ".nii",
-        #                                           ".nii")
 
         print("saving disp to ", self.result_transformation_path)
         if not os.path.exists(self.config["result_path"]):
             os.makedirs(self.config["result_path"])
 
-        affine = nib.load(self.path_fixed).affine
-        nib.save(nib.Nifti1Image(result_transformation, affine=affine), self.result_transformation_path)
-        nib.save(nib.Nifti1Image(result_transformed_image, affine=affine), self.result_transformed_image_path)
+        save_flow(result_transformation, self.result_transformation_path)
+        save_img(result_transformed_image, self.result_transformed_image_path)
+
+
+
         set_intent_code(self.result_transformation_path, 'NIFTI_INTENT_DISPVECT')
 
 
