@@ -1,0 +1,8 @@
+# matcher
+histogram_levels_int8:        128
+histogram_levels_float:       1024
+number_of_match_points:       7
+
+# demons
+number_of_iterations:         200
+standard_deviations:          1.0

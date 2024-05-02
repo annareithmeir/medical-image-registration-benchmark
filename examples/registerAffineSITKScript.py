@@ -7,9 +7,9 @@ import SimpleITK as sitk
 
 def main():
 
-    fixed = sitk.ReadImage(r"data/tumor1.nii", sitk.sitkFloat32)
+    fixed = sitk.ReadImage(r"registrationbaselines/data/unregistered/tumor1.nii", sitk.sitkFloat32)
 
-    moving = sitk.ReadImage(r"data/tumor2.nii", sitk.sitkFloat32)
+    moving = sitk.ReadImage(r"registrationbaselines/data/unregistered/tumor2.nii", sitk.sitkFloat32)
 
     R = sitk.ImageRegistrationMethod()
 

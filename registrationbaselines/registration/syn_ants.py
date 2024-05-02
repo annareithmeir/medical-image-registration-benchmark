@@ -6,7 +6,7 @@ from registrationbaselines.core import utils_commandline
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 
 
-class SyNANTsReg(RegistrationInterface):
+class SyNANTs(RegistrationInterface):
     """
     SyN registration using ANTs.
     No default initialisation, as the choice of registration should be concious.

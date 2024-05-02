@@ -1,0 +1,5 @@
+antspyx==0.4.2
+nibabel==5.2.1
+PyYAML==6.0.1
+scipy==1.13.0
+SimpleITK==2.3.1

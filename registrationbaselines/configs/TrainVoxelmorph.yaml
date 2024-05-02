@@ -2,8 +2,8 @@
 
 result_model_path: "registrationbaselines/tmp/test"
 initial_weights_path : "registrationbaselines/tmp/test/_w.pt"
-batch_size: 5 #1
-epochs: 3 #1
+batch_size: 1 #1
+epochs: 1 #1
 steps_per_epoch: 3 #100
 load_model: null #null
 initial_epoch: 0 #0
@@ -15,7 +15,7 @@ dec:  [32, 32, 32, 32, 32, 16, 16] #[32, 32, 32, 32, 32, 16, 16]
 bidir: False # False
 sim_loss: "mse" #'mse'
 reg_weight: 0.01 #0.01
-use_wandb: True
+use_wandb: False
 wandb_config_path: "registrationbaselines/configs/Wandb.yaml"
 gpu:  '0'
 cudnn_nondet: False #False

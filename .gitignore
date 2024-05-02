@@ -5,3 +5,5 @@ registration/__pycache__/
 tmp
 tests/wandb
 tests/_trial_temp
+
+wandb/
