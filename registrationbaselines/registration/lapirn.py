@@ -8,6 +8,7 @@ import torch
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.core.utils_niftyreg import set_intent_code
 from registrationbaselines.dl_repos.LapIRN.Code.Functions import save_img, save_flow
+from registrationbaselines.core.utils_nifti import transform_nifti_image_with_matrix
 
 import sys
 sys.path.append(str(Path(__file__).parent.absolute().parent))
@@ -41,7 +42,7 @@ class LapIRNReg(RegistrationInterface):
         self.base_dir = Path(__file__).parent.parent.absolute().parent
         self.path_model = self.base_dir / Path(self.config["inference_model_path"])
         self.result_transformed_image_path = self.base_dir / Path(self.config["result_path"]) / 'warped_lapirn.nii.gz'
-        self.result_transformation_path = self.base_dir / Path(self.config["result_path"]) / 'disp_lapirn_wo.nii.gz'
+        self.result_transformation_path = self.base_dir / Path(self.config["result_path"]) / 'disp_lapirn.nii.gz'
 
         self.device = self.__handle_device_selection()
 
@@ -146,8 +147,9 @@ class LapIRNReg(RegistrationInterface):
         save_flow(result_transformation, self.result_transformation_path)
         save_img(result_transformed_image, self.result_transformed_image_path)
 
+        affine = np.array([[-1,0,0,0],[0,-1,0,0],[0,0,1,0],[0,0,0,1]])
 
-
+        transform_nifti_image_with_matrix(self.result_transformed_image_path, affine)
         set_intent_code(self.result_transformation_path, 'NIFTI_INTENT_DISPVECT')
 
 
