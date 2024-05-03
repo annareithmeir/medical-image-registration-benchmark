@@ -19,7 +19,7 @@ class AffineNiftyReg(RegistrationInterface):
             "registrationbaselines/libraries/NiftyReg/reg_aladin_ubuntu").absolute()
 
         self.configuration = self.read_config(configuration_path)
-        self.__create_result_directories()
+        self._create_result_directories()
 
         # paths
         self.fixed_path = Path()
@@ -60,20 +60,21 @@ class AffineNiftyReg(RegistrationInterface):
 
         return self.result_transformation_path
 
-    def __save_results(self, deformed, deformation):
+    def _save_results(self, deformed, deformation):
         """
         Nothing happens here because saving is done thorugh the command line.
         """
+        pass
 
     def __create_registration_command_list(self):
         """
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.result_transformation_path = self.__create_result_paths(self.fixed_path.stem,
-                                                                                                         self.moving_path.stem,
-                                                                                                         ".nii",
-                                                                                                         ".txt")
+        self.result_transformed_image_path, self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
+                                                                                                        self.moving_path.stem,
+                                                                                                        ".nii",
+                                                                                                        ".txt")
 
         self.command = [self.path_reg_aladin.as_posix(),
                         '-ref', self.fixed_path.as_posix(),

@@ -12,14 +12,16 @@ class TransformDeformableCorrField(TransformationInterface):
     Deformable transformation using corrField.
     """
 
-    def __init__(self):
+    def __init__(self, configuration_path: Path) -> None:
         """
         Initialize the transformation model.
         """
 
         self.method = "DeformableCorrField"
 
-        self.__create_result_directories()
+        self.configuration = self.read_config(configuration_path)
+
+        self._create_result_directories()
 
         self.fixed_path = Path()
         self.moving_path = Path()
@@ -50,7 +52,7 @@ class TransformDeformableCorrField(TransformationInterface):
 
         return self.result_transformed_image_path
 
-    def __save_results(self, deformed):
+    def _save_results(self, deformed):
         """
         Nothing happens here because saving is done thorugh the command line.
         """
@@ -60,9 +62,9 @@ class TransformDeformableCorrField(TransformationInterface):
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path = self.__create_result_path(self.fixed_path.stem,
-                                                                       self.moving_path.stem,
-                                                                       ".nii.gz")
+        self.result_transformed_image_path = self._create_result_path(self.fixed_path.stem,
+                                                                      self.moving_path.stem,
+                                                                      ".nii.gz")
 
         self.command = ["registrationbaselines/libraries/corrField_cpu/applyCorrField_ubuntu",
                         '-M', self.moving_path.as_posix(),

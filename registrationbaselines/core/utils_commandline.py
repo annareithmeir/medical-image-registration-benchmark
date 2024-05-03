@@ -42,11 +42,12 @@ def add_configuration_to_command(command: list[str], configuration: dict):
     Add the configuration to the command line.
     """
     for key, value in configuration.items():
-        if isinstance(value, bool):
-            if value:  # Only add flag if True
+        if key != 'result_path':  # Skip if key is 'result_path'
+            if isinstance(value, bool):
+                if value:  # Only add flag if True
+                    command.append(f"-{key}")
+            else:
                 command.append(f"-{key}")
-        else:
-            command.append(f"-{key}")
-            command.append(f"{value}")
+                command.append(f"{value}")
 
     return command

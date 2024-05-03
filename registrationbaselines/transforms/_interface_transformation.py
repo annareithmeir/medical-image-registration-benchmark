@@ -31,12 +31,12 @@ class TransformationInterface(ABC):
         Apply a transformation to an image using the provided transformation.
         """
 
-    def __save_results(self, deformed):
+    def _save_results(self, deformed):
         """
         Save the results of the registration.
         """
 
-    def __create_result_directories(self):
+    def _create_result_directories(self):
         """
         Create the directory to save the results.
         """
@@ -52,10 +52,10 @@ class TransformationInterface(ABC):
         self.path_deformed = method_dir / 'deformed'
         self.path_deformed.mkdir(parents=True, exist_ok=True)
 
-    def __create_result_path(self,
-                             name_fixed: str,
-                             name_moving: str,
-                             extension_image: str):
+    def _create_result_path(self,
+                            name_fixed: str,
+                            name_moving: str,
+                            extension_image: str):
         """
         Create the paths for the result files (warped image and transformation).
         """

@@ -10,12 +10,16 @@ class TransformSyNANTs(TransformationInterface):
     SyN transformation using ANTs.
     """
 
-    def __init__(self):
+    def __init__(self, configuration_path: Path) -> None:
         """
         Initialize the transformation model.
         """
 
         self.method = "SyNANTs"
+
+        self.configuration = self.read_config(configuration_path)
+
+        self._create_result_directories()
 
         self.path_fixed = Path()
         self.path_moving = Path()
@@ -38,14 +42,14 @@ class TransformSyNANTs(TransformationInterface):
                                                     moving=ants.image_read(self.path_moving.as_posix()),  # nopep8
                                                     transformlist=[transformation_path.as_posix()])
 
-        path_output = self.__save_results(moving_image_warped)
+        path_output = self._save_results(moving_image_warped)
 
         return path_output
 
-    def __save_results(self, deformed):
-        path_output = self.__create_result_path(self.path_fixed.stem,
-                                                self.path_moving.stem,
-                                                ".nii")
+    def _save_results(self, deformed):
+        path_output = self._create_result_path(self.path_fixed.stem,
+                                               self.path_moving.stem,
+                                               ".nii")
 
         deformed.to_filename(path_output)
 

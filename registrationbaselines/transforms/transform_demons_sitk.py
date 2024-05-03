@@ -10,16 +10,16 @@ class TransformDemonsSITK(TransformationInterface):
     SyN transformation using ANTs.
     """
 
-    def __init__(self, configuration_path_resample: Path) -> None:
+    def __init__(self, configuration_path: Path) -> None:
         """
         Initialize the transformation model.
         """
 
         self.method = "DemonsSITK"
 
-        self.config_resample = self.read_config(configuration_path_resample)
+        self.config_resample = self.read_config(configuration_path)
 
-        self.__create_result_directories()
+        self._create_result_directories()
 
         self.fixed_image = None
         self.moving_image = None
@@ -49,14 +49,14 @@ class TransformDemonsSITK(TransformationInterface):
         moving_image_warped = self.__resample(
             sitk.ReadTransform(transformation_path.as_posix()))
 
-        path_output = self.__save_results(moving_image_warped)
+        path_output = self._save_results(moving_image_warped)
 
         return path_output
 
-    def __save_results(self, deformed):
-        path_deformed = self.__create_result_path(self.path_fixed.stem,
-                                                  self.path_moving.stem,
-                                                  ".nii")
+    def _save_results(self, deformed):
+        path_deformed = self._create_result_path(self.path_fixed.stem,
+                                                 self.path_moving.stem,
+                                                 ".nii")
 
         sitk.WriteImage(deformed, path_deformed)
 

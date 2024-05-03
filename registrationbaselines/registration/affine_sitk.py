@@ -23,7 +23,7 @@ class AffineSITK(RegistrationInterface):
         # resample configuration
         self.config_resample = self.read_config(configuration_path_resample)
 
-        self.__create_result_directories()
+        self._create_result_directories()
 
         # paths
         self.fixed_path = Path()
@@ -67,7 +67,7 @@ class AffineSITK(RegistrationInterface):
             result_transformation, fixed_image, moving_image)
 
         # save the results
-        self.__save_results(result_transformed_image, result_transformation)
+        self._save_results(result_transformed_image, result_transformation)
 
         self.__print_registratoin_result(registration, result_transformation)
 
@@ -80,11 +80,11 @@ class AffineSITK(RegistrationInterface):
 
         return self.result_transformation_path
 
-    def __save_results(self, deformed, deformation):
-        self.result_transformed_image_path, self.result_transformation_path = self.__create_result_paths(self.fixed_path.stem,
-                                                                                                         self.moving_path.stem,
-                                                                                                         ".nii",
-                                                                                                         ".tfm")
+    def _save_results(self, deformed, deformation):
+        self.result_transformed_image_path, self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
+                                                                                                        self.moving_path.stem,
+                                                                                                        ".nii",
+                                                                                                        ".tfm")
 
         sitk.WriteImage(deformed, self.result_transformed_image_path)
         sitk.WriteTransform(deformation, self.result_transformation_path)

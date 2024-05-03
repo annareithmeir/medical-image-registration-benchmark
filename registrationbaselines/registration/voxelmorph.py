@@ -24,7 +24,7 @@ class VoxelmorphReg(RegistrationInterface):
 
         self.configuration = self.read_config(configuration_path)
 
-        self.__create_result_directories()
+        self._create_result_directories()
 
         self.fixed_affine = None
 
@@ -68,7 +68,7 @@ class VoxelmorphReg(RegistrationInterface):
         moved = moved.detach().cpu().numpy().squeeze()
         warp = warp.detach().cpu().numpy().squeeze()
 
-        self.__save_results(moved, warp)
+        self._save_results(moved, warp)
 
     def get_transformation_path(self):
 
@@ -84,12 +84,12 @@ class VoxelmorphReg(RegistrationInterface):
 
         return self.path_result_transformed_image
 
-    def __save_results(self, deformed, deformation):
+    def _save_results(self, deformed, deformation):
         self.path_result_transformed_image, self.path_result_transformation = \
-            self.__create_result_paths(self.path_fixed.stem,
-                                       self.path_moving.stem,
-                                       ".nii",
-                                       ".nii")
+            self._create_result_paths(self.path_fixed.stem,
+                                      self.path_moving.stem,
+                                      ".nii",
+                                      ".nii")
 
         vxm.py.utils.save_volfile(
             deformed, self.path_result_transformed_image, self.fixed_affine)

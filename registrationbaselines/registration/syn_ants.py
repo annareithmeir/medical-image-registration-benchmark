@@ -20,7 +20,7 @@ class SyNANTs(RegistrationInterface):
 
         self.configuration = self.read_config(configuration_path)
 
-        self.__create_result_directories()
+        self._create_result_directories()
 
         # paths
         self.fixed_path = Path()
@@ -54,7 +54,7 @@ class SyNANTs(RegistrationInterface):
             write_composite_transform=True  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
 
-        self.__save_results(
+        self._save_results(
             registration['warpedmovout'], registration['fwdtransforms'])
 
     def get_transformation_path(self):
@@ -63,12 +63,12 @@ class SyNANTs(RegistrationInterface):
     def get_transformed_image_path(self):
         return self.result_transformed_image_path
 
-    def __save_results(self, deformed, deformation):
+    def _save_results(self, deformed, deformation):
         self.result_transformed_image_path, self.result_transformation_path = \
-            self.__create_result_paths(self.fixed_path.stem,
-                                       self.moving_path.stem,
-                                       ".nii",
-                                       ".h5")
+            self._create_result_paths(self.fixed_path.stem,
+                                      self.moving_path.stem,
+                                      ".nii",
+                                      ".h5")
 
         deformed.to_filename(self.result_transformed_image_path)
 

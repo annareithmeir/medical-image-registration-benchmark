@@ -20,7 +20,7 @@ class BSplineNiftyReg(RegistrationInterface):
 
         self.configuration = self.read_config(configuration_path)
 
-        self.__create_result_directories()
+        self._create_result_directories()
 
         # paths
         self.fixed_path = Path()
@@ -65,7 +65,7 @@ class BSplineNiftyReg(RegistrationInterface):
 
         return self.result_transformation_path
 
-    def __save_results(self, deformed, deformation):
+    def _save_results(self, deformed, deformation):
         """
         Nothing happens here because saving is done thorugh the command line.
         """
@@ -75,10 +75,10 @@ class BSplineNiftyReg(RegistrationInterface):
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.result_control_grid_path = self.__create_result_paths(self.fixed_path.stem,
-                                                                                                       self.moving_path.stem,
-                                                                                                       ".nii",
-                                                                                                       ".nii")
+        self.result_transformed_image_path, self.result_control_grid_path = self._create_result_paths(self.fixed_path.stem,
+                                                                                                      self.moving_path.stem,
+                                                                                                      ".nii",
+                                                                                                      ".nii")
 
         # control point grid is only temporary, we want to remove it later
         self.result_control_grid_path = Path(

@@ -42,18 +42,17 @@ class RegistrationInterface(ABC):
         """
 
     @abstractmethod
-    def __save_results(self, deformed, deformation):
+    def _save_results(self, deformed, deformation):
         """
         Save the results of the registration.
         """
 
-    def __create_result_directories(self):
+    def _create_result_directories(self):
         """
         Create the directories to save the results.
         """
 
-        self.path_results = Path(
-            self.configuration["result_path"]) / self.method
+        self.path_results = Path(self.configuration["result_path"])
 
         # create directory in base_dir called method
         method_dir = self.path_results / self.method
@@ -66,11 +65,11 @@ class RegistrationInterface(ABC):
         self.path_deformations = method_dir / 'deformations'
         self.path_deformations.mkdir(parents=True, exist_ok=True)
 
-    def __create_result_paths(self,
-                              name_fixed: str,
-                              name_moving: str,
-                              extension_image: str,
-                              extension_transformation: str):
+    def _create_result_paths(self,
+                             name_fixed: str,
+                             name_moving: str,
+                             extension_image: str,
+                             extension_transformation: str):
         """
         Create the paths for the result files (warped image and transformation).
         """
