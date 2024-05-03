@@ -35,7 +35,7 @@ class RegistrationInterface(ABC):
         Return the transformed image.
         """
 
-    def __save_results(deformed, deformation):
+    def __save_results(self, deformed, deformation):
         """
         Save the results of the registration.
         """
