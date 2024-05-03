@@ -6,7 +6,6 @@ import os
 import torch
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'
@@ -24,6 +23,8 @@ class VoxelmorphReg(RegistrationInterface):
         self.method = "VoxelMorph"
 
         self.configuration = self.read_config(configuration_path)
+
+        self.__create_result_directories()
 
         self.fixed_affine = None
 
@@ -85,12 +86,10 @@ class VoxelmorphReg(RegistrationInterface):
 
     def __save_results(self, deformed, deformation):
         self.path_result_transformed_image, self.path_result_transformation = \
-            utils_commandline.create_result_paths(self.path_fixed.parent,
-                                                  self.path_fixed.stem,
-                                                  self.path_moving.stem,
-                                                  self.method,
-                                                  ".nii",
-                                                  ".nii")
+            self.__create_result_paths(self.path_fixed.stem,
+                                       self.path_moving.stem,
+                                       ".nii",
+                                       ".nii")
 
         vxm.py.utils.save_volfile(
             deformed, self.path_result_transformed_image, self.fixed_affine)

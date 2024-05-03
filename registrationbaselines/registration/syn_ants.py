@@ -2,7 +2,6 @@ import ants
 import os
 from pathlib import Path
 
-from registrationbaselines.core import utils_commandline
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 
 
@@ -20,6 +19,8 @@ class SyNANTs(RegistrationInterface):
         self.method = "SyNANTs"
 
         self.configuration = self.read_config(configuration_path)
+
+        self.__create_result_directories()
 
         # paths
         self.fixed_path = Path()
@@ -64,12 +65,10 @@ class SyNANTs(RegistrationInterface):
 
     def __save_results(self, deformed, deformation):
         self.result_transformed_image_path, self.result_transformation_path = \
-            utils_commandline.create_result_paths(self.fixed_path.parent,
-                                                  self.fixed_path.stem,
-                                                  self.moving_path.stem,
-                                                  self.method,
-                                                  ".nii",
-                                                  ".h5")
+            self.__create_result_paths(self.fixed_path.stem,
+                                       self.moving_path.stem,
+                                       ".nii",
+                                       ".h5")
 
         deformed.to_filename(self.result_transformed_image_path)
 

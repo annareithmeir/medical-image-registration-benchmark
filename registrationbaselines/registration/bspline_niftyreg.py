@@ -20,6 +20,8 @@ class BSplineNiftyReg(RegistrationInterface):
 
         self.configuration = self.read_config(configuration_path)
 
+        self.__create_result_directories()
+
         # paths
         self.fixed_path = Path()
         self.moving_path = Path()
@@ -73,12 +75,10 @@ class BSplineNiftyReg(RegistrationInterface):
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.result_control_grid_path = utils_commandline.create_result_paths(self.working_dir_path,
-                                                                                                                  self.fixed_path.stem,
-                                                                                                                  self.moving_path.stem,
-                                                                                                                  self.method,
-                                                                                                                  ".nii",
-                                                                                                                  ".nii")
+        self.result_transformed_image_path, self.result_control_grid_path = self.__create_result_paths(self.fixed_path.stem,
+                                                                                                       self.moving_path.stem,
+                                                                                                       ".nii",
+                                                                                                       ".nii")
 
         # control point grid is only temporary, we want to remove it later
         self.result_control_grid_path = Path(

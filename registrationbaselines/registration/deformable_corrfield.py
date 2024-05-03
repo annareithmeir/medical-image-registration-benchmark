@@ -22,6 +22,8 @@ class DeformableCorrField(RegistrationInterface):
 
         self.configuration = self.read_config(configuration_path)
 
+        self.__create_result_directories()
+
         # paths
         self.fixed_path = Path()
         self.moving_path = Path()
@@ -154,12 +156,10 @@ class DeformableCorrField(RegistrationInterface):
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.correspondence_path = utils_commandline.create_result_paths(self.fixed_path.parent,
-                                                                                                             self.fixed_path.stem,
-                                                                                                             self.moving_path.stem,
-                                                                                                             self.method,
-                                                                                                             ".nii.gz",
-                                                                                                             ".dat")
+        self.result_transformed_image_path, self.correspondence_path = self.__create_result_paths(self.fixed_path.stem,
+                                                                                                  self.moving_path.stem,
+                                                                                                  ".nii.gz",
+                                                                                                  ".dat")
 
         self.command_register = ["registrationbaselines/libraries/corrField_cpu/corrField_ubuntu",
                                  '-F', self.fixed_path.as_posix(),

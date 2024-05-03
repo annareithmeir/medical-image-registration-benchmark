@@ -2,7 +2,6 @@ from pathlib import Path
 
 import ants
 
-from registrationbaselines.core import utils_commandline
 from registrationbaselines.transforms._interface_transformation import TransformationInterface
 
 
@@ -44,8 +43,9 @@ class TransformSyNANTs(TransformationInterface):
         return path_output
 
     def __save_results(self, deformed):
-        path_output, _ = utils_commandline.create_result_paths(
-            self.path_fixed.parent, self.path_fixed.stem, self.path_moving.stem, self.method, ".nii", ".nii")
+        path_output = self.__create_result_path(self.path_fixed.stem,
+                                                self.path_moving.stem,
+                                                ".nii")
 
         deformed.to_filename(path_output)
 

@@ -2,7 +2,6 @@ from pathlib import Path
 
 import SimpleITK as sitk
 
-from registrationbaselines.core import utils_commandline
 from registrationbaselines.transforms._interface_transformation import TransformationInterface
 
 
@@ -19,6 +18,8 @@ class TransformDemonsSITK(TransformationInterface):
         self.method = "DemonsSITK"
 
         self.config_resample = self.read_config(configuration_path_resample)
+
+        self.__create_result_directories()
 
         self.fixed_image = None
         self.moving_image = None
@@ -53,12 +54,9 @@ class TransformDemonsSITK(TransformationInterface):
         return path_output
 
     def __save_results(self, deformed):
-        path_deformed, _ = utils_commandline.create_result_paths(self.path_fixed.parent,
-                                                                 self.path_fixed.stem,
-                                                                 self.path_moving.stem,
-                                                                 self.method,
-                                                                 ".nii",
-                                                                 "")
+        path_deformed = self.__create_result_path(self.path_fixed.stem,
+                                                  self.path_moving.stem,
+                                                  ".nii")
 
         sitk.WriteImage(deformed, path_deformed)
 

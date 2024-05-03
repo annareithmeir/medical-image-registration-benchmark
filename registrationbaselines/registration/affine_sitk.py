@@ -3,7 +3,6 @@ from pathlib import Path
 import SimpleITK as sitk
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline
 
 
 class AffineSITK(RegistrationInterface):
@@ -23,6 +22,8 @@ class AffineSITK(RegistrationInterface):
 
         # resample configuration
         self.config_resample = self.read_config(configuration_path_resample)
+
+        self.__create_result_directories()
 
         # paths
         self.fixed_path = Path()
@@ -80,12 +81,10 @@ class AffineSITK(RegistrationInterface):
         return self.result_transformation_path
 
     def __save_results(self, deformed, deformation):
-        self.result_transformed_image_path, self.result_transformation_path = utils_commandline.create_result_paths(self.working_dir_path,
-                                                                                                                    self.fixed_path.stem,
-                                                                                                                    self.moving_path.stem,
-                                                                                                                    self.method,
-                                                                                                                    ".nii",
-                                                                                                                    ".tfm")
+        self.result_transformed_image_path, self.result_transformation_path = self.__create_result_paths(self.fixed_path.stem,
+                                                                                                         self.moving_path.stem,
+                                                                                                         ".nii",
+                                                                                                         ".tfm")
 
         sitk.WriteImage(deformed, self.result_transformed_image_path)
         sitk.WriteTransform(deformation, self.result_transformation_path)
