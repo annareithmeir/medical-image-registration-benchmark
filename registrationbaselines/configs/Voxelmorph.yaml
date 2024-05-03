@@ -1,5 +1,10 @@
-# Voxelmorph training configuration, taking all default parameters from original repo
+result_path : /home/fryderyk/Documents/data/results/
 
+model_path: "/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/tmp/test/0003_final.pt"
+gpu_number: "0"
+multichannel: False
+
+# Voxelmorph training configuration, taking all default parameters from original repo
 result_model_path: "registrationbaselines/tmp/test"
 initial_weights_path : "registrationbaselines/tmp/test/_w.pt"
 batch_size: 1 #1
