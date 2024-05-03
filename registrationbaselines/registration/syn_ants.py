@@ -47,8 +47,8 @@ class SyNANTs(RegistrationInterface):
         registration = ants.registration(
             fixed=fixed_image,
             moving=moving_image,
-            type_of_transform='SyN',
-            write_composite_transform=True # this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
+            type_of_transform='SyNOnly',
+            write_composite_transform=True  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
         
         self.__save_results(registration)
