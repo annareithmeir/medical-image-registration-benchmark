@@ -3,11 +3,12 @@ from pathlib import Path
 
 import yaml
 
+
 class RegistrationInterface(ABC):
     """
     Abstract base class for registration models.
     """
-    
+
     configuration = None
 
     @abstractmethod
@@ -33,11 +34,17 @@ class RegistrationInterface(ABC):
         """
         Return the transformed image.
         """
+
+    def __save_results(deformed, deformation):
+        """
+        Save the results of the registration.
+        """
+
     @staticmethod
     def read_config(file_path: Path):
         """
         Read the configuration file.
         """
-        
+
         with open(file_path, 'r', encoding='utf-8') as file:
             return yaml.safe_load(file)
