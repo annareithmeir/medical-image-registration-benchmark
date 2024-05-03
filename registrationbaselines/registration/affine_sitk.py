@@ -5,6 +5,7 @@ import SimpleITK as sitk
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline
 
+
 class AffineSITK(RegistrationInterface):
     """
     Affine registration using SimpleITK.
@@ -55,18 +56,20 @@ class AffineSITK(RegistrationInterface):
         fixed_image = sitk.ReadImage(fixed_image_path, sitk.sitkFloat32)
         moving_image = sitk.ReadImage(moving_image_path, sitk.sitkFloat32)
 
-        registration = self._create_registration(fixed_image, moving_image, print_progress)
+        registration = self.__create_registration(
+            fixed_image, moving_image, print_progress)
 
         # register the images
         result_transformation = registration.Execute(
             fixed_image, moving_image)
-        result_transformed_image = self._resample(result_transformation, fixed_image, moving_image)
+        result_transformed_image = self.__resample(
+            result_transformation, fixed_image, moving_image)
 
         # save the results
-        self._save_results(result_transformation, result_transformed_image)
+        self.__save_results(result_transformed_image, result_transformation)
 
-        self._print_registratoin_result(registration, result_transformation)
-    
+        self.__print_registratoin_result(registration, result_transformation)
+
     def get_transformed_image_path(self):
         # Return transformed image
         return self.result_transformed_image_path
@@ -76,22 +79,22 @@ class AffineSITK(RegistrationInterface):
 
         return self.result_transformation_path
 
-    def _save_results(self, result_transformation, result_transformed_image):
+    def __save_results(self, deformed, deformation):
         self.result_transformed_image_path, self.result_transformation_path = utils_commandline.create_result_paths(self.working_dir_path,
                                                                                                                     self.fixed_path.stem,
                                                                                                                     self.moving_path.stem,
                                                                                                                     self.method,
                                                                                                                     ".nii",
                                                                                                                     ".tfm")
-        
-        sitk.WriteImage(result_transformed_image, self.result_transformed_image_path)
-        sitk.WriteTransform(result_transformation, self.result_transformation_path)
 
-    def _create_registration(self, fixed_image, moving_image, print_progress):
+        sitk.WriteImage(deformed, self.result_transformed_image_path)
+        sitk.WriteTransform(deformation, self.result_transformation_path)
+
+    def __create_registration(self, fixed_image, moving_image, print_progress):
         registration = sitk.ImageRegistrationMethod()
 
-        self._set_similarity_metric(registration)
-        self._set_optimizer(registration)
+        self.__set_similarity_metric(registration)
+        self.__set_optimizer(registration)
 
         # create and set affine initial transform
         initial_transform = sitk.CenteredTransformInitializer(
@@ -105,11 +108,11 @@ class AffineSITK(RegistrationInterface):
 
         if print_progress:
             registration.AddCommand(
-                sitk.sitkIterationEvent, lambda: self._print_progress(registration))
-                
+                sitk.sitkIterationEvent, lambda: self.__print_progress(registration))
+
         return registration
 
-    def _set_optimizer(self, registration):
+    def __set_optimizer(self, registration):
         if self.config_reg['optimiser'] == "regular_step_gradient_descent":
             registration.SetOptimizerAsRegularStepGradientDescent(
                 learningRate=self.config_reg['learning_rate'],
@@ -121,7 +124,7 @@ class AffineSITK(RegistrationInterface):
         else:
             raise ValueError("Invalid optimizer")
 
-    def _set_similarity_metric(self, registration):
+    def __set_similarity_metric(self, registration):
         if self.config_reg['similarity_metric'] == "NCC":
             registration.SetMetricAsCorrelation()
         elif self.config_reg['similarity_metric'] == "MATTES_MI":
@@ -132,15 +135,15 @@ class AffineSITK(RegistrationInterface):
         else:
             raise ValueError("Invalid similarity metric")
 
-    def _set_interpolator(self, sitk_object):
+    def __set_interpolator(self, sitk_object):
         if self.config_resample['interpolator'] == "sitkLinear":
             sitk_object.SetInterpolator(sitk.sitkLinear)
         elif self.config_resample['interpolator'] == "sitkHammingWindowedSinc":
             sitk_object.SetInterpolator(sitk.sitkHammingWindowedSinc)
         else:
             raise ValueError("Invalid interpolator")
-    
-    def _print_registratoin_result(self, registration, transformation):
+
+    def __print_registratoin_result(self, registration, transformation):
         print("-------")
         print(transformation)
         print(
@@ -148,20 +151,21 @@ class AffineSITK(RegistrationInterface):
         print(f" Iteration: {registration.GetOptimizerIteration()}")
         print(f" Metric value: {registration.GetMetricValue()}")
 
-    def _resample(self, transformation, fixed_image: sitk.Image, moving_image: sitk.Image):
+    def __resample(self, transformation, fixed_image: sitk.Image, moving_image: sitk.Image):
         """
         Resample the moving image using the transformation.
         """
         resampler = sitk.ResampleImageFilter()
         resampler.SetReferenceImage(fixed_image)
-        self._set_interpolator(resampler)
-        resampler.SetDefaultPixelValue(self.config_resample['default_pixel_value'])
+        self.__set_interpolator(resampler)
+        resampler.SetDefaultPixelValue(
+            self.config_resample['default_pixel_value'])
         resampler.SetTransform(transformation)
 
         return resampler.Execute(moving_image)
 
-    @ staticmethod
-    def _print_progress(method):
+    @staticmethod
+    def __print_progress(method):
         if method.GetOptimizerIteration() == 0:
             print("Estimated Scales: ", method.GetOptimizerScales())
         print(
