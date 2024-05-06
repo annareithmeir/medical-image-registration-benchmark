@@ -1,0 +1,24 @@
+# ConvexAdam config
+
+result_path : /home/anna/PycharmProjects/registrationbaselines/tmp/convexadam
+
+# General training args
+batch_size: 1
+
+#ConvexAdam specific args
+features: MIND # MIND or nnUNet. If MIND then mind_r and mind_d must be set.
+mind_r: 2
+mind_d: 1
+grid_sp: 6 # kernel size for feature 3davgpool, 6
+lambda_weight: 1.25
+disp_hw: 4 #4
+selected_niter: 80
+selected_smooth: 0
+grid_sp_adam: 2 #2
+ic: True
+use_mask: False
+
+
+# torch args
+gpu: '0'
+cudnn_nondet: False
