@@ -22,7 +22,12 @@ use_diff_version: True #False
 # wandb and torch args
 use_wandb: True
 wandb_config_path: "registrationbaselines/configs/Wandb.yaml"
-gpu: '0'
+gpu: '0' # -1 if cpu
 cudnn_nondet: False
 save_checkpoint: 20
 model_name: test_model
+
+
+# inference params
+inference_model_path: "tmp/test_lapirn/test_modelstagelvl3_final.pth"
+result_path: "tmp/test_lapirn"

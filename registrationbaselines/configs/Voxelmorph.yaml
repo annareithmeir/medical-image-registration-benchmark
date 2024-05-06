@@ -25,3 +25,5 @@ wandb_config_path: "registrationbaselines/configs/Wandb.yaml"
 gpu:  '0'
 cudnn_nondet: False #False
 save_checkpoint : 20 #20
+
+
