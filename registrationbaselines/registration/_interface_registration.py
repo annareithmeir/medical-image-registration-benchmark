@@ -77,6 +77,9 @@ class RegistrationInterface(ABC):
         name_moving = name_moving.replace(".nii", "")
         name_fixed = name_fixed.replace(".nii", "")
 
+        name_moving = name_moving.replace(".gz", "")
+        name_fixed = name_fixed.replace(".gz", "")
+
         path_deformed = self.path_deformed / \
             f"{name_moving}_deformed_to_{name_fixed}"
         path_deformation = self.path_deformations / \

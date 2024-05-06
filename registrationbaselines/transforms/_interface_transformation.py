@@ -42,7 +42,7 @@ class TransformationInterface(ABC):
         """
 
         self.path_results = Path(
-            self.configuration["result_path"]) / self.method
+            self.configuration["result_path"])
 
         # create directory in base_dir called method
         method_dir = self.path_results / self.method
@@ -59,6 +59,11 @@ class TransformationInterface(ABC):
         """
         Create the paths for the result files (warped image and transformation).
         """
+        name_moving = name_moving.replace(".nii", "")
+        name_fixed = name_fixed.replace(".nii", "")
+
+        name_moving = name_moving.replace(".gz", "")
+        name_fixed = name_fixed.replace(".gz", "")
 
         path_deformed = self.path_deformed / \
             f"{name_moving}_deformed_to_{name_fixed}"

@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.core import utils_nifti
 
 
 class SyNANTs(RegistrationInterface):
@@ -14,6 +15,8 @@ class SyNANTs(RegistrationInterface):
     def __init__(self, configuration_path: Path) -> None:
         """
         Initialize the registration model.
+
+        NOTE: the displacement field won't work in slicer correctly if the correct itent code is set - the original should be left.
         """
 
         self.method = "SyNANTs"
@@ -67,10 +70,13 @@ class SyNANTs(RegistrationInterface):
         self.result_transformed_image_path, self.result_transformation_path = \
             self._create_result_paths(self.fixed_path.stem,
                                       self.moving_path.stem,
-                                      ".nii",
-                                      ".h5")
+                                      ".nii.gz",
+                                      ".nii.gz")
 
+        # save transformation (by converting to .nii.gz)
+        utils_nifti.convert_h5_to_nii(self.fixed_path,
+                                      Path(deformation),
+                                      self.result_transformation_path)
+
+        # save transformed image
         deformed.to_filename(self.result_transformed_image_path)
-
-        # the transformation is already save in a temp folder, so we just move it
-        os.rename(deformation, self.result_transformation_path)
