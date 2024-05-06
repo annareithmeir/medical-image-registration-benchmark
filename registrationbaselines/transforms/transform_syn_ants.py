@@ -32,9 +32,6 @@ class TransformSyNANTs(TransformationInterface):
         Returns the path to the transformed image.
         """
 
-        # ensure that the transformation is .h5
-        assert transformation_path.suffix == ".h5", "Transformation should be .h5"
-
         self.path_fixed = fixed_image_path
         self.path_moving = moving_image_path
 
@@ -49,7 +46,7 @@ class TransformSyNANTs(TransformationInterface):
     def _save_results(self, deformed):
         path_output = self._create_result_path(self.path_fixed.stem,
                                                self.path_moving.stem,
-                                               ".nii")
+                                               ".nii.gz")
 
         deformed.to_filename(path_output)
 
