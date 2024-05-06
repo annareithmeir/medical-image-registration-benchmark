@@ -1,8 +1,10 @@
 from pathlib import Path
+import os
 
 import numpy as np
 import nibabel as nib
 from scipy.ndimage import zoom
+import ants.utils as utils_ants
 
 # intent codes for nifti files - at the moment we only need NIFTI_INTENT_DISPVECT for setting the displacement field
 INTENT_CODES = ['NIFTI_INTENT_CORREL', 'NIFTI_INTENT_TTEST', 'NIFTI_INTENT_FTEST',
@@ -143,3 +145,28 @@ def set_intent_code(path: Path, intent_code: str) -> None:
         nib.save(new_image, path.as_posix())
     except Exception as e:
         print(f"Error saving the file: {e}")
+
+
+def convert_h5_to_nii(path_fixed: Path, path_h5: Path, path_niigz: Path) -> None:
+    """
+    Convert the .h5 transformation to a .nii.gz transformation. Also requires the fixed (reference) image.
+    """
+
+    assert path_niigz.suffixes == ['.nii'] or path_niigz.suffixes == ['.nii', '.gz'], \
+        f"File {path_niigz} is not a nifti file."
+    assert path_h5.suffix == '.h5', f"File {path_h5} is not a .h5 file."
+    assert path_fixed.exists() and path_h5.exists() and path_niigz.exists(), \
+        f"Files {path_fixed}, {path_h5}, or {path_niigz} do not exist."
+
+    args = ['-d', '3',
+            '-r', path_fixed.as_posix(),
+            '-t', path_h5.as_posix(),
+            '-o', f"[{path_niigz.as_posix()}, 1]",
+            '--verbose']
+
+    libfn = utils_ants.get_lib_fn('antsApplyTransforms')
+
+    libfn(args)
+
+    if not path_niigz.exists():
+        raise FileNotFoundError(f"Couldn't transform.")
