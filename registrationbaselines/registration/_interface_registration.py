@@ -74,6 +74,9 @@ class RegistrationInterface(ABC):
         Create the paths for the result files (warped image and transformation).
         """
 
+        name_moving = name_moving.replace(".nii", "")
+        name_fixed = name_fixed.replace(".nii", "")
+
         path_deformed = self.path_deformed / \
             f"{name_moving}_deformed_to_{name_fixed}"
         path_deformation = self.path_deformations / \
