@@ -42,7 +42,7 @@ class TransformationInterface(ABC):
         """
 
         self.path_results = Path(
-            self.configuration["result_path"]) / self.method
+            self.configuration["result_path"])
 
         # create directory in base_dir called method
         method_dir = self.path_results / self.method
