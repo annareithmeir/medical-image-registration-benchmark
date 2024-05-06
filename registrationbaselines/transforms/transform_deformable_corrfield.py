@@ -12,22 +12,25 @@ class TransformDeformableCorrField(TransformationInterface):
     Deformable transformation using corrField.
     """
 
-    def __init__(self):
+    def __init__(self, configuration_path: Path) -> None:
         """
         Initialize the transformation model.
         """
-        
+
         self.method = "DeformableCorrField"
-        
+
+        self.configuration = self.read_config(configuration_path)
+
+        self._create_result_directories()
+
         self.fixed_path = Path()
         self.moving_path = Path()
         self.correspondence_path = Path()
-        
+
         self.command = []
-        
+
         self.result_transformed_image_path = Path()
-        
-    
+
     def apply_transformation(self,
                              fixed_image_path: Path,
                              moving_image_path: Path,
@@ -35,42 +38,40 @@ class TransformDeformableCorrField(TransformationInterface):
         """
         Returns the path to the transformed image.
         """
-        
+
         self.fixed_path = fixed_image_path
         self.moving_path = moving_image_path
         self.correspondence_path = transformation_path
-        
+
         self.__create_transformation_command()
         utils_commandline.run_command_in_terminal(self.command,
                                                   self.result_transformed_image_path.exists,
                                                   print_command_list=True)
-        
+
         self.__rotate_warped_image_by_180_around_x_axis()
-        
 
         return self.result_transformed_image_path
-    
-    
+
+    def _save_results(self, deformed):
+        """
+        Nothing happens here because saving is done thorugh the command line.
+        """
+
     def __create_transformation_command(self):
         """
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, _ = utils_commandline.create_result_paths(self.fixed_path.parent,
-                                                                                                             self.fixed_path.stem,
-                                                                                                             self.moving_path.stem,
-                                                                                                             self.method,
-                                                                                                             ".nii.gz",
-                                                                                                             ".dat")
-        
+        self.result_transformed_image_path = self._create_result_path(self.fixed_path.stem,
+                                                                      self.moving_path.stem,
+                                                                      ".nii.gz")
+
         self.command = ["registrationbaselines/libraries/corrField_cpu/applyCorrField_ubuntu",
                         '-M', self.moving_path.as_posix(),
                         '-O', self.correspondence_path.as_posix(),
                         '-W', self.result_transformed_image_path.as_posix()
                         ]
-    
-    
-    
+
     def __rotate_warped_image_by_180_around_x_axis(self) -> None:
         # transform the image
         rotation_matrix_180_around_x = np.array([

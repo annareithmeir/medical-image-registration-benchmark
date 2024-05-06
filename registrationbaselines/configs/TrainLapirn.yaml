@@ -1,5 +1,3 @@
-# Voxelmorph training configuration, taking all default parameters from original repo
-
 # General training args
 result_model_path: "tmp/test_lapirn"
 initial_weights_path: "tmp/test_lapirn/_w.pt"
