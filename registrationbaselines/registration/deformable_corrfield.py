@@ -22,6 +22,8 @@ class DeformableCorrField(RegistrationInterface):
 
         self.configuration = self.read_config(configuration_path)
 
+        self._create_result_directories()
+
         # paths
         self.fixed_path = Path()
         self.moving_path = Path()
@@ -36,18 +38,18 @@ class DeformableCorrField(RegistrationInterface):
     def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False) -> None:
         """
             Registration using corrField.
-            
+
             This is a 3 step process.
             1. Register both images to create correspondences - this needs a mask (correspondences are only searched in the mask area)
             2. Apply the correspondences to the moving image.
             3. The warped image has to be rotated by 180 degrees around the x-axis to be in the same orientation as the fixed image.
         """
-        
+
         self.fixed_path = fixed_image_path
         self.moving_path = moving_image_path
-        
+
         self.__chek_all_inputs()
-        
+
         self.__create_registration_command()
         utils_commandline.run_command_in_terminal(self.command_register,
                                                   self.correspondence_path.exists,
@@ -57,69 +59,83 @@ class DeformableCorrField(RegistrationInterface):
         utils_commandline.run_command_in_terminal(self.command_transform,
                                                   self.result_transformed_image_path.exists,
                                                   print_command_list=True)
-        
+
         self.__rotate_warped_image_by_180_around_x_axis()
-        
+
         # we don't need the mask anymore so let's delete it
         self.mask_path.unlink()
-        
+
     def get_transformed_image_path(self):
         # Return transformed image
         return self.result_transformed_image_path
 
     def get_transformation_path(self):
         # Return transformation
-        
-        warnings.warn("CorrField doesn't provide a transformation, only a correspondences file (for now).")
-        
+
+        warnings.warn(
+            "CorrField doesn't provide a transformation, only a correspondences file (for now).")
+
         return self.correspondence_path
+
+    def _save_results(self, deformed, deformation):
+        """
+        Nothing happens here because saving is done thorugh the command line.
+        """
 
     def set_fixed_mask(self, mask_path: Path) -> None:
         """
         You may want to set a non-dummy mask for the registration.
         """
         self.mask_path = mask_path
-    
+
     def __chek_all_inputs(self):
         """
         Helper function to check all inputs.
         """
         # check that both images exist
-        assert self.fixed_path.exists(), f"File {self.fixed_path} does not exist."
-        assert self.moving_path.exists(), f"File {self.moving_path} does not exist."
-        
+        assert self.fixed_path.exists(
+        ), f"File {self.fixed_path} does not exist."
+        assert self.moving_path.exists(
+        ), f"File {self.moving_path} does not exist."
+
         # if no mask is given, create a dummy mask
         if self.mask_path == Path():
-            self.mask_path = Path(self.fixed_path.as_posix().replace(".nii", "_mask.nii"))
+            self.mask_path = Path(
+                self.fixed_path.as_posix().replace(".nii", "_mask.nii"))
             self.__create_empty_fixed_image_mask()
-        assert self.mask_path.exists(), f"File {self.mask_path} does not exist."
-        
+        assert self.mask_path.exists(
+        ), f"File {self.mask_path} does not exist."
+
         # need to be ".nii.gz"
-        assert self.fixed_path.suffixes == [".nii", ".gz"], f"File {self.fixed_path} is not a .nii.gz file."
-        assert self.moving_path.suffixes == [".nii", ".gz"], f"File {self.moving_path} is not a .nii.gz file."
-        assert self.mask_path.suffixes == [".nii", ".gz"], f"File {self.moving_path} is not a .nii.gz file."
-        
+        assert self.fixed_path.suffixes == [
+            ".nii", ".gz"], f"File {self.fixed_path} is not a .nii.gz file."
+        assert self.moving_path.suffixes == [
+            ".nii", ".gz"], f"File {self.moving_path} is not a .nii.gz file."
+        assert self.mask_path.suffixes == [
+            ".nii", ".gz"], f"File {self.moving_path} is not a .nii.gz file."
+
         # check all voxel sizes
         self.__check_if_image_has_isotropic_voxel_size(self.fixed_path)
         self.__check_if_image_has_isotropic_voxel_size(self.moving_path)
         self.__check_if_image_has_isotropic_voxel_size(self.mask_path)
-    
+
     def __check_if_image_has_isotropic_voxel_size(self, image_path: Path) -> None:
         # Check if the voxel size is isotropic
         image = nib.load(image_path)
         voxel_size = image.header.get_zooms()
-        
+
         if not np.allclose(voxel_size, voxel_size[0]):
-            raise ValueError(f"Voxel size of {image_path} is not isotropic: {voxel_size}")
-    
+            raise ValueError(
+                f"Voxel size of {image_path} is not isotropic: {voxel_size}")
+
     def __create_empty_fixed_image_mask(self) -> None:
         # Create a mask with the same dimensions as the fixed image
         fixed_image = nib.load(self.fixed_path)
         mask = np.ones(fixed_image.shape)
-        
+
         # Save the mask
         nib.save(nib.Nifti1Image(mask, fixed_image.affine), self.mask_path)
-    
+
     def __rotate_warped_image_by_180_around_x_axis(self) -> None:
         # transform the image
         rotation_matrix_180_around_x = np.array([
@@ -134,26 +150,25 @@ class DeformableCorrField(RegistrationInterface):
 
         # Save the transformed image
         nib.save(new_image, self.result_transformed_image_path)
-        
+
     def __create_registration_command(self):
         """
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.correspondence_path = utils_commandline.create_result_paths(self.fixed_path.parent,
-                                                                                                             self.fixed_path.stem,
-                                                                                                             self.moving_path.stem,
-                                                                                                             self.method,
-                                                                                                             ".nii.gz",
-                                                                                                             ".dat")
+        self.result_transformed_image_path, self.correspondence_path = self._create_result_paths(self.fixed_path.stem,
+                                                                                                 self.moving_path.stem,
+                                                                                                 ".nii.gz",
+                                                                                                 ".dat")
 
         self.command_register = ["registrationbaselines/libraries/corrField_cpu/corrField_ubuntu",
-                        '-F', self.fixed_path.as_posix(),
-                        '-M', self.moving_path.as_posix(),
-                        '-m', self.mask_path.as_posix(),  
-                        '-O', self.correspondence_path.as_posix()]
-        
-        self.command_register = utils_commandline.add_configuration_to_command(self.command_register, self.configuration)
+                                 '-F', self.fixed_path.as_posix(),
+                                 '-M', self.moving_path.as_posix(),
+                                 '-m', self.mask_path.as_posix(),
+                                 '-O', self.correspondence_path.as_posix()]
+
+        self.command_register = utils_commandline.add_configuration_to_command(
+            self.command_register, self.configuration)
 
     def __create_transformation_command(self):
         """
@@ -165,5 +180,3 @@ class DeformableCorrField(RegistrationInterface):
                                   '-O', self.correspondence_path.as_posix(),
                                   '-W', self.result_transformed_image_path.as_posix()
                                   ]
-    
-    

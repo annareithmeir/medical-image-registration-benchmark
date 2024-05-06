@@ -44,7 +44,10 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
     return path_displacement
 
 
-def apply_transformation(path_fixed: Path, path_moving: Path, path_transfromation: Path) -> Path:
+def apply_transformation(path_fixed: Path,
+                         path_moving: Path,
+                         path_transfromation: Path,
+                         path_transformed: Path) -> Path:
     """
     Apply the transformation to the moving image.
     Works for both affine and non-linear transformations.
@@ -55,24 +58,16 @@ def apply_transformation(path_fixed: Path, path_moving: Path, path_transfromatio
     assert path_transfromation.exists(
     ), f"File {path_transfromation} does not exist."
 
-    if path_transfromation.suffix == ".txt":
-        method = "AffineNiftyReg"
-    else:
-        method = "BSplineNiftyReg"
-
-    path_output, _ = utils_commandline.create_result_paths(
-        path_fixed.parent, path_fixed.stem, path_moving.stem, method, ".nii", ".nii")
-
     path_reg_resample = Path(
         "registrationbaselines/libraries/NiftyReg/reg_resample_ubuntu").absolute()
     command = [path_reg_resample.as_posix(),
                "-ref", path_fixed.as_posix(),
                "-flo", path_moving.as_posix(),
                "-trans", path_transfromation.as_posix(),
-               "-res", path_output.as_posix()]
+               "-res", path_transformed.as_posix()]
 
     utils_commandline.run_command_in_terminal(command,
-                                              check=path_output.exists,
+                                              check=path_transformed.exists,
                                               print_command_list=True)
 
-    return path_output
+    return path_transformed

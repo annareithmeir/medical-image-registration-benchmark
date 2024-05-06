@@ -1,4 +1,6 @@
-# standard input and output paths are not defined here,
+result_path : /home/fryderyk/Documents/data/results/
+
+# input and output paths are not defined here,
 # because we want to do it in the register() function directly
 
 aff:        false

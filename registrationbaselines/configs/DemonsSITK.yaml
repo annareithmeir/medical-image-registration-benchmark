@@ -1,3 +1,5 @@
+result_path : /home/fryderyk/Documents/data/results/
+
 # matcher
 histogram_levels_int8:        128
 histogram_levels_float:       1024

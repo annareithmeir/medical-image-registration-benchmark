@@ -1,2 +1,4 @@
+result_path : /home/fryderyk/Documents/data/results/
+
 interpolator:        sitkHammingWindowedSinc
 default_pixel_value: 0
