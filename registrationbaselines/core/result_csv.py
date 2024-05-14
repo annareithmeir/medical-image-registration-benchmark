@@ -129,13 +129,3 @@ class EvaluationResults:
         with open(self.file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(rows)
-
-
-# Example usage:
-eval_results = EvaluationResults('evaluation_results.csv')
-
-eval_results.calculate_mean()
-
-eval_results.calculate_stddev()
-
-x = 5
