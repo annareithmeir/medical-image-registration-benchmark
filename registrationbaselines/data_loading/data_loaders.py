@@ -220,34 +220,50 @@ class BaselineTransformations():
 
 
 class L2RLungCTDataset(Dataset):
-    def __init__(self, root_dir, return_segmentation=False):
+    def __init__(self, path_files: Union[Path, List[Path]], return_segmentation=False):
         """
         Args:
             json_file (string): Path to the JSON file with annotations.
             root_dir (string): Directory with all the images.
             transform (callable, optional): Optional transform to be applied on a sample.
         """
+        self.path_list = None
 
-        json_file = root_dir / 'LungCT_dataset.json'
+        if isinstance(path_files, Path):
 
-        with open(json_file, 'r') as file:
-            self.dataset_info = json.load(file)
+            root_dir = path_files
 
-        self.root_dir = Path(root_dir)
+            json_file = root_dir / 'LungCT_dataset.json'
+
+            with open(json_file, 'r') as file:
+                self.dataset_info = json.load(file)
+
+            self.root_dir = Path(root_dir)
+
+            self.data = self.dataset_info['training']
+
+            self.full_dataset = True
+        elif isinstance(path_files, list) and all(isinstance(path, Path) for path in path_files):
+            self.path_list = path_files
+            self.full_dataset = False
+        else:
+            raise TypeError("path_files must be a Path or a list of Paths.")
 
         self.return_segmentation = return_segmentation
-
-        self.data = self.dataset_info['training']
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx) -> Path:
 
-        # depending on whether we want the segmentation or the image, return the corresponding path
-        if self.return_segmentation:
-            result_path = self.root_dir / self.data[idx]['mask']
+        if self.full_dataset:
+            # depending on whether we want the segmentation or the image, return the corresponding path
+            if self.return_segmentation:
+                result_path = self.root_dir / self.data[idx]['mask']
+            else:
+                result_path = self.root_dir / self.data[idx]['image']
+
         else:
-            result_path = self.root_dir / self.data[idx]['image']
+            result_path = self.path_list[idx]
 
         return result_path
