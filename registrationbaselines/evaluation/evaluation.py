@@ -49,6 +49,15 @@ class Evaluation():
 
         self.results = result_csv.EvaluationResults(self.path_results)
 
+
+    def __del__(self):
+        """
+        Clean up the temporary directory (called at the end of scope to delete the temporary directory).
+        """
+
+        if self.transformation.path_deformed is not None and self.transformation.path_deformed.exists():
+            shutil.rmtree(self.transformation.path_deformed)
+
     # evaluates all evaluation metrics for a path pair
 
     def evaluate(self,
