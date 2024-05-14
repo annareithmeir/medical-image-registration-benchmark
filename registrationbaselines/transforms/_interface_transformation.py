@@ -65,6 +65,9 @@ class TransformationInterface(ABC):
         name_moving = name_moving.replace(".gz", "")
         name_fixed = name_fixed.replace(".gz", "")
 
+        if not self.path_deformed.exists():
+            self.path_deformed.mkdir(parents=True, exist_ok=True)
+
         path_deformed = self.path_deformed / \
             f"{name_moving}_deformed_to_{name_fixed}"
 
