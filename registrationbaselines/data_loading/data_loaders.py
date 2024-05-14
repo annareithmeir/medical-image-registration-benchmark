@@ -220,7 +220,7 @@ class BaselineTransformations():
 
 
 class L2RLungCTDataset(Dataset):
-    def __init__(self, path_files: Union[Path, List[Path]], return_segmentation=False):
+    def __init__(self, path_files: Union[Path, List[List[Path]]], return_segmentation=False):
         """
         Args:
             json_file (string): Path to the JSON file with annotations.
@@ -243,6 +243,7 @@ class L2RLungCTDataset(Dataset):
             self.data = self.dataset_info['training']
 
             self.full_dataset = True
+
         elif isinstance(path_files, list) and all(isinstance(path, Path) for path in path_files):
             self.path_list = path_files
             self.full_dataset = False
@@ -254,16 +255,22 @@ class L2RLungCTDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, idx) -> Path:
+    def __getitem__(self, idx) -> tuple[Path, Path]:
+
+        fixed_path = None
+        moving_path = None
 
         if self.full_dataset:
             # depending on whether we want the segmentation or the image, return the corresponding path
             if self.return_segmentation:
-                result_path = self.root_dir / self.data[idx]['mask']
+                fixed_path = self.root_dir / self.data[idx]['mask']
+                moving_path = self.root_dir / self.data[idx + 20]['mask']
             else:
-                result_path = self.root_dir / self.data[idx]['image']
+                fixed_path = self.root_dir / self.data[idx]['image']
+                moving_path = self.root_dir / self.data[idx + 20]['image']
 
         else:
-            result_path = self.path_list[idx]
+            fixed_path = self.path_list[idx][0]
+            moving_path = self.path_list[idx][1]
 
-        return result_path
+        return fixed_path, moving_path
