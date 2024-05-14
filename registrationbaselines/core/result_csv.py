@@ -1,0 +1,141 @@
+import csv
+import os
+import statistics
+
+
+class EvaluationResults:
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+        # Create the CSV file if it doesn't exist
+        if not os.path.exists(self.file_path):
+            open(self.file_path, 'w').close()
+
+    def add_value(self, method, value):
+        """
+        Add a value to the specified method in the CSV file.
+
+        If you want to add a new method you need to remove mean and std first
+
+        Args:
+            method (str): The method to add the value for.
+            value: The value to add.
+
+        Returns:
+            None
+        """
+
+        # Read the current contents of the CSV file
+
+        with open(self.file_path, mode='r', newline='') as file:
+            reader = csv.reader(file)
+            rows = list(reader)
+
+        # Ensure there is a header row
+        if len(rows) == 0:
+            rows.append(['' for _ in range(1)])
+
+        # Find the column index for the given method, or the first empty column
+        header = rows[0]
+        column_index = None
+        for idx, col_name in enumerate(header):
+            if col_name == method:
+                column_index = idx
+                break
+            elif col_name == '' and column_index is None:
+                column_index = idx
+
+        # If no empty column was found and the method is not in the header, add a column
+        if column_index is None:
+            column_index = len(header)
+            header.append(method)
+
+        # Update the header if necessary
+        if header[column_index] == '':
+            header[column_index] = method
+
+        # Find the first empty row in the specified column
+        row_index = None
+        for idx, row in enumerate(rows[1:], start=1):
+            if len(row) <= column_index or row[column_index] == '':
+                row_index = idx
+                break
+
+        # If no empty row was found, add a new row
+        if row_index is None:
+            row_index = len(rows)
+            rows.append([''])
+
+        # Ensure the row has enough columns
+        while len(rows[row_index]) <= column_index:
+            rows[row_index].append('')
+
+        # Add the value to the cell
+        rows[row_index][column_index] = value
+
+        # Write the updated contents back to the CSV file
+        with open(self.file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(rows)
+
+    def calculate_mean(self):
+        self.__calculate_statistics(statistics.mean, 'mean')
+
+    def calculate_stddev(self):
+        self.__calculate_statistics(statistics.stdev, 'std')
+
+    def __calculate_statistics(self, stat_function: callable, function_name: str):
+        # Read the current contents of the CSV file
+        with open(self.file_path, mode='r', newline='') as file:
+            reader = csv.reader(file)
+            rows = list(reader)
+
+        if len(rows) == 0:
+            raise ValueError("The CSV file is empty. Cannot calculate mean.")
+
+        # Check if there is already a row with the word 'function_name'
+        for row in rows:
+            if function_name in row:
+                print(f"{function_name} values already calculated.")
+                return
+
+        header = rows[0]
+        means = []
+
+        # Calculate the mean for each column
+        for col_index in range(len(header)):
+            values = []
+            for row in rows[1:]:
+                if len(row) > col_index and row[col_index] != '':
+                    try:
+                        values.append(float(row[col_index]))
+                    except ValueError:
+                        continue
+            if values:
+                mean_value = stat_function(values)
+            else:
+                mean_value = None
+            means.append(mean_value)
+
+        # Add rows for 'mean' and the calculated mean values
+        mean_row_label = [function_name if col != '' else '' for col in header]
+        mean_values_row = [
+            str(mean) if mean is not None else '' for mean in means]
+
+        rows.append(mean_row_label)
+        rows.append(mean_values_row)
+
+        # Write the updated contents back to the CSV file
+        with open(self.file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(rows)
+
+
+# Example usage:
+eval_results = EvaluationResults('evaluation_results.csv')
+
+eval_results.calculate_mean()
+
+eval_results.calculate_stddev()
+
+x = 5
