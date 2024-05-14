@@ -15,7 +15,6 @@ class TransformationInterface(ABC):
 
     path_results = None
     path_deformed = None
-    path_deformed_image = None
 
     @abstractmethod
     def __init__(self, configuration):
@@ -31,13 +30,6 @@ class TransformationInterface(ABC):
         """
         Apply a transformation to an image using the provided transformation.
         """
-
-    def get_warped_path(self):
-        """
-        Return the path to the transformed image.
-        """
-
-        return self.path_deformed_image
 
     def _save_results(self, deformed):
         """

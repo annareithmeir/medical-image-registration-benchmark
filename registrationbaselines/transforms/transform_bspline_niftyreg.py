@@ -23,16 +23,19 @@ class TransformBSplineNiftyReg(TransformationInterface):
     def apply_transformation(self,
                              fixed_image_path: Path,
                              moving_image_path: Path,
-                             transformation_path: Path):
+                             transformation_path: Path) -> Path:
         """
         Returns the path to the transformed image.
         """
 
-        path_deformed = self._create_result_path(fixed_image_path.stem,
-                                                 moving_image_path.stem,
-                                                 ".nii.gz")
+        path_deformed_image = self._create_result_path(fixed_image_path.stem,
+                                                       moving_image_path.stem,
+                                                       ".nii.gz")
 
-        return utils_niftyreg.apply_transformation(fixed_image_path, moving_image_path, transformation_path, path_deformed)
+        return utils_niftyreg.apply_transformation(fixed_image_path,
+                                                   moving_image_path,
+                                                   transformation_path,
+                                                   path_deformed_image)
 
     def _save_results(self, deformed):
         """
