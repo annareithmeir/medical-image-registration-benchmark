@@ -1,5 +1,6 @@
 import random
 from pathlib import Path
+import json
 
 from typing import List, Union
 
@@ -77,7 +78,7 @@ class DemoImageDataset(Dataset):
         subject.plot()
 
 
-class L2RLungCTDataset(Dataset):
+class L2RLungCTDatasetOLD(Dataset):
 
     def __init__(self, imgs_path: Path, transforms: list[str] = list(), target_transform=None, idxs: list[int] = None):
 
@@ -216,3 +217,37 @@ class BaselineTransformations():
         list_of_transformations.sort()
 
         return list_of_transformations
+
+
+class L2RLungCTDataset(Dataset):
+    def __init__(self, root_dir, return_segmentation=False):
+        """
+        Args:
+            json_file (string): Path to the JSON file with annotations.
+            root_dir (string): Directory with all the images.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+
+        json_file = root_dir / 'LungCT_dataset.json'
+
+        with open(json_file, 'r') as file:
+            self.dataset_info = json.load(file)
+
+        self.root_dir = Path(root_dir)
+
+        self.return_segmentation = return_segmentation
+
+        self.data = self.dataset_info['training']
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx) -> Path:
+
+        # depending on whether we want the segmentation or the image, return the corresponding path
+        if self.return_segmentation:
+            result_path = self.root_dir / self.data[idx]['mask']
+        else:
+            result_path = self.root_dir / self.data[idx]['image']
+
+        return result_path
