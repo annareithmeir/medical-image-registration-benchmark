@@ -219,6 +219,21 @@ class BaselineTransformations():
         return list_of_transformations
 
 
+class PathPairDataset():
+    """
+    A generic dataset for pairs of paths.
+    """
+
+    def __init__(self, path_pairs: List[tuple[Path, Path]]) -> None:
+        self.path_pairs = path_pairs
+
+    def __len__(self):
+        return len(self.path_pairs)
+
+    def __getitem__(self, idx: int) -> tuple[Path, Path]:
+        return self.path_pairs[idx]
+
+
 class L2RLungCTDataset(Dataset):
     def __init__(self, path_files: Union[Path, List[List[Path]]], return_segmentation=False):
         """
