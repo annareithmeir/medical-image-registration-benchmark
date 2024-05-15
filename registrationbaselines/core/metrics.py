@@ -1,10 +1,33 @@
 from pathlib import Path
-
-from typing import Dict
+import warnings
+from typing import Dict, Tuple
 
 import numpy as np
 from scipy.spatial.distance import dice, directed_hausdorff
 import nibabel as nib
+
+from registrationbaselines.core import utils_metrics
+
+
+def sdlogj(path_displacement: Path) -> Tuple[float, float]:
+    """
+    Calculate the number of foldings and the standard deviation of the logarithm of the Jacobian determinant.
+    """
+
+    displacement = nib.load(path_displacement.as_posix()).get_fdata()
+
+    warnings.warn("I don't know what the +3 and clip does here.")
+
+    temp = utils_metrics.jacobian_determinant(
+        displacement.transpose((3, 4, 0, 1, 2)))
+
+    determinant = (temp + 3).clip(0.000000001, 1000000000)
+
+    num_foldings = (determinant <= 0).astype(float).sum()
+
+    sd_log_det = np.log(determinant).std()
+
+    return sd_log_det, num_foldings
 
 
 def dice_score(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
@@ -25,7 +48,8 @@ def dice_score(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
         Dict[int, float]: A dictionary where keys are class labels and values are the corresponding Dice scores.
     """
 
-    nifti1, nifti2, classes1 = get_maks_and_classes(nifti1_path, nifti2_path)
+    nifti1, nifti2, classes1 = utils_metrics.get_maks_and_classes(
+        nifti1_path, nifti2_path)
 
     dice_scores = {}
 
@@ -58,7 +82,8 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]
         Dict[int, float]: A dictionary where keys are class labels and values are the corresponding Hausdorff distances.
     """
 
-    nifti1, nifti2, classes1 = get_maks_and_classes(nifti1_path, nifti2_path)
+    nifti1, nifti2, classes1 = utils_metrics.get_maks_and_classes(
+        nifti1_path, nifti2_path)
 
     hausdorff_distances = {}
 
@@ -78,38 +103,3 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]
         hausdorff_distances[int(cls)] = current_hausdorff_distance
 
     return hausdorff_distances
-
-
-def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path, remove_zero_class: bool = False) -> Dict[int, float]:
-    """
-    Load two NIfTI files and return them and unique classes - class 0 is removed.
-
-    params:
-    nifti1_path (Path): Path to the first NIfTI file.
-    nifti2_path (Path): Path to the second NIfTI file.
-    remove_zero_class (bool): Whether to remove the zero class from the images (background class).
-    """
-
-    # Load the NIfTI files
-    nifti1 = nib.load(nifti1_path.as_posix()).get_fdata()
-    nifti2 = nib.load(nifti2_path.as_posix()).get_fdata()
-
-    # Ensure the shapes match
-    if nifti1.shape != nifti2.shape:
-        raise ValueError("The two NIfTI files must have the same shape.")
-
-    # Find unique classes in the images
-    classes1 = np.unique(nifti1)
-    classes2 = np.unique(nifti2)
-
-    if remove_zero_class:
-        if classes1[0] == 0.0:
-            classes1 = classes1[1:]
-        if classes2[0] == 0.0:
-            classes2 = classes2[1:]
-
-    # Ensure both files have the same classes
-    if not np.array_equal(classes1, classes2):
-        raise ValueError("The two NIfTI files must have the same classes.")
-
-    return nifti1, nifti2, classes1

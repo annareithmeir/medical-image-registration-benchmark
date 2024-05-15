@@ -88,8 +88,21 @@ class Evaluation():
             self._evaluate_segmentation(
                 path_transformation, path_fixed, path_moving)
 
+        # DISPLACEMENT FIELD
+        for i in tqdm(range(length_datasets)):
+            path_transformation = dataset_transformations[i]
+
+            self._evaluate_displacement(path_transformation)
+
         self.results.calculate_mean()
         self.results.calculate_stddev()
+
+    def _evaluate_displacement(self, path_displacement: Path) -> None:
+
+        sd_log_det, num_foldings = metrics.sdlogj(path_displacement)
+
+        self.results.add_value("sdlogj", sd_log_det)
+        self.results.add_value("num_foldings", num_foldings)
 
     def _evaluate_segmentation(self,
                                path_transformation: Path,
