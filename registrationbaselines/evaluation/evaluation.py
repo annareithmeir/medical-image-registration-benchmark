@@ -92,6 +92,8 @@ class Evaluation():
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
+        self.results.calculate_min()
+        self.results.calculate_max()
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
