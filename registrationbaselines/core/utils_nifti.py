@@ -155,8 +155,8 @@ def convert_h5_to_nii(path_fixed: Path, path_h5: Path, path_niigz: Path) -> None
     assert path_niigz.suffixes == ['.nii'] or path_niigz.suffixes == ['.nii', '.gz'], \
         f"File {path_niigz} is not a nifti file."
     assert path_h5.suffix == '.h5', f"File {path_h5} is not a .h5 file."
-    assert path_fixed.exists() and path_h5.exists() and path_niigz.exists(), \
-        f"Files {path_fixed}, {path_h5}, or {path_niigz} do not exist."
+    assert path_fixed.exists() and path_h5.exists(), \
+        f"Files {path_fixed} or {path_h5} do not exist."
 
     args = ['-d', '3',
             '-r', path_fixed.as_posix(),
@@ -169,4 +169,4 @@ def convert_h5_to_nii(path_fixed: Path, path_h5: Path, path_niigz: Path) -> None
     libfn(args)
 
     if not path_niigz.exists():
-        raise FileNotFoundError(f"Couldn't transform.")
+        raise FileNotFoundError("Couldn't transform.")
