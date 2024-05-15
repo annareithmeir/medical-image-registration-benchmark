@@ -7,9 +7,11 @@ class EvaluationResults:
     def __init__(self, file_path):
         self.file_path = file_path
 
-        # Create the CSV file if it doesn't exist
-        if not os.path.exists(self.file_path):
-            open(self.file_path, 'w').close()
+        # if the csv exists, delete it
+        if os.path.exists(self.file_path):
+            os.remove(self.file_path)
+
+        open(self.file_path, 'w').close()
 
     def add_value(self, method: str, value, row_name: str):
         """
