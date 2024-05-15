@@ -61,6 +61,8 @@ def dice_score(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
 
     dice_scores = {}
 
+    dice_mean = 0
+
     for cls in classes1:
         # Create binary masks for the current class
         mask1 = (nifti1 == cls).astype(int).ravel()
@@ -70,6 +72,11 @@ def dice_score(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
         current_dice_score = 1 - dice(mask1, mask2)
 
         dice_scores[f"dice_{int(cls)}"] = current_dice_score
+
+        dice_mean += current_dice_score
+
+    if len(classes1) > 1:
+        dice_scores["dice_mean"] = dice_mean / len(classes1)
 
     return dice_scores
 
