@@ -1,7 +1,8 @@
 from pathlib import Path
 import shutil
-
+import warnings
 from typing import Optional
+from tqdm import tqdm
 
 from registrationbaselines.core import utils, result_csv
 from registrationbaselines.transforms import \
@@ -66,30 +67,47 @@ class Evaluation():
             shutil.rmtree(self.transformation.path_deformed)
 
     # TODO first column should contain names of the fixed image only
-    def evaluate(self,
-                 path_transformation,
-                 path_fixed_segmentation: Optional[Path] = None,
-                 path_moving_segmentation: Optional[Path] = None,
-                 path_fixed_points: Optional[Path] = None,
-                 path_moving_points: Optional[Path] = None) -> None:
+
+    def evaluate(self, dataset_transformations, dataset_data) -> None:
         """
         Evaluate the registration model.
         """
 
-        # segmentation metrics
-        if path_fixed_segmentation is not None and path_moving_segmentation is not None:
-            # transform the moving segmentation
-            self.path_warped = self.transformation.apply_transformation(
-                path_fixed_segmentation, path_moving_segmentation, path_transformation)
+        # TODO this should be removed once we worke with entire datasets
+        warnings.warn("Restore the assert, when working with entire datasets.")
+        # assert len(dataset_transformations) == len(
+        #     dataset_data), "Number of transformations and data must be the same."
+        length_datasets = len(dataset_transformations)
 
-            # dice coefficient
-            dice = metrics.dice_score(
-                path_fixed_segmentation, self.path_warped)
+        # SEGMENTATIONS
+        for i in tqdm(range(length_datasets)):
+            path_transformation = dataset_transformations[i]
+            path_fixed, path_moving = dataset_data.__getitem__(
+                i, return_segmentation=True)
 
-            for dice_class, dice_value in dice.items():
-                self.results.add_value(dice_class, dice_value)
+            self._evaluate_segmentation(
+                path_transformation, path_fixed, path_moving)
 
-            # hausdorff = metrics.hausdorff_distance(
-            #     path_fixed_segmentation, self.transformation.get_warped_path())
-            # for hausdorff_class, hausdorff_value in hausdorff.items():
-            #     self.results.add_value(hausdorff_class, hausdorff_value)
+        self.results.calculate_mean()
+        self.results.calculate_stddev()
+
+    def _evaluate_segmentation(self,
+                               path_transformation: Path,
+                               path_fixed_segmentation: Path,
+                               path_moving_segmentation: Path) -> None:
+
+        # transform the moving segmentation
+        self.path_warped = self.transformation.apply_transformation(
+            path_fixed_segmentation, path_moving_segmentation, path_transformation)
+
+        # dice coefficient
+        dice = metrics.dice_score(
+            path_fixed_segmentation, self.path_warped)
+
+        for dice_class, dice_value in dice.items():
+            self.results.add_value(dice_class, dice_value)
+
+        # hausdorff = metrics.hausdorff_distance(
+        #     path_fixed_segmentation, self.transformation.get_warped_path())
+        # for hausdorff_class, hausdorff_value in hausdorff.items():
+        #     self.results.add_value(hausdorff_class, hausdorff_value)
