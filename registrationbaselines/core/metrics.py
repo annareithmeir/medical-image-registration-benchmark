@@ -19,14 +19,15 @@ def sdlogj(path_displacement: Path) -> Tuple[float, float]:
 
     displacement = nib.load(path_displacement.as_posix()).get_fdata()
 
-    # remove the 1 dimension
+    # create an sitk image (but remove the 1 dimension)
     displacement_image = sitk.GetImageFromArray(
         displacement.squeeze(), isVector=True)
     jacobian_determinant_image = sitk.DisplacementFieldJacobianDeterminant(
         displacement_image)
     jacobian_determinant = sitk.GetArrayFromImage(jacobian_determinant_image)
 
-    num_foldings = int((jacobian_determinant <= 0).astype(float).sum())
+    # foldings are where the jacobian determinant is negative
+    num_foldings = int((jacobian_determinant < 0).astype(float).sum())
 
     # we now add the absolute value of the minimum value of the jacobian determinant to avoid logs of negative values
     # and we add epsilon to avoid log(0)
