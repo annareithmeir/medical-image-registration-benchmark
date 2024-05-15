@@ -11,7 +11,7 @@ class EvaluationResults:
         if not os.path.exists(self.file_path):
             open(self.file_path, 'w').close()
 
-    def add_value(self, method, value):
+    def add_value(self, method: str, value, row_name: str):
         """
         Add a value to the specified method in the CSV file.
 
@@ -33,7 +33,7 @@ class EvaluationResults:
 
         # Ensure there is a header row
         if len(rows) == 0:
-            rows.append(['' for _ in range(1)])
+            rows.append(['file'])
 
         # Find the column index for the given method, or the first empty column
         header = rows[0]
@@ -73,6 +73,8 @@ class EvaluationResults:
         # Add the value to the cell
         rows[row_index][column_index] = value
 
+        rows[row_index][0] = row_name
+
         # Write the updated contents back to the CSV file
         with open(self.file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
@@ -99,11 +101,11 @@ class EvaluationResults:
                 print(f"{function_name} values already calculated.")
                 return
 
-        header = rows[0]
+        header = rows[0][1:]
         means = []
 
         # Calculate the mean for each column
-        for col_index in range(len(header)):
+        for col_index in range(1, len(header) + 1):
             values = []
             for row in rows[1:]:
                 if len(row) > col_index and row[col_index] != '':
@@ -122,8 +124,8 @@ class EvaluationResults:
         mean_values_row = [
             str(mean) if mean is not None else '' for mean in means]
 
-        rows.append(mean_row_label)
-        rows.append(mean_values_row)
+        rows.append([''] + mean_row_label)
+        rows.append([''] + mean_values_row)
 
         # Write the updated contents back to the CSV file
         with open(self.file_path, mode='w', newline='') as file:

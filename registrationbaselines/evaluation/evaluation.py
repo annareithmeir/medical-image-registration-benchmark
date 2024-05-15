@@ -79,35 +79,32 @@ class Evaluation():
         #     dataset_data), "Number of transformations and data must be the same."
         length_datasets = len(dataset_transformations)
 
-        # SEGMENTATIONS
         for i in tqdm(range(length_datasets)):
             path_transformation = dataset_transformations[i]
             path_fixed, path_moving = dataset_data.__getitem__(
                 i, return_segmentation=True)
 
             self._evaluate_segmentation(
-                path_transformation, path_fixed, path_moving)
+                path_transformation, path_fixed, path_moving, str(path_fixed.stem).split('.')[0])
 
-        # DISPLACEMENT FIELD
-        for i in tqdm(range(length_datasets)):
-            path_transformation = dataset_transformations[i]
-
-            self._evaluate_displacement(path_transformation)
+            self._evaluate_displacement(
+                path_transformation, str(path_fixed.stem).split('.')[0])
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
 
-    def _evaluate_displacement(self, path_displacement: Path) -> None:
+    def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
         sd_log_det, num_foldings = metrics.sdlogj(path_displacement)
 
-        self.results.add_value("sdlogj", sd_log_det)
-        self.results.add_value("num_foldings", num_foldings)
+        self.results.add_value("sdlogj", sd_log_det, name)
+        self.results.add_value("num_foldings", num_foldings, name)
 
     def _evaluate_segmentation(self,
                                path_transformation: Path,
                                path_fixed_segmentation: Path,
-                               path_moving_segmentation: Path) -> None:
+                               path_moving_segmentation: Path,
+                               name: str) -> None:
 
         # transform the moving segmentation
         self.path_warped = self.transformation.apply_transformation(
@@ -118,7 +115,8 @@ class Evaluation():
             path_fixed_segmentation, self.path_warped)
 
         for dice_class, dice_value in dice.items():
-            self.results.add_value(dice_class, dice_value)
+            self.results.add_value(
+                dice_class, dice_value, name)
 
         # hausdorff = metrics.hausdorff_distance(
         #     path_fixed_segmentation, self.transformation.get_warped_path())
