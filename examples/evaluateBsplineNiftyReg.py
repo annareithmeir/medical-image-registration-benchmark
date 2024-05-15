@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+from tqdm import tqdm
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
@@ -18,7 +19,7 @@ def main() -> None:
     loader_transformations = data_loaders.BaselineTransformations(
         Path("/home/fryderyk/Documents/data/results/BSplineNiftyReg"))
 
-    for i in range(min(len(loader_data), len(loader_transformations))):
+    for i in tqdm(range(min(len(loader_data), len(loader_transformations)))):
         path_fixed_segmentation, path_moving_segmentation = loader_data[i]
         path_transformation = loader_transformations[i]
 
