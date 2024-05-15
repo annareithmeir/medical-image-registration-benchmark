@@ -80,9 +80,14 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]
     return hausdorff_distances
 
 
-def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
+def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path, remove_zero_class: bool = False) -> Dict[int, float]:
     """
     Load two NIfTI files and return them and unique classes - class 0 is removed.
+
+    params:
+    nifti1_path (Path): Path to the first NIfTI file.
+    nifti2_path (Path): Path to the second NIfTI file.
+    remove_zero_class (bool): Whether to remove the zero class from the images (background class).
     """
 
     # Load the NIfTI files
@@ -97,10 +102,11 @@ def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path) -> Dict[int, floa
     classes1 = np.unique(nifti1)
     classes2 = np.unique(nifti2)
 
-    if classes1[0] == 0.0:
-        classes1 = classes1[1:]
-    if classes2[0] == 0.0:
-        classes2 = classes2[1:]
+    if remove_zero_class:
+        if classes1[0] == 0.0:
+            classes1 = classes1[1:]
+        if classes2[0] == 0.0:
+            classes2 = classes2[1:]
 
     # Ensure both files have the same classes
     if not np.array_equal(classes1, classes2):
