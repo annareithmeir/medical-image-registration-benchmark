@@ -5,6 +5,7 @@ from typing import Dict, Tuple
 import numpy as np
 from scipy.spatial.distance import dice, directed_hausdorff
 import nibabel as nib
+import SimpleITK as sitk
 
 from registrationbaselines.core import utils_metrics
 
@@ -14,18 +15,24 @@ def sdlogj(path_displacement: Path) -> Tuple[float, float]:
     Calculate the number of foldings and the standard deviation of the logarithm of the Jacobian determinant.
     """
 
+    epsilon = 1e-6  # so we don't get log(0)
+
     displacement = nib.load(path_displacement.as_posix()).get_fdata()
 
-    warnings.warn("I don't know what the +3 and clip does here.")
+    # remove the 1 dimension
+    displacement_image = sitk.GetImageFromArray(
+        displacement.squeeze(), isVector=True)
+    jacobian_determinant_image = sitk.DisplacementFieldJacobianDeterminant(
+        displacement_image)
+    jacobian_determinant = sitk.GetArrayFromImage(jacobian_determinant_image)
 
-    temp = utils_metrics.jacobian_determinant(
-        displacement.transpose((3, 4, 0, 1, 2)))
+    num_foldings = int((jacobian_determinant <= 0).astype(float).sum())
 
-    determinant = (temp + 3).clip(0.000000001, 1000000000)
-
-    num_foldings = (determinant <= 0).astype(float).sum()
-
-    sd_log_det = np.log(determinant).std()
+    # we now add the absolute value of the minimum value of the jacobian determinant to avoid logs of negative values
+    # and we add epsilon to avoid log(0)
+    log_input = jacobian_determinant + np.abs(np.min(jacobian_determinant))
+    log_input += epsilon
+    sd_log_det = np.log(log_input).std()
 
     return sd_log_det, num_foldings
 
