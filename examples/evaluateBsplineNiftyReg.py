@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
-from tqdm import tqdm
+import logging
+import matplotlib
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
@@ -22,4 +23,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # Set the logging level for matplotlib to WARNING
+    matplotlib.use('Agg')
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
     main()
