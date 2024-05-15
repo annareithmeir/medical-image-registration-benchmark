@@ -51,7 +51,7 @@ class BSplineNiftyReg(RegistrationInterface):
         self.__create_registration_command_list()
         utils_commandline.run_command_in_terminal(self.command,
                                                   self.__outputs_exist,
-                                                  print_command_list=True)
+                                                  print_command_list=False)
 
         self.result_transformation_path = utils_niftyreg.convert_control_point_grid_to_displacement_field(
             self.result_control_grid_path, self.fixed_path)

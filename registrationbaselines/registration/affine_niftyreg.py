@@ -49,7 +49,7 @@ class AffineNiftyReg(RegistrationInterface):
         self.__create_registration_command_list()
         utils_commandline.run_command_in_terminal(self.command,
                                                   self.__outputs_exist,
-                                                  print_command_list=True)
+                                                  print_command_list=False)
 
     def get_transformed_image_path(self):
         # Return transformed image
