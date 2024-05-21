@@ -4,7 +4,7 @@ import warnings
 from typing import Optional
 from tqdm import tqdm
 
-from registrationbaselines.core import utils, result_csv
+from registrationbaselines.core import utils, result_csv, utils_metrics
 from registrationbaselines.transforms import \
     transform_affine_niftyreg, \
     transform_bspline_niftyreg, \
@@ -108,19 +108,68 @@ class Evaluation():
                                path_moving_segmentation: Path,
                                name: str) -> None:
 
-        # transform the moving segmentation
-        self.path_warped = self.transformation.apply_transformation(
-            path_fixed_segmentation, path_moving_segmentation, path_transformation)
+        dice_scores = {}
 
-        # dice coefficient
-        dice = metrics.dice_score(
-            path_fixed_segmentation, self.path_warped)
+        # check if the segmentation has more than one class. If it has more than one class
+        # we have to create new segmentations for each class
+        if len(utils_metrics.get_segmentation_classes(path_fixed_segmentation)) == 1:
+            # transform the moving segmentation
+            self.path_warped = self.transformation.apply_transformation(
+                path_fixed_segmentation, path_moving_segmentation, path_transformation)
 
-        for dice_class, dice_value in dice.items():
-            self.results.add_value(
-                dice_class, dice_value, name)
+            # dice coefficient
+            dice = metrics.dice_score(
+                path_fixed_segmentation, self.path_warped)
 
-        # hausdorff = metrics.hausdorff_distance(
-        #     path_fixed_segmentation, self.transformation.get_warped_path())
-        # for hausdorff_class, hausdorff_value in hausdorff.items():
-        #     self.results.add_value(hausdorff_class, hausdorff_value)
+            dice_scores["dice_1"] = dice
+
+        else:
+
+            fixed, moving, classes1 = utils_metrics.get_maks_and_classes(
+                path_fixed_segmentation, path_moving_segmentation)
+
+            dice_mean = 0
+
+            for cls in classes1:
+                class_mask_fixed = utils_metrics.extract_class(
+                    fixed.get_fdata(), cls)
+                class_mask_moving = utils_metrics.extract_class(
+                    moving.get_fdata(), cls)
+
+                # create temp directory
+                temp_dir = Path("temp_multi_class_dice")
+                temp_dir.mkdir(exist_ok=True)
+
+                fixed_name = path_fixed_segmentation.name.split('.')[0]
+                moving_name = path_moving_segmentation.name.split('.')[0]
+
+                path_fixed_temp = temp_dir / f"{fixed_name}_{cls}.nii.gz"
+                path_moving_temp = temp_dir / f"{moving_name}_{cls}.nii.gz"
+
+                utils_metrics.save_class_nifti(
+                    fixed, class_mask_fixed, path_fixed_temp)
+                utils_metrics.save_class_nifti(
+                    moving, class_mask_moving, path_moving_temp)
+
+                self.path_warped = self.transformation.apply_transformation(
+                    path_fixed_temp, path_moving_temp, path_transformation)
+
+                current_dice_score = metrics.dice_score(
+                    path_fixed_temp, self.path_warped)
+
+                dice_scores[f"dice_{int(cls)}"] = current_dice_score
+                dice_mean += current_dice_score
+
+            dice_scores["dice_mean"] = dice_mean / len(classes1)
+
+            # delete all files in the temp directory
+            shutil.rmtree(temp_dir)
+
+            for dice_class, dice_value in dice_scores.items():
+                self.results.add_value(
+                    dice_class, dice_value, name)
+
+            # hausdorff = metrics.hausdorff_distance(
+            #     path_fixed_segmentation, self.transformation.get_warped_path())
+            # for hausdorff_class, hausdorff_value in hausdorff.items():
+            #     self.results.add_value(hausdorff_class, hausdorff_value)
