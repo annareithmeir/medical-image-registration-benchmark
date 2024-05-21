@@ -107,6 +107,23 @@ class Evaluation():
                                path_fixed_segmentation: Path,
                                path_moving_segmentation: Path,
                                name: str) -> None:
+        """
+        Evaluate segmentations.
+
+        If there is only one class it is trivial. If there are more classes, we have to
+        create new temporary segmentation files for each class and evaluate them
+        (because of interpolation issues).
+
+        Args:
+
+            path_transformation (Path): The path to the transformation file.
+            path_fixed_segmentation (Path): The path to the fixed segmentation file.
+            path_moving_segmentation (Path): The path to the moving segmentation file.
+            name (str): The name of the evaluation.
+
+        Returns:
+            None
+        """
 
         dice_scores = {}
 
