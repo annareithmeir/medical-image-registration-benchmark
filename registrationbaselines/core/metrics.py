@@ -91,24 +91,26 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]
         Dict[int, float]: A dictionary where keys are class labels and values are the corresponding Hausdorff distances.
     """
 
-    nifti1, nifti2, classes1 = utils_metrics.get_maks_and_classes(
-        nifti1_path, nifti2_path)
+    # Load the NIfTI files
+    nifti1 = nib.load(nifti1_path).get_fdata()
+    nifti2 = nib.load(nifti2_path).get_fdata()
 
-    hausdorff_distances = {}
+    assert np.array_equal(np.unique(nifti1), np.unique(
+        nifti2)), "Both images should have the same classes."
+    assert len(np.unique(nifti1)) == 2, "Both images should have only one class."
+    assert np.unique(nifti1)[0] == 0 and np.unique(nifti1)[
+        1] == 1, "Both images should have only one class."
 
-    for cls in classes1:
-        # Get the coordinates of the current class in both images
-        coords1 = np.column_stack(np.where(nifti1 == cls))
-        coords2 = np.column_stack(np.where(nifti2 == cls))
+    # Get the coordinates of the current class in both images
+    coords1 = np.column_stack(np.where(nifti1 == 1))
+    coords2 = np.column_stack(np.where(nifti2 == 1))
 
-        if coords1.size == 0 or coords2.size == 0:
-            current_hausdorff_distance = np.inf
-        else:
-            # Calculate the Hausdorff distance using scipy's directed_hausdorff function
-            hd1 = directed_hausdorff(coords1, coords2)[0]
-            hd2 = directed_hausdorff(coords2, coords1)[0]
-            current_hausdorff_distance = max(hd1, hd2)
+    if coords1.size == 0 or coords2.size == 0:
+        current_hausdorff_distance = np.inf
+    else:
+        # Calculate the Hausdorff distance using scipy's directed_hausdorff function
+        hd1 = directed_hausdorff(coords1, coords2)[0]
+        hd2 = directed_hausdorff(coords2, coords1)[0]
+        current_hausdorff_distance = max(hd1, hd2)
 
-        hausdorff_distances[int(cls)] = current_hausdorff_distance
-
-    return hausdorff_distances
+    return current_hausdorff_distance
