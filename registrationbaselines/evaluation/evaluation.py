@@ -169,7 +169,17 @@ class Evaluation():
                 self.results.add_value(
                     dice_class, dice_value, name)
 
-            # hausdorff = metrics.hausdorff_distance(
-            #     path_fixed_segmentation, self.transformation.get_warped_path())
-            # for hausdorff_class, hausdorff_value in hausdorff.items():
-            #     self.results.add_value(hausdorff_class, hausdorff_value)
+
+    def _create_temp_segmentation_file_for_a_class(self, segmentation, path_segmentation, cls, temp_dir):
+        class_mask_fixed = utils_metrics.extract_class(
+            segmentation.get_fdata(), cls)
+
+        fixed_name = path_segmentation.name.split('.')[0]
+
+        path_fixed_temp = temp_dir / f"{fixed_name}_{cls}.nii.gz"
+
+        utils_metrics.save_class_nifti(segmentation,
+                                       class_mask_fixed,
+                                       path_fixed_temp)
+
+        return path_fixed_temp
