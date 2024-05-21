@@ -1,5 +1,4 @@
 from pathlib import Path
-import warnings
 from typing import Dict, Tuple
 
 import numpy as np
@@ -38,13 +37,13 @@ def sdlogj(path_displacement: Path) -> Tuple[float, float]:
     return sd_log_det, num_foldings
 
 
-def dice_score(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
+def dice_score(nifti1_path: Path, nifti2_path: Path) -> float:
     """
-    Calculate the Dice score between two NIfTI files for each class using scipy's dice function.
+    Calculate the Dice score between two NIfTI files using scipy's dice function. It is assumed that both
+    images have only one class.
 
-    The function reads two NIfTI files, identifies the unique classes in both images, 
-    ensures the classes are the same in both images, and calculates the Dice score for each class. 
-    The Dice score is a measure of overlap between two samples, defined as:
+    The function reads two NIfTI files, ensures the classes are the same in both images, and calculates
+    the Dice score for each class. The Dice score is a measure of overlap between two samples, defined as:
 
         Dice(A, B) = 2 * |A ∩ B| / (|A| + |B|)
 
@@ -53,32 +52,27 @@ def dice_score(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
         nifti2_path (Path): Path to the second NIfTI file.
 
     Returns:
-        Dict[int, float]: A dictionary where keys are class labels and values are the corresponding Dice scores.
+        float: The Dice score between the two NIfTI files.
     """
 
-    nifti1, nifti2, classes1 = utils_metrics.get_maks_and_classes(
-        nifti1_path, nifti2_path)
+    # Load the NIfTI files
+    nifti1 = nib.load(nifti1_path).get_fdata()
+    nifti2 = nib.load(nifti2_path).get_fdata()
 
-    dice_scores = {}
+    assert np.array_equal(np.unique(nifti1), np.unique(
+        nifti2)), "Both images should have the same classes."
+    assert len(np.unique(nifti1)) == 2, "Both images should have only one class."
+    assert np.unique(nifti1)[0] == 0 and np.unique(nifti1)[
+        1] == 1, "Both images should have only one class."
 
-    dice_mean = 0
+    # Create binary masks for the current class
+    mask1 = (nifti1 == 1).astype(int).ravel()
+    mask2 = (nifti2 == 1).astype(int).ravel()
 
-    for cls in classes1:
-        # Create binary masks for the current class
-        mask1 = (nifti1 == cls).astype(int).ravel()
-        mask2 = (nifti2 == cls).astype(int).ravel()
+    # Calculate the Dice score using scipy's dice function
+    score = 1 - dice(mask1, mask2)
 
-        # Calculate the Dice score using scipy's dice function
-        current_dice_score = 1 - dice(mask1, mask2)
-
-        dice_scores[f"dice_{int(cls)}"] = current_dice_score
-
-        dice_mean += current_dice_score
-
-    if len(classes1) > 1:
-        dice_scores["dice_mean"] = dice_mean / len(classes1)
-
-    return dice_scores
+    return score
 
 
 def hausdorff_distance(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
