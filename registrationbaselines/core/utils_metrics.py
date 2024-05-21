@@ -49,6 +49,25 @@ def save_class_nifti(original_img: nib.Nifti1Image,
     nib.save(class_img, output_path)
 
 
+def get_segmentation_classes(nifti_path: Path) -> np.ndarray:
+    """
+    Load a NIfTI file and return the unique classes in the image.
+
+    params:
+    nifti_path (Path): Path to the NIfTI file.
+    """
+
+    # Load the NIfTI file
+    nifti = nib.load(nifti_path.as_posix()).get_fdata()
+
+    # Find unique classes in the image
+    classes = np.unique(nifti)
+
+    if classes[0] == 0.0:
+        classes = classes[1:]
+
+    return classes
+
     """
     Load two NIfTI files and return them and unique classes - class 0 is removed.
 
