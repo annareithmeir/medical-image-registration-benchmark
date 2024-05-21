@@ -12,6 +12,19 @@ from registrationbaselines.core import result_csv
 
 class TestEvaluationResults(unittest.TestCase):
 
+    def fill_csv(self, res):
+        res.add_value("dice", 0.856174669362918, "LungCT_0001_0000")
+        res.add_value("hausdorff", 41.6293165929973, "LungCT_0001_0000")
+        res.add_value("sdlogj", 0.171325790782495, "LungCT_0001_0000")
+        res.add_value("num_foldings", 75073, "LungCT_0001_0000")
+
+        res.add_value("dice", 0.961881779472523, "LungCT_0002_0000")
+        res.add_value("hausdorff", 17, "LungCT_0002_0000")
+        res.add_value("sdlogj", 0.123892355886574, "LungCT_0002_0000")
+        res.add_value("num_foldings", 142862, "LungCT_0002_0000")
+
+        return res
+
     def test_create_csv_file_on_init(self):
         path = "temp.csv"
 
@@ -50,15 +63,79 @@ class TestEvaluationResults(unittest.TestCase):
 
         res = result_csv.EvaluationResults(path_before)
 
-        res.add_value("dice", 0.856174669362918, "LungCT_0001_0000")
-        res.add_value("hausdorff", 41.6293165929973, "LungCT_0001_0000")
-        res.add_value("sdlogj", 0.171325790782495, "LungCT_0001_0000")
-        res.add_value("num_foldings", 75073, "LungCT_0001_0000")
+        res = self.fill_csv(res)
 
-        res.add_value("dice", 0.961881779472523, "LungCT_0002_0000")
-        res.add_value("hausdorff", 17, "LungCT_0002_0000")
-        res.add_value("sdlogj", 0.123892355886574, "LungCT_0002_0000")
-        res.add_value("num_foldings", 142862, "LungCT_0002_0000")
+        # check if both files match
+        with open(path_before, 'r') as f1, open(path_after, 'r') as f2:
+            self.assertEqual(f1.read(), f2.read())
+
+        # if the csv exists, delete it
+        if os.path.exists(path_before):
+            os.remove(path_before)
+
+    def test_min(self):
+        path_before = "registrationbaselines/tests/test_files/temp.csv"
+        path_after = "registrationbaselines/tests/test_files/results_min.csv"
+
+        res = result_csv.EvaluationResults(path_before)
+
+        res = self.fill_csv(res)
+
+        res.calculate_min()
+
+        # check if both files match
+        with open(path_before, 'r') as f1, open(path_after, 'r') as f2:
+            self.assertEqual(f1.read(), f2.read())
+
+        # if the csv exists, delete it
+        if os.path.exists(path_before):
+            os.remove(path_before)
+
+    def test_max(self):
+        path_before = "registrationbaselines/tests/test_files/temp.csv"
+        path_after = "registrationbaselines/tests/test_files/results_max.csv"
+
+        res = result_csv.EvaluationResults(path_before)
+
+        res = self.fill_csv(res)
+
+        res.calculate_max()
+
+        # check if both files match
+        with open(path_before, 'r') as f1, open(path_after, 'r') as f2:
+            self.assertEqual(f1.read(), f2.read())
+
+        # if the csv exists, delete it
+        if os.path.exists(path_before):
+            os.remove(path_before)
+
+    def test_mean(self):
+        path_before = "registrationbaselines/tests/test_files/temp.csv"
+        path_after = "registrationbaselines/tests/test_files/results_mean.csv"
+
+        res = result_csv.EvaluationResults(path_before)
+
+        res = self.fill_csv(res)
+
+        res.calculate_mean()
+
+        # check if both files match
+        with open(path_before, 'r') as f1, open(path_after, 'r') as f2:
+            self.assertEqual(f1.read(), f2.read())
+
+        # if the csv exists, delete it
+        if os.path.exists(path_before):
+            os.remove(path_before)
+
+    def test_stddev(self):
+        path_before = "registrationbaselines/tests/test_files/temp.csv"
+        path_after = "registrationbaselines/tests/test_files/results_stddev.csv"
+
+        res = result_csv.EvaluationResults(path_before)
+
+        res = self.fill_csv(res)
+
+        res.calculate_stddev()
 
         # check if both files match
         with open(path_before, 'r') as f1, open(path_after, 'r') as f2:
