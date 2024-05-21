@@ -6,7 +6,24 @@ import numpy as np
 import nibabel as nib
 
 
-def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]:
+def extract_class(segmentation: np.ndarray, class_value: int) -> np.ndarray:
+    """
+    Extract a specific class from the segmentation.
+
+    Args:
+    segmentation (np.ndarray): The segmentation data.
+    class_value (int): The class value to extract.
+
+    Returns:
+    np.ndarray: A binary mask where the class value is set to 1 and others to 0.
+    """
+    assert isinstance(
+        segmentation, np.ndarray), "Segmentation must be a numpy array."
+    assert isinstance(class_value, np.uint8), "Class value must be an integer."
+
+    return (segmentation == class_value).astype(np.uint8)
+
+
     """
     Load two NIfTI files and return them and unique classes - class 0 is removed.
 
