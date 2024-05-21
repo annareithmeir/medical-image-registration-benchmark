@@ -126,6 +126,7 @@ class Evaluation():
         """
 
         dice_scores = {}
+        hausdorff_scores = {}
 
         # check if the segmentation has more than one class. If it has more than one class
         # we have to create new segmentations for each class
@@ -135,10 +136,12 @@ class Evaluation():
                 path_fixed_segmentation, path_moving_segmentation, path_transformation)
 
             # dice coefficient
-            dice = metrics.dice_score(
-                path_fixed_segmentation, self.path_warped)
+            dice_scores["dice"] = metrics.dice_score(path_fixed_segmentation,
+                                                     self.path_warped)
 
-            dice_scores["dice_1"] = dice
+            # hausdorff distance
+            hausdorff_scores["hausdorff"] = metrics.hausdorff_distance(path_fixed_segmentation,
+                                                                       self.path_warped)
 
         else:
 
@@ -146,46 +149,49 @@ class Evaluation():
                 path_fixed_segmentation, path_moving_segmentation)
 
             dice_mean = 0
+            hausdorff_mean = 0
+
+            # create temp directory
+            temp_dir = Path("temp_multi_class_dice")
+            temp_dir.mkdir(exist_ok=True)
 
             for cls in classes1:
-                class_mask_fixed = utils_metrics.extract_class(
-                    fixed.get_fdata(), cls)
-                class_mask_moving = utils_metrics.extract_class(
-                    moving.get_fdata(), cls)
 
-                # create temp directory
-                temp_dir = Path("temp_multi_class_dice")
-                temp_dir.mkdir(exist_ok=True)
-
-                fixed_name = path_fixed_segmentation.name.split('.')[0]
-                moving_name = path_moving_segmentation.name.split('.')[0]
-
-                path_fixed_temp = temp_dir / f"{fixed_name}_{cls}.nii.gz"
-                path_moving_temp = temp_dir / f"{moving_name}_{cls}.nii.gz"
-
-                utils_metrics.save_class_nifti(
-                    fixed, class_mask_fixed, path_fixed_temp)
-                utils_metrics.save_class_nifti(
-                    moving, class_mask_moving, path_moving_temp)
+                path_fixed_temp = self._create_temp_segmentation_file_for_a_class(fixed,
+                                                                                  path_fixed_segmentation,
+                                                                                  cls,
+                                                                                  temp_dir)
+                path_moving_temp = self._create_temp_segmentation_file_for_a_class(moving,
+                                                                                   path_moving_segmentation,
+                                                                                   cls,
+                                                                                   temp_dir)
 
                 self.path_warped = self.transformation.apply_transformation(
                     path_fixed_temp, path_moving_temp, path_transformation)
 
                 current_dice_score = metrics.dice_score(
                     path_fixed_temp, self.path_warped)
-
                 dice_scores[f"dice_{int(cls)}"] = current_dice_score
                 dice_mean += current_dice_score
 
+                current_hausdorff_score = metrics.hausdorff_distance(
+                    path_fixed_temp, self.path_warped)
+                hausdorff_scores[f"hausdorff_{int(cls)}"] = current_hausdorff_score
+                hausdorff_mean += current_hausdorff_score
+
             dice_scores["dice_mean"] = dice_mean / len(classes1)
+            hausdorff_scores["hausdorff_mean"] = hausdorff_mean / len(classes1)
 
             # delete all files in the temp directory
             shutil.rmtree(temp_dir)
 
-            for dice_class, dice_value in dice_scores.items():
-                self.results.add_value(
-                    dice_class, dice_value, name)
+        for dice_class, dice_value in dice_scores.items():
+            self.results.add_value(
+                dice_class, dice_value, name)
 
+        for hausdorff_class, hausdorff_value in hausdorff_scores.items():
+            self.results.add_value(
+                hausdorff_class, hausdorff_value, name)
 
     def _create_temp_segmentation_file_for_a_class(self, segmentation, path_segmentation, cls, temp_dir):
         class_mask_fixed = utils_metrics.extract_class(
