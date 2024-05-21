@@ -24,6 +24,31 @@ def extract_class(segmentation: np.ndarray, class_value: int) -> np.ndarray:
     return (segmentation == class_value).astype(np.uint8)
 
 
+def save_class_nifti(original_img: nib.Nifti1Image,
+                     class_mask: np.ndarray,
+                     output_path: str) -> None:
+    """
+    Save a binary mask as a NIfTI file.
+
+    Args:
+    original_img (nib.Nifti1Image): The original NIfTI image.
+    class_mask (np.ndarray): The mask for the class.
+    output_path (str): The output file path.
+
+    Returns:
+    None
+    """
+
+    # change to binary mask
+    class_mask[class_mask > 0] = 1
+
+    class_img = nib.Nifti1Image(class_mask,
+                                original_img.affine,
+                                original_img.header)
+
+    nib.save(class_img, output_path)
+
+
     """
     Load two NIfTI files and return them and unique classes - class 0 is removed.
 
