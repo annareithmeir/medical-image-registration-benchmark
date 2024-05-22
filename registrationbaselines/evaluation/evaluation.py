@@ -125,92 +125,64 @@ class Evaluation():
             None
         """
 
-        dice_scores = {}
-        hausdorff_scores = {}
-        hausdorff95_scores = {}
+        fixed, moving, classes1 = utils_metrics.get_maks_and_classes(
+            path_fixed_segmentation, path_moving_segmentation)
 
-        # TODO would be nicer if we don't have an if-else and just loop, even if there is only one class
-        # check if the segmentation has more than one class. If it has more than one class
-        # we have to create new segmentations for each class
-        if len(utils_metrics.get_segmentation_classes(path_fixed_segmentation)) == 1:
-            # transform the moving segmentation
+        dice_mean = 0
+        hausdorff_mean = 0
+        hausdorff95_mean = 0
+
+        # create temp directory
+        temp_dir = Path("temp_multi_class_dice")
+        temp_dir.mkdir(exist_ok=True)
+
+        for cls in classes1:
+
+            if len(classes1) == 1:
+                postfix = ""
+            else:
+                postfix = f"_{int(cls)}"
+
+            path_fixed_temp = self._create_temp_segmentation_file_for_a_class(fixed,
+                                                                              path_fixed_segmentation,
+                                                                              cls,
+                                                                              temp_dir)
+            path_moving_temp = self._create_temp_segmentation_file_for_a_class(moving,
+                                                                               path_moving_segmentation,
+                                                                               cls,
+                                                                               temp_dir)
+
             self.path_warped = self.transformation.apply_transformation(
-                path_fixed_segmentation, path_moving_segmentation, path_transformation)
+                path_fixed_temp, path_moving_temp, path_transformation)
 
-            # dice coefficient
-            dice_scores["dice"] = metrics.dice_score(path_fixed_segmentation,
-                                                     self.path_warped)
-
-            # hausdorff distance
-            hausdorff_scores["hausdorff"] = metrics.hausdorff_distance(path_fixed_segmentation,
-                                                                       self.path_warped)
-
-            # hausdorff distance 95 percentile
-            hausdorff95_scores["hausdorff95"] = metrics.hausdorff_distance(path_fixed_segmentation,
-                                                                           self.path_warped,
-                                                                           percentile=95)
-
-        else:
-
-            fixed, moving, classes1 = utils_metrics.get_maks_and_classes(
-                path_fixed_segmentation, path_moving_segmentation)
-
-            dice_mean = 0
-            hausdorff_mean = 0
-            hausdorff95_mean = 0
-
-            # create temp directory
-            temp_dir = Path("temp_multi_class_dice")
-            temp_dir.mkdir(exist_ok=True)
-
-            for cls in classes1:
-
-                path_fixed_temp = self._create_temp_segmentation_file_for_a_class(fixed,
-                                                                                  path_fixed_segmentation,
-                                                                                  cls,
-                                                                                  temp_dir)
-                path_moving_temp = self._create_temp_segmentation_file_for_a_class(moving,
-                                                                                   path_moving_segmentation,
-                                                                                   cls,
-                                                                                   temp_dir)
-
-                self.path_warped = self.transformation.apply_transformation(
-                    path_fixed_temp, path_moving_temp, path_transformation)
-
-                current_dice_score = metrics.dice_score(
-                    path_fixed_temp, self.path_warped)
-                dice_scores[f"dice_{int(cls)}"] = current_dice_score
-                dice_mean += current_dice_score
-
-                current_hausdorff_score = metrics.hausdorff_distance(
-                    path_fixed_temp, self.path_warped)
-                hausdorff_scores[f"hausdorff_{int(cls)}"] = current_hausdorff_score
-                hausdorff_mean += current_hausdorff_score
-
-                current_hausdorff95_score = metrics.hausdorff_distance(
-                    path_fixed_temp, self.path_warped, percentile=95)
-                hausdorff95_scores[f"hausdorff95_{int(cls)}"] = current_hausdorff95_score
-                hausdorff95_mean += current_hausdorff95_score
-
-            dice_scores["dice_mean"] = dice_mean / len(classes1)
-            hausdorff_scores["hausdorff_mean"] = hausdorff_mean / len(classes1)
-            hausdorff95_scores["hausdorff95_mean"] = hausdorff95_mean / \
-                len(classes1)
-
-            # delete all files in the temp directory
-            shutil.rmtree(temp_dir)
-
-        for dice_class, dice_value in dice_scores.items():
+            current_dice_score = metrics.dice_score(
+                path_fixed_temp, self.path_warped)
             self.results.add_value(
-                dice_class, dice_value, name)
+                f"dice" + postfix, current_dice_score, name)
+            dice_mean += current_dice_score
 
-        for hausdorff_class, hausdorff_value in hausdorff_scores.items():
+            current_hausdorff_score = metrics.hausdorff_distance(
+                path_fixed_temp, self.path_warped)
             self.results.add_value(
-                hausdorff_class, hausdorff_value, name)
+                f"hausdorff" + postfix, current_hausdorff_score, name)
+            hausdorff_mean += current_hausdorff_score
 
-        for hasdorff95_class, hausdorff95_value in hausdorff95_scores.items():
+            current_hausdorff95_score = metrics.hausdorff_distance(
+                path_fixed_temp, self.path_warped, percentile=95)
             self.results.add_value(
-                hasdorff95_class, hausdorff95_value, name)
+                f"hausdorff95" + postfix, current_hausdorff95_score, name)
+            hausdorff95_mean += current_hausdorff95_score
+
+        if len(classes1) > 1:
+            self.results.add_value(
+                "dice_mean", dice_mean / len(classes1), name)
+            self.results.add_value(
+                "hausdorff_mean", hausdorff_mean / len(classes1), name)
+            self.results.add_value(
+                "hausdorff95_mean", hausdorff95_mean / len(classes1), name)
+
+        # delete all files in the temp directory
+        shutil.rmtree(temp_dir)
 
     # TODO implement this
     def _evaluate_landmarks(self,
