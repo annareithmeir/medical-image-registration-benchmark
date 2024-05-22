@@ -113,4 +113,9 @@ class EvaluationResults:
         # sort alphabetically
         self.df = self.df.sort_index(axis=1)
 
+        # rounding to 6 significant digits
+        for col in self.df.columns:
+            if self.df[col].dtype == float:
+                self.df[col] = self.df[col].apply(lambda x: f"{x:.6g}")
+
         self.df.to_csv(self.file_path)
