@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 import numpy as np
 from scipy.spatial.distance import dice, directed_hausdorff
@@ -165,7 +165,8 @@ def hausdorff95_distance(nifti1_path: Path, nifti2_path: Path) -> float:
 def tre(landmarks_fixed: np.ndarray,
         landmarks_moving: np.ndarray,
         displacement: np.ndarray,
-        spacing_moving: Tuple[float, float]) -> float:
+        spacing_moving: Tuple[float, float],
+        percentile: Optional[float] = None) -> Tuple[float, list]:
     """
     Calculate the Target Registration Error (TRE) between two sets of landmarks.
 
@@ -195,8 +196,12 @@ def tre(landmarks_fixed: np.ndarray,
     mov_lms_warped = landmarks_moving + mov_lms_disp
 
     # Calculate the TRE
-    result = np.linalg.norm((mov_lms_warped - landmarks_fixed)
-                            * spacing_moving, axis=1)
-    mean = result.mean()
+    all_errors = np.linalg.norm((mov_lms_warped - landmarks_fixed)
+                                * spacing_moving, axis=1)
 
-    return mean
+    if percentile is not None:
+        result = np.percentile(all_errors, percentile)
+    else:
+        result = all_errors.mean()
+
+    return result
