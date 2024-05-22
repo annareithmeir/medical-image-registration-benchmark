@@ -4,6 +4,7 @@ from typing import Dict, Tuple
 import numpy as np
 from scipy.spatial.distance import dice, directed_hausdorff
 from scipy.spatial import KDTree
+from scipy.ndimage import map_coordinates
 import nibabel as nib
 import SimpleITK as sitk
 
@@ -159,3 +160,43 @@ def hausdorff95_distance(nifti1_path: Path, nifti2_path: Path) -> float:
         hausdorff95 = np.percentile(combined_dists, 95)
 
     return hausdorff95
+
+
+def tre(landmarks_fixed: np.ndarray,
+        landmarks_moving: np.ndarray,
+        displacement: np.ndarray,
+        spacing_moving: Tuple[float, float]) -> float:
+    """
+    Calculate the Target Registration Error (TRE) between two sets of landmarks.
+
+    Args:
+        landmarks_fixed (np.ndarray): The fixed landmarks.
+        landmarks_moving (np.ndarray): The moving landmarks.
+        displacement (np.ndarray): The displacement field.
+        spacing_moving (Tuple[float, float, float]): The spacing of the moving image.
+
+    Returns:
+        Tuple[float, list]: The mean TRE and a list of detailed TRE values.
+    """
+
+    displacement = displacement.squeeze()
+
+    # Map the moving landmarks to the fixed landmarks using the displacement field
+    mov_lms_disp_x = map_coordinates(
+        displacement[:, :, :, 0], landmarks_moving.transpose())
+    mov_lms_disp_y = map_coordinates(
+        displacement[:, :, :, 1], landmarks_moving.transpose())
+    mov_lms_disp_z = map_coordinates(
+        displacement[:, :, :, 2], landmarks_moving.transpose())
+    mov_lms_disp = np.array(
+        (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
+
+    # Calculate the warped moving landmarks
+    mov_lms_warped = landmarks_moving + mov_lms_disp
+
+    # Calculate the TRE
+    result = np.linalg.norm((mov_lms_warped - landmarks_fixed)
+                            * spacing_moving, axis=1)
+    mean = result.mean()
+
+    return mean

@@ -129,6 +129,7 @@ class Evaluation():
         hausdorff_scores = {}
         hausdorff95_scores = {}
 
+        # TODO would be nicer if we don't have an if-else and just loop, even if there is only one class
         # check if the segmentation has more than one class. If it has more than one class
         # we have to create new segmentations for each class
         if len(utils_metrics.get_segmentation_classes(path_fixed_segmentation)) == 1:
@@ -209,6 +210,15 @@ class Evaluation():
         for hasdorff95_class, hausdorff95_value in hausdorff95_scores.items():
             self.results.add_value(
                 hasdorff95_class, hausdorff95_value, name)
+
+    # TODO implement this
+    def _evaluate_landmarks(self,
+                            path_transformation: Path,
+                            path_fixed_landmarks: Path,
+                            path_moving_landmarks: Path,
+                            name: str) -> None:
+        warnings.warn("Not implemented yet.")
+        pass
 
     def _create_temp_segmentation_file_for_a_class(self, segmentation, path_segmentation, cls, temp_dir):
         class_mask_fixed = utils_metrics.extract_class(
