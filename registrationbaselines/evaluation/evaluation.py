@@ -146,8 +146,9 @@ class Evaluation():
                                                                        self.path_warped)
 
             # hausdorff distance 95 percentile
-            hausdorff95_scores["hausdorff95"] = metrics.hausdorff95_distance(path_fixed_segmentation,
-                                                                             self.path_warped)
+            hausdorff95_scores["hausdorff95"] = metrics.hausdorff_distance(path_fixed_segmentation,
+                                                                           self.path_warped,
+                                                                           percentile=95)
 
         else:
 
@@ -186,8 +187,8 @@ class Evaluation():
                 hausdorff_scores[f"hausdorff_{int(cls)}"] = current_hausdorff_score
                 hausdorff_mean += current_hausdorff_score
 
-                current_hausdorff95_score = metrics.hausdorff95_distance(
-                    path_fixed_temp, self.path_warped)
+                current_hausdorff95_score = metrics.hausdorff_distance(
+                    path_fixed_temp, self.path_warped, percentile=95)
                 hausdorff95_scores[f"hausdorff95_{int(cls)}"] = current_hausdorff95_score
                 hausdorff95_mean += current_hausdorff95_score
 
