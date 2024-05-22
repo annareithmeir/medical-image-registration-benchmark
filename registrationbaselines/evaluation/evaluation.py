@@ -127,6 +127,7 @@ class Evaluation():
 
         dice_scores = {}
         hausdorff_scores = {}
+        hausdorff95_scores = {}
 
         # check if the segmentation has more than one class. If it has more than one class
         # we have to create new segmentations for each class
@@ -143,6 +144,10 @@ class Evaluation():
             hausdorff_scores["hausdorff"] = metrics.hausdorff_distance(path_fixed_segmentation,
                                                                        self.path_warped)
 
+            # hausdorff distance 95 percentile
+            hausdorff95_scores["hausdorff95"] = metrics.hausdorff95_distance(path_fixed_segmentation,
+                                                                             self.path_warped)
+
         else:
 
             fixed, moving, classes1 = utils_metrics.get_maks_and_classes(
@@ -150,6 +155,7 @@ class Evaluation():
 
             dice_mean = 0
             hausdorff_mean = 0
+            hausdorff95_mean = 0
 
             # create temp directory
             temp_dir = Path("temp_multi_class_dice")
@@ -179,8 +185,15 @@ class Evaluation():
                 hausdorff_scores[f"hausdorff_{int(cls)}"] = current_hausdorff_score
                 hausdorff_mean += current_hausdorff_score
 
+                current_hausdorff95_score = metrics.hausdorff95_distance(
+                    path_fixed_temp, self.path_warped)
+                hausdorff95_scores[f"hausdorff95_{int(cls)}"] = current_hausdorff95_score
+                hausdorff95_mean += current_hausdorff95_score
+
             dice_scores["dice_mean"] = dice_mean / len(classes1)
             hausdorff_scores["hausdorff_mean"] = hausdorff_mean / len(classes1)
+            hausdorff95_scores["hausdorff95_mean"] = hausdorff95_mean / \
+                len(classes1)
 
             # delete all files in the temp directory
             shutil.rmtree(temp_dir)
@@ -192,6 +205,10 @@ class Evaluation():
         for hausdorff_class, hausdorff_value in hausdorff_scores.items():
             self.results.add_value(
                 hausdorff_class, hausdorff_value, name)
+
+        for hasdorff95_class, hausdorff95_value in hausdorff95_scores.items():
+            self.results.add_value(
+                hasdorff95_class, hausdorff95_value, name)
 
     def _create_temp_segmentation_file_for_a_class(self, segmentation, path_segmentation, cls, temp_dir):
         class_mask_fixed = utils_metrics.extract_class(
