@@ -95,6 +95,8 @@ class Evaluation():
         self.results.calculate_min()
         self.results.calculate_max()
 
+        self.results.write()
+
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
         sd_log_det, num_foldings = metrics.sdlogj(path_displacement)
