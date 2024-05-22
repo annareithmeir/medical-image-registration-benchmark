@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 import json
 
-from typing import List, Union
+from typing import List, Union, Optional, Iterator, Tuple
 
 import torchio as tio
 from torch.utils.data import Dataset
@@ -219,51 +219,74 @@ class BaselineTransformations():
         return list_of_transformations
 
 
-class L2RLungCTDataset(Dataset):
-    def __init__(self, path_files: Union[Path, List[Path]], return_segmentation=False):
-        """
-        Args:
-            json_file (string): Path to the JSON file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied on a sample.
-        """
-        self.path_list = None
+class PathPairDataset():
+    """
+    A generic dataset for pairs of paths.
+    """
 
-        if isinstance(path_files, Path):
-
-            root_dir = path_files
-
-            json_file = root_dir / 'LungCT_dataset.json'
-
-            with open(json_file, 'r') as file:
-                self.dataset_info = json.load(file)
-
-            self.root_dir = Path(root_dir)
-
-            self.data = self.dataset_info['training']
-
-            self.full_dataset = True
-        elif isinstance(path_files, list) and all(isinstance(path, Path) for path in path_files):
-            self.path_list = path_files
-            self.full_dataset = False
-        else:
-            raise TypeError("path_files must be a Path or a list of Paths.")
-
-        self.return_segmentation = return_segmentation
+    def __init__(self, path_pairs: List[tuple[Path, Path]]) -> None:
+        self.path_pairs = path_pairs
 
     def __len__(self):
-        return len(self.data)
+        return len(self.path_pairs)
 
-    def __getitem__(self, idx) -> Path:
+    def __getitem__(self, idx: int) -> tuple[Path, Path]:
+        return self.path_pairs[idx]
 
-        if self.full_dataset:
-            # depending on whether we want the segmentation or the image, return the corresponding path
-            if self.return_segmentation:
-                result_path = self.root_dir / self.data[idx]['mask']
-            else:
-                result_path = self.root_dir / self.data[idx]['image']
 
+class L2RLungCTDataset():
+    def __init__(self, path_root: Path):
+        """
+        Initialize the dataset.
+
+        params:
+        path_root (Union[Path, List[List[Path]]]): Path to the root directory containing the images
+        or a list of lists of paths to the images.
+        """
+
+        self.path_list = self._load_imgs_list(path_root)
+
+    def __len__(self):
+        return len(self.path_list)
+
+    def __getitem__(self,
+                    idx,
+                    return_segmentation: Optional[bool] = None) -> tuple[Path, Path]:
+
+        fixed_path = None
+        moving_path = None
+
+        if return_segmentation:
+            fixed_path = self.path_list[idx]["mask_f"]
+            moving_path = self.path_list[idx]["mask_m"]
         else:
-            result_path = self.path_list[idx]
+            fixed_path = self.path_list[idx]["image_f"]
+            moving_path = self.path_list[idx]["image_m"]
 
-        return result_path
+        return fixed_path, moving_path
+
+    def __iter__(self):
+        raise NotImplementedError(
+            "This method is not implemented. Use the method __getitem__ instead.")
+
+    def _load_imgs_list(self, path_root: Path):
+
+        path_list = []
+
+        for i in range(1, 21):
+            file_str = "LungCT_" + str(i).zfill(4)
+
+            file_image_f = "imagesTr/" + file_str + "_0000.nii.gz"
+            file_image_m = "imagesTr/" + file_str + "_0001.nii.gz"
+
+            flie_mask_f = "masksTr/" + file_str + "_0000.nii.gz"
+            file_mask_m = "masksTr/" + file_str + "_0001.nii.gz"
+
+            path_list.append({
+                "image_f": path_root / file_image_f,
+                "image_m": path_root / file_image_m,
+                "mask_f": path_root / flie_mask_f,
+                "mask_m": path_root / file_mask_m
+            })
+
+        return path_list

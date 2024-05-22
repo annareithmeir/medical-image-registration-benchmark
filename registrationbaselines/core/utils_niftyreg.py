@@ -36,7 +36,7 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
 
     utils_commandline.run_command_in_terminal(command_line_list,
                                               check=path_displacement.exists,
-                                              print_command_list=True)
+                                              print_command_list=False)
 
     # remove the temporary control point grid
     os.remove(control_grid_path)
@@ -68,6 +68,6 @@ def apply_transformation(path_fixed: Path,
 
     utils_commandline.run_command_in_terminal(command,
                                               check=path_transformed.exists,
-                                              print_command_list=True)
+                                              print_command_list=False)
 
     return path_transformed

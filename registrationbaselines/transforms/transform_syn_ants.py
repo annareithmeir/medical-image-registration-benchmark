@@ -27,7 +27,7 @@ class TransformSyNANTs(TransformationInterface):
     def apply_transformation(self,
                              fixed_image_path: Path,
                              moving_image_path: Path,
-                             transformation_path: Path):
+                             transformation_path: Path) -> Path:
         """
         Returns the path to the transformed image.
         """

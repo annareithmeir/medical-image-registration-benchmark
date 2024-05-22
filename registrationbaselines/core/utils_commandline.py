@@ -42,7 +42,7 @@ def add_configuration_to_command(command: list[str], configuration: dict):
     Add the configuration to the command line.
     """
     for key, value in configuration.items():
-        if key != 'result_path':  # Skip if key is 'result_path'
+        if key != 'result_path' and key != 'method_name':  # Skip if key is 'result_path' or 'method
             if isinstance(value, bool):
                 if value:  # Only add flag if True
                     command.append(f"-{key}")
