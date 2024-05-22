@@ -3,10 +3,9 @@ from typing import Dict, Tuple
 
 import numpy as np
 from scipy.spatial.distance import dice, directed_hausdorff
+from scipy.spatial import KDTree
 import nibabel as nib
 import SimpleITK as sitk
-
-from registrationbaselines.core import utils_metrics
 
 
 def sdlogj(path_displacement: Path) -> Tuple[float, float]:
@@ -114,3 +113,49 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path) -> Dict[int, float]
         current_hausdorff_distance = max(hd1, hd2)
 
     return current_hausdorff_distance
+
+
+def hausdorff95_distance(nifti1_path: Path, nifti2_path: Path) -> float:
+    """
+    Calculate the 95th percentile of the Hausdorff distance between two NIfTI files for each class.
+
+    Args:
+        nifti1_path (Path): Path to the first NIfTI file.
+        nifti2_path (Path): Path to the second NIfTI file.
+
+    Returns:
+        float: The 95th percentile of the Hausdorff distances.
+    """
+
+    # Load the NIfTI files
+    nifti1 = nib.load(nifti1_path).get_fdata()
+    nifti2 = nib.load(nifti2_path).get_fdata()
+
+    assert np.array_equal(np.unique(nifti1), np.unique(
+        nifti2)), "Both images should have the same classes."
+    assert len(np.unique(nifti1)) == 2, "Both images should have only one class."
+    assert np.unique(nifti1)[0] == 0 and np.unique(nifti1)[
+        1] == 1, "Both images should have only one class."
+
+    # Get the coordinates of the current class in both images
+    coords1 = np.column_stack(np.where(nifti1 == 1))
+    coords2 = np.column_stack(np.where(nifti2 == 1))
+
+    if coords1.size == 0 or coords2.size == 0:
+        hausdorff95 = np.inf
+    else:
+        # Create KD-trees for fast nearest-neighbor lookup
+        kdtree1 = KDTree(coords1)
+        kdtree2 = KDTree(coords2)
+
+        # Calculate all directed distances from coords1 to coords2
+        dists1, _ = kdtree1.query(coords2)
+        dists2, _ = kdtree2.query(coords1)
+
+        # Combine both distances
+        combined_dists = np.concatenate([dists1, dists2])
+
+        # Calculate the 95th percentile
+        hausdorff95 = np.percentile(combined_dists, 95)
+
+    return hausdorff95
