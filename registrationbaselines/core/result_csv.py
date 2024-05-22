@@ -110,5 +110,7 @@ class EvaluationResults:
         Returns:
             None
         """
+        # sort alphabetically
+        self.df = self.df.sort_index(axis=1)
 
         self.df.to_csv(self.file_path)
