@@ -59,6 +59,8 @@ def dice_score(nifti1_path: Path, nifti2_path: Path) -> float:
     nifti1 = nib.load(nifti1_path).get_fdata()
     nifti2 = nib.load(nifti2_path).get_fdata()
 
+    nifti1, nifti2 = np.round(nifti1), np.round(nifti2)
+
     assert np.array_equal(np.unique(nifti1), np.unique(
         nifti2)), "Both images should have the same classes."
     assert len(np.unique(nifti1)) == 2, "Both images should have only one class."
@@ -90,6 +92,8 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path, percentile: Optiona
     # Load the NIfTI files
     nifti1 = nib.load(nifti1_path).get_fdata()
     nifti2 = nib.load(nifti2_path).get_fdata()
+
+    nifti1, nifti2 = np.round(nifti1), np.round(nifti2)
 
     assert np.array_equal(np.unique(nifti1), np.unique(
         nifti2)), "Both images should have the same classes."
