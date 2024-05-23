@@ -11,21 +11,23 @@ from registrationbaselines.data_loading import data_loaders
 
 
 def main() -> None:
-    path_config = Path('registrationbaselines/configs/BSplineNiftyReg.yaml')
-    path_data_root = Path("/home/fryderyk/Documents/data/LungCT_small")
+    base_dir = Path(__file__).parent.parent.absolute()
 
-    loader_data = data_loaders.L2RLungCTDataset(path_data_root)
+    path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
+
+    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0]) # we only want to use one image pair here
 
     # register
     registration = BSplineNiftyReg(path_config)
 
-    # for i in range(5):
-    #     registration.register(loader_data[i][0], loader_data[i][1])
+    for i in range(len(loader_data)):
+        item = loader_data[i]
+        registration.register(item["imgs"][0], item["imgs"][1])
 
     # evaluate
     evaluation = Evaluation(path_config)
     loader_transformations = data_loaders.BaselineTransformations(
-        Path("/home/fryderyk/Documents/data/results/BSplineNiftyReg"))
+        base_dir / "tmp/results/BSplineNiftyReg")
     evaluation.evaluate(loader_transformations, loader_data)
 
 

@@ -10,14 +10,12 @@ from registrationbaselines.data_loading import data_loaders
 
 
 def main() -> None:
+    base_dir = Path(__file__).parent.parent.absolute()
 
-    evaluation = Evaluation(
-        Path('registrationbaselines/configs/BSplineNiftyReg.yaml'))
+    evaluation = Evaluation(base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml')
 
-    loader_data = data_loaders.L2RLungCTDataset(
-        Path("/home/fryderyk/Documents/data/LungCT_small"))
-    loader_transformations = data_loaders.BaselineTransformations(
-        Path("/home/fryderyk/Documents/data/results/BSplineNiftyReg"))
+    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0])
+    loader_transformations = data_loaders.BaselineTransformations( Path("/home/anna/PycharmProjects/registrationbaselines/tmp/results"))
 
     evaluation.evaluate(loader_transformations, loader_data)
 

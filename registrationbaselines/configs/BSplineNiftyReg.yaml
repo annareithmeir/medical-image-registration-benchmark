@@ -1,5 +1,5 @@
 method_name: BSplineNiftyReg
-result_path: /home/fryderyk/Documents/data/results/
+result_path: /home/anna/PycharmProjects/registrationbaselines/tmp/results
 
 # input and output paths are not defined here,
 # because we want to do it in the register() function directly

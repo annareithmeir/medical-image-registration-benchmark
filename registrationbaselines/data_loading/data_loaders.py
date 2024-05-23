@@ -18,7 +18,7 @@ from tqdm import tqdm
 """
 
 
-class L2RLungCTDatasetOLD(Dataset):
+class L2RLungCTDataset(Dataset):
 
     def __init__(self, imgs_path: Path, transforms: list[str] = list(), return_type: str = "path", idxs: list[int] = None):
         """
@@ -362,59 +362,59 @@ class PathPairDataset():
         return self.path_pairs[idx]
 
 
-class L2RLungCTDataset():
-    def __init__(self, path_root: Path):
-        """
-        Initialize the dataset.
-
-        params:
-        path_root (Union[Path, List[List[Path]]]): Path to the root directory containing the images
-        or a list of lists of paths to the images.
-        """
-
-        self.path_list = self._load_imgs_list(path_root)
-
-    def __len__(self):
-        return len(self.path_list)
-
-    def __getitem__(self,
-                    idx,
-                    return_segmentation: Optional[bool] = None) -> tuple[Path, Path]:
-
-        fixed_path = None
-        moving_path = None
-
-        if return_segmentation:
-            fixed_path = self.path_list[idx]["mask_f"]
-            moving_path = self.path_list[idx]["mask_m"]
-        else:
-            fixed_path = self.path_list[idx]["image_f"]
-            moving_path = self.path_list[idx]["image_m"]
-
-        return fixed_path, moving_path
-
-    def __iter__(self):
-        raise NotImplementedError(
-            "This method is not implemented. Use the method __getitem__ instead.")
-
-    def _load_imgs_list(self, path_root: Path):
-
-        path_list = []
-
-        for i in range(1, 21):
-            file_str = "LungCT_" + str(i).zfill(4)
-
-            file_image_f = "imagesTr/" + file_str + "_0000.nii.gz"
-            file_image_m = "imagesTr/" + file_str + "_0001.nii.gz"
-
-            flie_mask_f = "masksTr/" + file_str + "_0000.nii.gz"
-            file_mask_m = "masksTr/" + file_str + "_0001.nii.gz"
-
-            path_list.append({
-                "image_f": path_root / file_image_f,
-                "image_m": path_root / file_image_m,
-                "mask_f": path_root / flie_mask_f,
-                "mask_m": path_root / file_mask_m
-            })
-
-        return path_list
+# class L2RLungCTDataset():
+#     def __init__(self, path_root: Path):
+#         """
+#         Initialize the dataset.
+#
+#         params:
+#         path_root (Union[Path, List[List[Path]]]): Path to the root directory containing the images
+#         or a list of lists of paths to the images.
+#         """
+#
+#         self.path_list = self._load_imgs_list(path_root)
+#
+#     def __len__(self):
+#         return len(self.path_list)
+#
+#     def __getitem__(self,
+#                     idx,
+#                     return_segmentation: Optional[bool] = None) -> tuple[Path, Path]:
+#
+#         fixed_path = None
+#         moving_path = None
+#
+#         if return_segmentation:
+#             fixed_path = self.path_list[idx]["mask_f"]
+#             moving_path = self.path_list[idx]["mask_m"]
+#         else:
+#             fixed_path = self.path_list[idx]["image_f"]
+#             moving_path = self.path_list[idx]["image_m"]
+#
+#         return fixed_path, moving_path
+#
+#     def __iter__(self):
+#         raise NotImplementedError(
+#             "This method is not implemented. Use the method __getitem__ instead.")
+#
+#     def _load_imgs_list(self, path_root: Path):
+#
+#         path_list = []
+#
+#         for i in range(1, 21):
+#             file_str = "LungCT_" + str(i).zfill(4)
+#
+#             file_image_f = "imagesTr/" + file_str + "_0000.nii.gz"
+#             file_image_m = "imagesTr/" + file_str + "_0001.nii.gz"
+#
+#             flie_mask_f = "masksTr/" + file_str + "_0000.nii.gz"
+#             file_mask_m = "masksTr/" + file_str + "_0001.nii.gz"
+#
+#             path_list.append({
+#                 "image_f": path_root / file_image_f,
+#                 "image_m": path_root / file_image_m,
+#                 "mask_f": path_root / flie_mask_f,
+#                 "mask_m": path_root / file_mask_m
+#             })
+#
+#         return path_list

@@ -129,25 +129,29 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path, percentile: Optiona
     return result
 
 
-def tre(landmarks_fixed: np.ndarray,
-        landmarks_moving: np.ndarray,
-        displacement: np.ndarray,
-        spacing_moving: Tuple[float, float],
-        percentile: Optional[float] = None) -> Tuple[float, list]:
+def tre(landmarks_fixed_path: Path,
+        landmarks_moving_path: Path,
+        displacement_path: Path,
+        spacing_moving: list[float],
+        percentile: Optional[float] = None) -> float:
     """
     Calculate the Target Registration Error (TRE) between two sets of landmarks.
 
     Args:
-        landmarks_fixed (np.ndarray): The fixed landmarks.
-        landmarks_moving (np.ndarray): The moving landmarks.
-        displacement (np.ndarray): The displacement field.
+        landmarks_fixed (np.ndarray): The fixed landmarks. landmarks in shape (N,3)
+        landmarks_moving (np.ndarray): The moving landmarks. landmarks in shape (N,3)
+        displacement (np.ndarray): The displacement field. displacement in shape (h,w,d,[1], 3)
         spacing_moving (Tuple[float, float, float]): The spacing of the moving image.
 
     Returns:
-        Tuple[float, list]: The mean TRE and a list of detailed TRE values.
+        float: The mean TRE.
     """
 
-    displacement = displacement.squeeze()
+    displacement = nib.load(displacement_path.as_posix()).get_fdata().squeeze()
+    landmarks_moving = np.genfromtxt(landmarks_moving_path, delimiter=',')
+    landmarks_fixed = np.genfromtxt(landmarks_fixed_path, delimiter=',')
+    assert landmarks_moving.shape == landmarks_fixed.shape
+    assert landmarks_fixed.shape[-1] == 3
 
     # Map the moving landmarks to the fixed landmarks using the displacement field
     mov_lms_disp_x = map_coordinates(

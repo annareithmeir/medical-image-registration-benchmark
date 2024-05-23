@@ -27,8 +27,9 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
         path_displacement = Path(
             control_grid_path.as_posix().replace("_temp.nii", ".nii"))
 
+    base_dir = Path(__file__).parent.parent.parent.absolute()
     path_reg_transform = Path(
-        "registrationbaselines/libraries/NiftyReg/reg_transform_ubuntu").absolute()
+        base_dir / "registrationbaselines/libraries/NiftyReg/reg_transform_ubuntu")
     command_line_list = [path_reg_transform.as_posix(),
                          "-ref", fixed_path.as_posix(),
                          "-disp", control_grid_path.as_posix(),
@@ -58,8 +59,9 @@ def apply_transformation(path_fixed: Path,
     assert path_transfromation.exists(
     ), f"File {path_transfromation} does not exist."
 
+    base_dir = Path(__file__).parent.parent.parent.absolute()
     path_reg_resample = Path(
-        "registrationbaselines/libraries/NiftyReg/reg_resample_ubuntu").absolute()
+        base_dir / "registrationbaselines/libraries/NiftyReg/reg_resample_ubuntu")
     command = [path_reg_resample.as_posix(),
                "-ref", path_fixed.as_posix(),
                "-flo", path_moving.as_posix(),

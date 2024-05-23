@@ -34,6 +34,12 @@ class TestDataloaders(unittest.TestCase):
 
         dataset.plot_random_image()
 
+    def test_L2RLungCTDataset_idxs(self):
+        dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+                                   return_type="np_array",
+                                   idxs=[0])
+        self.assertEqual(len(dataset), 1)
+
 
 
 

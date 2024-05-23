@@ -42,11 +42,11 @@ class Evaluation():
 
         method = self.configuration['method_name']
 
-        # create the csv file if it doesn't exist
+        # create the csv file and all its parents if doesn't exist
         self.path_results = Path(
             self.configuration['result_path']) / method / 'results.csv'
-        if not self.path_results.exists():
-            open(self.path_results, 'w').close()
+        self.path_results.parent.mkdir(parents=True, exist_ok=True)
+        self.path_results.touch()
 
         self.results = result_csv.EvaluationResults(self.path_results)
 
@@ -79,16 +79,27 @@ class Evaluation():
         #     dataset_data), "Number of transformations and data must be the same."
         length_datasets = len(dataset_transformations)
 
+        self.dataset_data = dataset_data
+
         for i in tqdm(range(length_datasets)):
             path_transformation = dataset_transformations[i]
-            path_fixed, path_moving = dataset_data.__getitem__(
-                i, return_segmentation=True)
-
-            self._evaluate_segmentation(
-                path_transformation, path_fixed, path_moving, str(path_fixed.stem).split('.')[0])
+            item = dataset_data[i]
 
             self._evaluate_displacement(
-                path_transformation, str(path_fixed.stem).split('.')[0])
+                path_transformation, str(item["imgs"][0].stem).split('.')[0])
+
+            if "segs" in item:
+                path_moving = item["segs"][0]
+                path_fixed = item["segs"][1]
+
+                self._evaluate_segmentation(
+                    path_transformation, path_fixed, path_moving, str(path_fixed.stem).split('.')[0])
+
+            if "kps" in item:
+                path_moving_landmarks = item["kps"][0]
+                path_fixed_landmarks = item["kps"][1]
+                self._evaluate_landmarks(
+                    path_transformation, path_fixed_landmarks, path_moving_landmarks, str(path_fixed.stem).split('.')[0])
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -186,14 +197,19 @@ class Evaluation():
         # delete all files in the temp directory
         shutil.rmtree(temp_dir)
 
-    # TODO implement this
     def _evaluate_landmarks(self,
                             path_transformation: Path,
                             path_fixed_landmarks: Path,
                             path_moving_landmarks: Path,
                             name: str) -> None:
-        warnings.warn("Not implemented yet.")
-        pass
+
+        assert self.dataset_data is not None
+
+        tre = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_transformation, self.dataset_data.spacing)
+        tre30 = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_transformation, self.dataset_data.spacing, percentile=30)
+
+        self.results.add_value("tre", tre, name)
+        self.results.add_value("tre30", tre30, name)
 
     def _create_temp_segmentation_file_for_a_class(self, segmentation, path_segmentation, cls, temp_dir):
         class_mask_fixed = utils_metrics.extract_class(
