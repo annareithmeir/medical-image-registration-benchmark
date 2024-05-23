@@ -68,7 +68,7 @@ class L2RLungCTDataset(Dataset):
         """
 
         if self.return_type == "path":
-            dict={
+            item_dict={
                 "imgs": [self.imgs_path / self.imgs_list[idx][0],self.imgs_path / self.imgs_list[idx][1]],
                 "segs": [self.imgs_path / self.segs_list[idx][0],self.imgs_path / self.segs_list[idx][1]],
                 "kps": [self.imgs_path / self.kps_list[idx][0], self.imgs_path / self.kps_list[idx][1]]
@@ -90,12 +90,12 @@ class L2RLungCTDataset(Dataset):
             seg_m = subject["seg_m"].data
             seg_f = subject["seg_f"].data
 
-            dict = {
+            item_dict = {
                 "imgs": [img_m,img_f],
                 "segs": [seg_m, seg_f],
                 "kps": [kp_m, kp_f]
             }
-        return dict
+        return item_dict
 
     def preprocess(self, save_path: Path) -> None:
         """
