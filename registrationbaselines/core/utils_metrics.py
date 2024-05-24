@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from typing import Tuple
-
+from scipy.ndimage import map_coordinates
 import numpy as np
 import nibabel as nib
 
@@ -105,3 +105,26 @@ def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path) -> Tuple[nib.Nift
         raise ValueError("The two NIfTI files must have the same classes.")
 
     return nifti1, nifti2, classes1
+
+
+def deform_segmentations(moving_segmentation: np.ndarray, displacement: np.ndarray)->np.ndarray:
+    """
+
+    @param moving_segmentation:
+    @param displacement:
+    @return:
+    """
+    #TODO
+
+
+def deform_landmarks(moving_landmarks: np.ndarray, displacement: np.ndarray)->np.ndarray:
+    # Map the moving landmarks to the fixed landmarks using the displacement field
+    mov_lms_disp_x = map_coordinates(
+        displacement[:, :, :, 0], moving_landmarks.transpose())
+    mov_lms_disp_y = map_coordinates(
+        displacement[:, :, :, 1], moving_landmarks.transpose())
+    mov_lms_disp_z = map_coordinates(
+        displacement[:, :, :, 2], moving_landmarks.transpose())
+    mov_lms_disp = np.array(
+        (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
+    return moving_landmarks + mov_lms_disp

@@ -3,6 +3,9 @@ import shutil
 import warnings
 from typing import Optional
 from tqdm import tqdm
+from torch.utils.data import Dataset
+import nibabel as nib
+import numpy as np
 
 from registrationbaselines.core import utils, result_csv, utils_metrics
 from registrationbaselines.transforms import \
@@ -12,8 +15,10 @@ from registrationbaselines.transforms import \
     transform_demons_sitk, \
     transform_syn_ants
 from registrationbaselines.core import metrics
+from registrationbaselines.core import visualization
 
-# one .csv file prer registration method
+
+# one .csv file per registration method
 
 
 class Evaluation():
@@ -42,11 +47,14 @@ class Evaluation():
 
         method = self.configuration['method_name']
 
-        # create the csv file if it doesn't exist
+        # create the csv file and all its parents if doesn't exist
         self.path_results = Path(
             self.configuration['result_path']) / method / 'results.csv'
-        if not self.path_results.exists():
-            open(self.path_results, 'w').close()
+        self.path_plots = Path(
+            self.configuration['result_path']) / method / 'plots'
+        self.path_results.parent.mkdir(parents=True, exist_ok=True)
+        self.path_plots.mkdir(parents=True, exist_ok=True)
+        self.path_results.touch()
 
         self.results = result_csv.EvaluationResults(self.path_results)
 
@@ -68,7 +76,7 @@ class Evaluation():
 
     # TODO first column should contain names of the fixed image only
 
-    def evaluate(self, dataset_transformations, dataset_data) -> None:
+    def evaluate(self, dataset_transformations: Dataset, dataset_data: Dataset) -> None:
         """
         Evaluate the registration model.
         """
@@ -79,16 +87,28 @@ class Evaluation():
         #     dataset_data), "Number of transformations and data must be the same."
         length_datasets = len(dataset_transformations)
 
+        self.dataset_data = dataset_data
+
         for i in tqdm(range(length_datasets)):
             path_transformation = dataset_transformations[i]
-            path_fixed, path_moving = dataset_data.__getitem__(
-                i, return_segmentation=True)
-
-            self._evaluate_segmentation(
-                path_transformation, path_fixed, path_moving, str(path_fixed.stem).split('.')[0])
+            item = dataset_data[i]
 
             self._evaluate_displacement(
-                path_transformation, str(path_fixed.stem).split('.')[0])
+                path_transformation, str(item["images"][0].stem).split('.')[0])
+
+            if "segmentations" in item:
+                path_moving = item["segmentations"][0]
+                path_fixed = item["segmentations"][1]
+
+                self._evaluate_segmentation(
+                    path_transformation, path_fixed, path_moving, str(path_fixed.stem).split('.')[0])
+
+            if "landmarks" in item:
+                path_moving_landmarks = item["landmarks"][0]
+                path_fixed_landmarks = item["landmarks"][1]
+                self._evaluate_landmarks(
+                    path_transformation, path_fixed_landmarks, path_moving_landmarks,
+                    str(path_fixed.stem).split('.')[0])
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -96,6 +116,46 @@ class Evaluation():
         self.results.calculate_max()
 
         self.results.write()
+
+    def visualize(self, dataset_transformations: Dataset, dataset_data: Dataset, idxs: Optional[list[int]] = None,
+                  plot_to_wandb: Optional[bool] = False) -> None:
+        """
+        Create plots for the evaluation.
+        """
+
+        # TODO this should be removed once we worke with entire datasets
+        warnings.warn("Restore the assert, when working with entire datasets.")
+        # assert len(dataset_transformations) == len(
+        #     dataset_data), "Number of transformations and data must be the same."
+
+        if idxs is None:
+            idxs = range(len(dataset_transformations))
+
+        for i in tqdm(idxs):
+            path_transformation = dataset_transformations[i]
+            item = dataset_data[i]
+            moving_image_path = item["images"][0]
+            fixed_image_path = item["images"][1]
+            moving_image = nib.load(moving_image_path).get_fdata()
+            fixed_image = nib.load(fixed_image_path).get_fdata()
+            displacement = nib.load(path_transformation.as_posix()).get_fdata().squeeze()
+            deformed_image_path = self._get_deformed_image_path(moving_image_path.name, fixed_image_path.name)
+            deformed_image = nib.load(deformed_image_path).get_fdata()
+
+            plots_path = self._create_plots_paths(fixed_image_path.name, moving_image_path.name)
+
+            if "segmentations" in item:
+                moving_segmentation = nib.load(item["segmentations"][0]).get_fdata()
+                fixed_segmentation = nib.load(item["segmentations"][1]).get_fdata()
+                #deformed_segmentation = utils_metrics.deform_segmentations(moving_segmentation, displacement)
+                deformed_segmentation = None # TODO implement function above
+            if "landmarks" in item:
+                moving_landmarks = np.genfromtxt(item["landmarks"][0], delimiter=',')
+                fixed_landmarks = np.genfromtxt(item["landmarks"][1], delimiter=',')
+                deformed_landmarks = utils_metrics.deform_landmarks(moving_landmarks, displacement)
+            visualization.plot_all_registration_results(plots_path, moving_image, fixed_image, deformed_image,
+                                                        displacement, fixed_segmentation, deformed_segmentation,
+                                                        fixed_landmarks, moving_landmarks, deformed_landmarks)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
@@ -186,14 +246,20 @@ class Evaluation():
         # delete all files in the temp directory
         shutil.rmtree(temp_dir)
 
-    # TODO implement this
     def _evaluate_landmarks(self,
                             path_transformation: Path,
                             path_fixed_landmarks: Path,
                             path_moving_landmarks: Path,
                             name: str) -> None:
-        warnings.warn("Not implemented yet.")
-        pass
+
+        assert self.dataset_data is not None
+
+        tre = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_transformation, self.dataset_data.spacing)
+        tre30 = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_transformation, self.dataset_data.spacing,
+                            percentile=30)
+
+        self.results.add_value("tre", tre, name)
+        self.results.add_value("tre30", tre30, name)
 
     def _create_temp_segmentation_file_for_a_class(self, segmentation, path_segmentation, cls, temp_dir):
         class_mask_fixed = utils_metrics.extract_class(
@@ -208,3 +274,34 @@ class Evaluation():
                                        path_fixed_temp)
 
         return path_fixed_temp
+
+    def _create_plots_paths(self, name_fixed: str, name_moving: str):
+        """
+        Create the paths for the plots.
+        """
+
+        name_moving = name_moving.replace(".nii", "")
+        name_fixed = name_fixed.replace(".nii", "")
+
+        name_moving = name_moving.replace(".gz", "")
+        name_fixed = name_fixed.replace(".gz", "")
+
+        path_plots = self.path_plots / f"{name_moving}_deformed_to_{name_fixed}.pdf"
+        path_plots = path_plots.resolve().as_posix()
+
+        return Path(path_plots)
+
+    def _get_deformed_image_path(self, name_fixed: str, name_moving: str):
+        """
+        Get the corresponding deformed image path.
+        """
+
+        name_moving = name_moving.replace(".nii", "")
+        name_fixed = name_fixed.replace(".nii", "")
+        name_moving = name_moving.replace(".gz", "")
+        name_fixed = name_fixed.replace(".gz", "")
+
+        path_plots = self.path_results.parent / f"deformed/{name_moving}_deformed_to_{name_fixed}.nii"
+        path_plots = path_plots.resolve().as_posix()
+
+        return Path(path_plots)

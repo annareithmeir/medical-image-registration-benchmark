@@ -20,19 +20,25 @@ class TestDataloaders(unittest.TestCase):
         self.assertEqual(len(dataset), 20)
 
         item = dataset.__getitem__(0)
-        m = item["imgs"][0]
+        m = item["images"][0]
         self.assertIsInstance(m, torch.Tensor)
         self.assertEqual(m.shape[1:], dataset.img_shape) # shape[0] is batchsize
 
         dataset.preprocess(Path("/home/anna/LungCT_preprocessed"))
 
         item = dataset.__getitem__(0)
-        m = item["imgs"][0]
+        m = item["images"][0]
         self.assertIsInstance(m, torch.Tensor)
         self.assertEqual(m.shape[1:], dataset.img_shape)  # shape[0] is batchsize
         self.assertEqual(dataset.spacing, (1.75, 1.75, 1.75))
 
         dataset.plot_random_image()
+
+    def test_L2RLungCTDataset_idxs(self):
+        dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+                                   return_type="np_array",
+                                   idxs=[0])
+        self.assertEqual(len(dataset), 1)
 
 
 

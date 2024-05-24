@@ -4,9 +4,17 @@ from typing import Dict, Tuple, Optional
 import numpy as np
 from scipy.spatial.distance import dice, directed_hausdorff
 from scipy.spatial import KDTree
-from scipy.ndimage import map_coordinates
 import nibabel as nib
 import SimpleITK as sitk
+from registrationbaselines.core import utils_metrics
+
+
+def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarray:
+    displacement_image = sitk.GetImageFromArray(
+        displacement.squeeze(), isVector=True)
+    jacobian_determinant_image = sitk.DisplacementFieldJacobianDeterminant(
+        displacement_image)
+    return sitk.GetArrayFromImage(jacobian_determinant_image)
 
 
 def sdlogj(path_displacement: Path) -> Tuple[float, float]:
@@ -18,12 +26,7 @@ def sdlogj(path_displacement: Path) -> Tuple[float, float]:
 
     displacement = nib.load(path_displacement.as_posix()).get_fdata()
 
-    # create an sitk image (but remove the 1 dimension)
-    displacement_image = sitk.GetImageFromArray(
-        displacement.squeeze(), isVector=True)
-    jacobian_determinant_image = sitk.DisplacementFieldJacobianDeterminant(
-        displacement_image)
-    jacobian_determinant = sitk.GetArrayFromImage(jacobian_determinant_image)
+    jacobian_determinant = jacobian_determinant_from_displacement(displacement)
 
     # foldings are where the jacobian determinant is negative
     num_foldings = int((jacobian_determinant < 0).astype(float).sum())
@@ -129,38 +132,31 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path, percentile: Optiona
     return result
 
 
-def tre(landmarks_fixed: np.ndarray,
-        landmarks_moving: np.ndarray,
-        displacement: np.ndarray,
-        spacing_moving: Tuple[float, float],
-        percentile: Optional[float] = None) -> Tuple[float, list]:
+def tre(landmarks_fixed_path: Path,
+        landmarks_moving_path: Path,
+        displacement_path: Path,
+        spacing_moving: list[float],
+        percentile: Optional[float] = None) -> float:
     """
     Calculate the Target Registration Error (TRE) between two sets of landmarks.
 
     Args:
-        landmarks_fixed (np.ndarray): The fixed landmarks.
-        landmarks_moving (np.ndarray): The moving landmarks.
-        displacement (np.ndarray): The displacement field.
+        landmarks_fixed (np.ndarray): The fixed landmarks. landmarks in shape (N,3)
+        landmarks_moving (np.ndarray): The moving landmarks. landmarks in shape (N,3)
+        displacement (np.ndarray): The displacement field. displacement in shape (h,w,d,[1], 3)
         spacing_moving (Tuple[float, float, float]): The spacing of the moving image.
 
     Returns:
-        Tuple[float, list]: The mean TRE and a list of detailed TRE values.
+        float: The mean TRE.
     """
 
-    displacement = displacement.squeeze()
+    displacement = nib.load(displacement_path.as_posix()).get_fdata().squeeze()
+    landmarks_moving = np.genfromtxt(landmarks_moving_path, delimiter=',')
+    landmarks_fixed = np.genfromtxt(landmarks_fixed_path, delimiter=',')
+    assert landmarks_moving.shape == landmarks_fixed.shape
+    assert landmarks_fixed.shape[-1] == 3
 
-    # Map the moving landmarks to the fixed landmarks using the displacement field
-    mov_lms_disp_x = map_coordinates(
-        displacement[:, :, :, 0], landmarks_moving.transpose())
-    mov_lms_disp_y = map_coordinates(
-        displacement[:, :, :, 1], landmarks_moving.transpose())
-    mov_lms_disp_z = map_coordinates(
-        displacement[:, :, :, 2], landmarks_moving.transpose())
-    mov_lms_disp = np.array(
-        (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
-
-    # Calculate the warped moving landmarks
-    mov_lms_warped = landmarks_moving + mov_lms_disp
+    mov_lms_warped = utils_metrics.deform_landmarks(landmarks_moving, landmarks_fixed, displacement)
 
     # Calculate the TRE
     all_errors = np.linalg.norm((mov_lms_warped - landmarks_fixed)

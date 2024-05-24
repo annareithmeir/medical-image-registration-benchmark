@@ -15,8 +15,9 @@ class BSplineNiftyReg(RegistrationInterface):
     def __init__(self, configuration_path: Path) -> None:
 
         self.method = "BSplineNiftyReg"
-        self.path_reg_f3d = Path(
-            "registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu").absolute()
+        self.base_dir = Path(__file__).parent.parent.absolute().parent
+        self.path_reg_f3d = self.base_dir / Path(
+            "registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
 
         self.configuration = self.read_config(configuration_path)
 
