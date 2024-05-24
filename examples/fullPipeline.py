@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 import logging
 import matplotlib
+from tqdm import tqdm
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
@@ -21,7 +22,7 @@ def main() -> None:
     print("\nregister...")
     registration = BSplineNiftyReg(path_config)
 
-    for i in range(len(loader_data)):
+    for i in tqdm(range(len(loader_data))):
         item = loader_data[i]
         registration.register(item["images"][0], item["images"][1])
 

@@ -88,32 +88,36 @@ class Evaluation():
         # assert len(dataset_transformations) == len(
         #     dataset_data), "Number of transformations and data must be the same."
         length_datasets = len(dataset_transformations)
+        self.results.number_of_images = length_datasets
 
         self.dataset_data = dataset_data
 
         for i in tqdm(range(length_datasets)):
             path_transformation = dataset_transformations[i]
             item = dataset_data[i]
-            item_str = str(item["images"][0].stem).split('.')[0]
 
-            self._evaluate_displacement(
-                path_transformation, item_str)
-            # self._evaluate_displacement(
-            #     path_transformation, str(path_transformation.name))
+            fixed_name = str(item["images"][0].stem).split('.')[0]
+
+            self._evaluate_displacement(path_transformation, fixed_name)
 
             if "segmentations" in item:
                 path_moving = item["segmentations"][0]
                 path_fixed = item["segmentations"][1]
 
                 self._evaluate_segmentation(
-                    path_transformation, path_fixed, path_moving, item_str)
+                    path_transformation, path_fixed, path_moving, fixed_name)
 
             if "landmarks" in item:
                 path_moving_landmarks = item["landmarks"][0]
                 path_fixed_landmarks = item["landmarks"][1]
                 self._evaluate_landmarks(
-                    path_transformation, path_fixed_landmarks, path_moving_landmarks,
-                    item_str)
+                    path_transformation,
+                    path_fixed_landmarks,
+                    path_moving_landmarks,
+                    fixed_name)
+
+            if i == 1:
+                break
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -165,10 +169,10 @@ class Evaluation():
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
-        sd_log_det, num_foldings = metrics.displacement_field_metrics(path_displacement)
+        sd_log_det, fraction_foldings = metrics.displacement_field_metrics(path_displacement)
 
         self.results.add_value("sdlogj", sd_log_det, name)
-        self.results.add_value("num_foldings", num_foldings, name)
+        self.results.add_value("frac_foldings", fraction_foldings, name)
 
     def _evaluate_segmentation(self,
                                path_transformation: Path,

@@ -20,6 +20,8 @@ class EvaluationResults:
         self.file_path = file_path
         self.df = pd.DataFrame()
 
+        self.number_of_images = 0
+
         # If the CSV exists, delete it
         if os.path.exists(self.file_path):
             os.remove(self.file_path)
@@ -101,7 +103,7 @@ class EvaluationResults:
             print(f"{function_name} values already calculated.")
             return
 
-        stats = self.df.apply(stat_function)
+        stats = self.df.iloc[:self.number_of_images].apply(stat_function)
         self.df.loc[function_name] = stats
 
     def write(self):
