@@ -50,6 +50,8 @@ class Evaluation():
         # create the csv file and all its parents if doesn't exist
         self.path_results = Path(
             self.configuration['result_path']) / method / 'results.csv'
+        self.path_results_plots = Path(
+            self.configuration['result_path']) / method / 'results.pdf'
         self.path_plots = Path(
             self.configuration['result_path']) / method / 'plots'
         self.path_results.parent.mkdir(parents=True, exist_ok=True)
@@ -93,6 +95,7 @@ class Evaluation():
         for i in tqdm(range(length_datasets)):
             path_transformation = dataset_transformations[i]
             item = dataset_data[i]
+
             fixed_name = str(item["images"][0].stem).split('.')[0]
 
             self._evaluate_displacement(path_transformation, fixed_name)
@@ -122,6 +125,7 @@ class Evaluation():
         self.results.calculate_max()
 
         self.results.write()
+        self.results.plot(self.path_results_plots)
 
     def visualize(self, dataset_transformations: Dataset, dataset_data: Dataset, idxs: Optional[list[int]] = None,
                   plot_to_wandb: Optional[bool] = False) -> None:
@@ -165,10 +169,10 @@ class Evaluation():
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
-        sd_log_det, num_foldings = metrics.sdlogj(path_displacement)
+        sd_log_det, fraction_foldings = metrics.displacement_field_metrics(path_displacement)
 
         self.results.add_value("sdlogj", sd_log_det, name)
-        self.results.add_value("num_foldings", num_foldings, name)
+        self.results.add_value("frac_foldings", fraction_foldings, name)
 
     def _evaluate_segmentation(self,
                                path_transformation: Path,

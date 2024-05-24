@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 import logging
 import matplotlib
+from tqdm import tqdm
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
@@ -15,13 +16,13 @@ def main() -> None:
 
     path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
 
-    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0]) # we only want to use one image pair here
+    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0,1,2]) # we only want to use one image pair here
 
     # register
     print("\nregister...")
     registration = BSplineNiftyReg(path_config)
 
-    for i in range(len(loader_data)):
+    for i in tqdm(range(len(loader_data))):
         item = loader_data[i]
         registration.register(item["images"][0], item["images"][1])
 

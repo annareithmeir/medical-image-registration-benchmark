@@ -17,9 +17,9 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
     return sitk.GetArrayFromImage(jacobian_determinant_image)
 
 
-def sdlogj(path_displacement: Path) -> Tuple[float, float]:
+def displacement_field_metrics(path_displacement: Path) -> Tuple[float, float]:
     """
-    Calculate the number of foldings and the standard deviation of the logarithm of the Jacobian determinant.
+    Calculate the fraction of foldings and the standard deviation of the logarithm of the Jacobian determinant.
     """
 
     epsilon = 1e-6  # so we don't get log(0)
@@ -30,6 +30,7 @@ def sdlogj(path_displacement: Path) -> Tuple[float, float]:
 
     # foldings are where the jacobian determinant is negative
     num_foldings = int((jacobian_determinant < 0).astype(float).sum())
+    fraction_foldings = num_foldings/ jacobian_determinant.size
 
     # we now add the absolute value of the minimum value of the jacobian determinant to avoid logs of negative values
     # and we add epsilon to avoid log(0)
@@ -37,8 +38,7 @@ def sdlogj(path_displacement: Path) -> Tuple[float, float]:
     log_input += epsilon
     sd_log_det = np.log(log_input).std()
 
-    return sd_log_det, num_foldings
-
+    return sd_log_det, fraction_foldings
 
 def dice_score(nifti1_path: Path, nifti2_path: Path) -> float:
     """
@@ -156,7 +156,7 @@ def tre(landmarks_fixed_path: Path,
     assert landmarks_moving.shape == landmarks_fixed.shape
     assert landmarks_fixed.shape[-1] == 3
 
-    mov_lms_warped = utils_metrics.deform_landmarks(landmarks_moving, landmarks_fixed, displacement)
+    mov_lms_warped = utils_metrics.deform_landmarks(landmarks_moving, displacement)
 
     # Calculate the TRE
     all_errors = np.linalg.norm((mov_lms_warped - landmarks_fixed)

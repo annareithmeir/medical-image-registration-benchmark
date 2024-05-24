@@ -3,6 +3,8 @@ from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
 from typing import Optional
+
+import pandas as pd
 # plt.switch_backend('agg')
 from matplotlib.colors import ListedColormap
 from matplotlib.colors import Normalize
@@ -384,3 +386,11 @@ def plot_all_registration_results(save_path:Path,
 #                                                   pred_keypoints=pred_keypoints, show_plot=False, title=title,
 #                                                   show_maxshear=False, pfile=log_file)
 #     return wandb.Image(fig)
+
+def plot_quantitative_results(df: pd.DataFrame, plot_path: Path):
+    df = df.drop(["min","max","mean","std"])
+    df = df.astype(float)
+
+    # box plots
+    df.plot(kind='box', subplots=True, figsize= (40,7))
+    plt.savefig(plot_path)
