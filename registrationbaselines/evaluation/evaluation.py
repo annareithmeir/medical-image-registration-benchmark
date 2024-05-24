@@ -50,6 +50,8 @@ class Evaluation():
         # create the csv file and all its parents if doesn't exist
         self.path_results = Path(
             self.configuration['result_path']) / method / 'results.csv'
+        self.path_results_plots = Path(
+            self.configuration['result_path']) / method / 'results.pdf'
         self.path_plots = Path(
             self.configuration['result_path']) / method / 'plots'
         self.path_results.parent.mkdir(parents=True, exist_ok=True)
@@ -92,23 +94,26 @@ class Evaluation():
         for i in tqdm(range(length_datasets)):
             path_transformation = dataset_transformations[i]
             item = dataset_data[i]
+            item_str = str(item["images"][0].stem).split('.')[0]
 
             self._evaluate_displacement(
-                path_transformation, str(item["images"][0].stem).split('.')[0])
+                path_transformation, item_str)
+            # self._evaluate_displacement(
+            #     path_transformation, str(path_transformation.name))
 
             if "segmentations" in item:
                 path_moving = item["segmentations"][0]
                 path_fixed = item["segmentations"][1]
 
                 self._evaluate_segmentation(
-                    path_transformation, path_fixed, path_moving, str(path_fixed.stem).split('.')[0])
+                    path_transformation, path_fixed, path_moving, item_str)
 
             if "landmarks" in item:
                 path_moving_landmarks = item["landmarks"][0]
                 path_fixed_landmarks = item["landmarks"][1]
                 self._evaluate_landmarks(
                     path_transformation, path_fixed_landmarks, path_moving_landmarks,
-                    str(path_fixed.stem).split('.')[0])
+                    item_str)
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -116,6 +121,7 @@ class Evaluation():
         self.results.calculate_max()
 
         self.results.write()
+        self.results.plot(self.path_results_plots)
 
     def visualize(self, dataset_transformations: Dataset, dataset_data: Dataset, idxs: Optional[list[int]] = None,
                   plot_to_wandb: Optional[bool] = False) -> None:
@@ -159,7 +165,7 @@ class Evaluation():
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
-        sd_log_det, num_foldings = metrics.sdlogj(path_displacement)
+        sd_log_det, num_foldings = metrics.displacement_field_metrics(path_displacement)
 
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("num_foldings", num_foldings, name)

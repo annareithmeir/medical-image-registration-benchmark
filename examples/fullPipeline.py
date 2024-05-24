@@ -15,7 +15,7 @@ def main() -> None:
 
     path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
 
-    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0]) # we only want to use one image pair here
+    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0,1,2]) # we only want to use one image pair here
 
     # register
     print("\nregister...")

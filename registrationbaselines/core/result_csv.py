@@ -1,8 +1,9 @@
 import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
+from registrationbaselines.core import visualization
 
 class EvaluationResults:
     """
@@ -119,3 +120,11 @@ class EvaluationResults:
                 self.df[col] = self.df[col].apply(lambda x: f"{x:.6g}")
 
         self.df.to_csv(self.file_path)
+
+    def plot(self, plot_path:Path) -> None:
+        """
+        Plot statistical results
+        @return:
+        """
+
+        visualization.plot_quantitative_results(self.df, plot_path)
