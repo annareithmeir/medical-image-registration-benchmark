@@ -86,6 +86,7 @@ class Evaluation():
         # assert len(dataset_transformations) == len(
         #     dataset_data), "Number of transformations and data must be the same."
         length_datasets = len(dataset_transformations)
+        self.results.number_of_images = length_datasets
 
         self.dataset_data = dataset_data
 
