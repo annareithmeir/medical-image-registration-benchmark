@@ -92,23 +92,28 @@ class Evaluation():
         for i in tqdm(range(length_datasets)):
             path_transformation = dataset_transformations[i]
             item = dataset_data[i]
+            fixed_name = str(item["images"][0].stem).split('.')[0]
 
-            self._evaluate_displacement(
-                path_transformation, str(item["images"][0].stem).split('.')[0])
+            self._evaluate_displacement(path_transformation, fixed_name)
 
             if "segmentations" in item:
                 path_moving = item["segmentations"][0]
                 path_fixed = item["segmentations"][1]
 
                 self._evaluate_segmentation(
-                    path_transformation, path_fixed, path_moving, str(path_fixed.stem).split('.')[0])
+                    path_transformation, path_fixed, path_moving, fixed_name)
 
             if "landmarks" in item:
                 path_moving_landmarks = item["landmarks"][0]
                 path_fixed_landmarks = item["landmarks"][1]
                 self._evaluate_landmarks(
-                    path_transformation, path_fixed_landmarks, path_moving_landmarks,
-                    str(path_fixed.stem).split('.')[0])
+                    path_transformation,
+                    path_fixed_landmarks,
+                    path_moving_landmarks,
+                    fixed_name)
+
+            if i == 1:
+                break
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
