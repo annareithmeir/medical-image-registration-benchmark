@@ -18,19 +18,19 @@ def main() -> None:
     loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0]) # we only want to use one image pair here
 
     # register
-    #print("\nregister...")
+    print("\nregister...")
     registration = BSplineNiftyReg(path_config)
 
-    # for i in range(len(loader_data)):
-    #     item = loader_data[i]
-    #     registration.register(item["imgs"][0], item["imgs"][1])
+    for i in range(len(loader_data)):
+        item = loader_data[i]
+        registration.register(item["images"][0], item["images"][1])
 
     # evaluate
     print("\nevaluate...")
     evaluation = Evaluation(path_config)
     loader_transformations = data_loaders.BaselineTransformations(
         base_dir / "tmp/results/BSplineNiftyReg")
-    #evaluation.evaluate(loader_transformations, loader_data)
+    evaluation.evaluate(loader_transformations, loader_data)
     print("\nplot...")
     evaluation.visualize(loader_transformations, loader_data)
 

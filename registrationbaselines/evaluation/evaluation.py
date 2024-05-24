@@ -94,18 +94,18 @@ class Evaluation():
             item = dataset_data[i]
 
             self._evaluate_displacement(
-                path_transformation, str(item["imgs"][0].stem).split('.')[0])
+                path_transformation, str(item["images"][0].stem).split('.')[0])
 
-            if "segs" in item:
-                path_moving = item["segs"][0]
-                path_fixed = item["segs"][1]
+            if "segmentations" in item:
+                path_moving = item["segmentations"][0]
+                path_fixed = item["segmentations"][1]
 
                 self._evaluate_segmentation(
                     path_transformation, path_fixed, path_moving, str(path_fixed.stem).split('.')[0])
 
-            if "kps" in item:
-                path_moving_landmarks = item["kps"][0]
-                path_fixed_landmarks = item["kps"][1]
+            if "landmarks" in item:
+                path_moving_landmarks = item["landmarks"][0]
+                path_fixed_landmarks = item["landmarks"][1]
                 self._evaluate_landmarks(
                     path_transformation, path_fixed_landmarks, path_moving_landmarks,
                     str(path_fixed.stem).split('.')[0])
@@ -134,8 +134,8 @@ class Evaluation():
         for i in tqdm(idxs):
             path_transformation = dataset_transformations[i]
             item = dataset_data[i]
-            moving_image_path = item["imgs"][0]
-            fixed_image_path = item["imgs"][1]
+            moving_image_path = item["images"][0]
+            fixed_image_path = item["images"][1]
             moving_image = nib.load(moving_image_path).get_fdata()
             fixed_image = nib.load(fixed_image_path).get_fdata()
             displacement = nib.load(path_transformation.as_posix()).get_fdata().squeeze()
@@ -144,14 +144,14 @@ class Evaluation():
 
             plots_path = self._create_plots_paths(fixed_image_path.name, moving_image_path.name)
 
-            if "segs" in item:
-                moving_segmentation = nib.load(item["segs"][0]).get_fdata()
-                fixed_segmentation = nib.load(item["segs"][1]).get_fdata()
+            if "segmentations" in item:
+                moving_segmentation = nib.load(item["segmentations"][0]).get_fdata()
+                fixed_segmentation = nib.load(item["segmentations"][1]).get_fdata()
                 #deformed_segmentation = utils_metrics.deform_segmentations(moving_segmentation, displacement)
                 deformed_segmentation = None # TODO implement function above
-            if "kps" in item:
-                moving_landmarks = np.genfromtxt(item["kps"][0], delimiter=',')
-                fixed_landmarks = np.genfromtxt(item["kps"][1], delimiter=',')
+            if "landmarks" in item:
+                moving_landmarks = np.genfromtxt(item["landmarks"][0], delimiter=',')
+                fixed_landmarks = np.genfromtxt(item["landmarks"][1], delimiter=',')
                 deformed_landmarks = utils_metrics.deform_landmarks(moving_landmarks, displacement)
             visualization.plot_all_registration_results(plots_path, moving_image, fixed_image, deformed_image,
                                                         displacement, fixed_segmentation, deformed_segmentation,

@@ -75,9 +75,9 @@ class L2RLungCTDataset(Dataset):
 
         if self.return_type == "path":
             item_dict = {
-                "imgs": [self.imgs_path / self.imgs_list[idx][0], self.imgs_path / self.imgs_list[idx][1]],
-                "segs": [self.imgs_path / self.segs_list[idx][0], self.imgs_path / self.segs_list[idx][1]],
-                "kps": [self.imgs_path / self.kps_list[idx][0], self.imgs_path / self.kps_list[idx][1]]
+                "images": [self.imgs_path / self.imgs_list[idx][0], self.imgs_path / self.imgs_list[idx][1]],
+                "segmentations": [self.imgs_path / self.segs_list[idx][0], self.imgs_path / self.segs_list[idx][1]],
+                "landmarks": [self.imgs_path / self.kps_list[idx][0], self.imgs_path / self.kps_list[idx][1]]
             }
         else:  # np_array bsxhxwxd
             subject_dict = {
@@ -97,9 +97,9 @@ class L2RLungCTDataset(Dataset):
             seg_f = subject["seg_f"].data
 
             item_dict = {
-                "imgs": [img_m, img_f],
-                "segs": [seg_m, seg_f],
-                "kps": [kp_m, kp_f]
+                "images": [img_m, img_f],
+                "segmentations": [seg_m, seg_f],
+                "landmarks": [kp_m, kp_f]
             }
         return item_dict
 
@@ -211,12 +211,12 @@ class L2RLungCTDataset(Dataset):
         item = self[rand_idx]
         self.return_type = tmp
 
-        img_m = tio.ScalarImage(item["imgs"][0]).numpy().squeeze()
-        img_f = tio.ScalarImage(item["imgs"][1]).numpy().squeeze()
-        seg_m = tio.LabelMap(item["segs"][0]).numpy().squeeze()
-        seg_f = tio.LabelMap(item["segs"][1]).numpy().squeeze()
-        kp_m = np.genfromtxt(item["kps"][0], delimiter=',')
-        kp_f = np.genfromtxt(item["kps"][1], delimiter=',')
+        img_m = tio.ScalarImage(item["images"][0]).numpy().squeeze()
+        img_f = tio.ScalarImage(item["images"][1]).numpy().squeeze()
+        seg_m = tio.LabelMap(item["segmentations"][0]).numpy().squeeze()
+        seg_f = tio.LabelMap(item["segmentations"][1]).numpy().squeeze()
+        kp_m = np.genfromtxt(item["landmarks"][0], delimiter=',')
+        kp_f = np.genfromtxt(item["landmarks"][1], delimiter=',')
 
         fig = plt.figure(figsize=(20, 12))
         image_size = self.img_shape
