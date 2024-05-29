@@ -88,17 +88,19 @@ class Evaluation():
                 path_moving = item["segmentations"][0]
                 path_fixed = item["segmentations"][1]
 
-                self._evaluate_segmentation(
-                    path_transformation, path_fixed, path_moving, fixed_name)
+                self._evaluate_segmentation(path_transformation,
+                                            path_fixed,
+                                            path_moving,
+                                            fixed_name)
 
             if "landmarks" in item:
                 path_moving_landmarks = item["landmarks"][0]
                 path_fixed_landmarks = item["landmarks"][1]
-                self._evaluate_landmarks(
-                    path_transformation,
-                    path_fixed_landmarks,
-                    path_moving_landmarks,
-                    fixed_name)
+
+                self._evaluate_landmarks(path_transformation,
+                                         path_fixed_landmarks,
+                                         path_moving_landmarks,
+                                         fixed_name)
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -202,35 +204,44 @@ class Evaluation():
                                                                     temp_dir / "temp_defrmed.nii.gz",
                                                                     sitk.sitkNearestNeighbor)
 
-        current_dice_score = metrics.dice_score(path_fixed_segmentation,
-                                                self.path_warped)
-        self.results.add_value("dice",
-                               current_dice_score,
-                               name)
-        dice_mean += current_dice_score
+        dice_scores = metrics.dice_score(path_fixed_segmentation,
+                                         self.path_warped)
+        if len(dice_scores) == 1:
+            self.results.add_value("dice", dice_scores[0], name)
+        else:
+            for i, score in enumerate(dice_scores):
+                self.results.add_value("dice_" + str(i), score, name)
+                dice_mean += score
 
-        current_hausdorff_score = metrics.hausdorff_distance(path_fixed_segmentation,
-                                                             self.path_warped)
-        self.results.add_value("hausdorff",
-                               current_hausdorff_score,
-                               name)
-        hausdorff_mean += current_hausdorff_score
+            dice_mean /= len(dice_scores)
+            self.results.add_value("dice_mean", dice_mean, name)
 
-        current_hausdorff95_score = metrics.hausdorff_distance(path_fixed_segmentation,
-                                                               self.path_warped,
-                                                               percentile=95)
-        self.results.add_value("hausdorff95",
-                               current_hausdorff95_score,
-                               name)
-        hausdorff95_mean += current_hausdorff95_score
+        hausdorff_scores = metrics.hausdorff_distance(path_fixed_segmentation,
+                                                      self.path_warped)
+        hausdorff95_scores = metrics.hausdorff_distance(path_fixed_segmentation,
+                                                        self.path_warped,
+                                                        percentile=95)
 
-        # if len(classes1) > 1:
-        #     self.results.add_value(
-        #         "dice_mean", dice_mean / len(classes1), name)
-        #     self.results.add_value(
-        #         "hausdorff_mean", hausdorff_mean / len(classes1), name)
-        #     self.results.add_value(
-        #         "hausdorff95_mean", hausdorff95_mean / len(classes1), name)
+        assert len(hausdorff_scores) == len(
+            hausdorff95_scores), "Hausdorff scores and 95th percentile scores should have the same length."
+
+        if len(hausdorff_scores) == 1:
+            self.results.add_value("hausdorff", hausdorff_scores[0], name)
+            self.results.add_value("hausdorff95", hausdorff95_scores[0], name)
+        else:
+            for i, score in enumerate(hausdorff_scores):
+                self.results.add_value("hausdorff_" + str(i), score, name)
+                hausdorff_mean += score
+
+                self.results.add_value(
+                    "hausdorff95_" + str(i), hausdorff95_scores[i], name)
+                hausdorff95_mean += hausdorff95_scores[i]
+
+            hausdorff_mean /= len(hausdorff_scores)
+            self.results.add_value("hausdorff_mean", hausdorff_mean, name)
+
+            hausdorff95_mean /= len(hausdorff95_scores)
+            self.results.add_value("hausdorff95_mean", hausdorff95_mean, name)
 
         # delete all files in the temp directory
         shutil.rmtree(temp_dir)
@@ -250,20 +261,6 @@ class Evaluation():
 
         self.results.add_value("tre", tre, name)
         self.results.add_value("tre30", tre30, name)
-
-    def _create_temp_segmentation_file_for_a_class(self, segmentation, path_segmentation, cls, temp_dir):
-        class_mask_fixed = utils_metrics.extract_class(
-            segmentation.get_fdata(), cls)
-
-        fixed_name = path_segmentation.name.split('.')[0]
-
-        path_fixed_temp = temp_dir / f"{fixed_name}_{cls}.nii.gz"
-
-        utils_metrics.save_class_nifti(segmentation,
-                                       class_mask_fixed,
-                                       path_fixed_temp)
-
-        return path_fixed_temp
 
     def _create_plots_paths(self, name_fixed: str, name_moving: str):
         """
