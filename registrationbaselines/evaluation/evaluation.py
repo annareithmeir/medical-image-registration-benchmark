@@ -2,23 +2,17 @@ from pathlib import Path
 import shutil
 import warnings
 from typing import Optional
+
 from tqdm import tqdm
 from torch.utils.data import Dataset
 import nibabel as nib
 import numpy as np
+import SimpleITK as sitk
 
 from registrationbaselines.core import utils, result_csv, utils_metrics
-from registrationbaselines.transforms import \
-    transform_affine_niftyreg, \
-    transform_bspline_niftyreg, \
-    transform_deformable_corrfield, \
-    transform_demons_sitk, \
-    transform_syn_ants
+from registrationbaselines.transforms import general_deformation
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
-
-
-# one .csv file per registration method
 
 
 class Evaluation():
@@ -27,15 +21,6 @@ class Evaluation():
 
     It requires a precomputed transformation.
     """
-
-    # create a dictionary with method names and the transformation classes
-    transformation_methods = {
-        "AffineNiftyReg": transform_affine_niftyreg.TransformAffineNiftyReg,
-        "BSplineNiftyReg": transform_bspline_niftyreg.TransformBSplineNiftyReg,
-        "DeformableCorrField": transform_deformable_corrfield.TransformDeformableCorrField,
-        "DemonsSITK": transform_demons_sitk.TransformDemonsSITK,
-        "SyNANTs": transform_syn_ants.TransformSyNANTs
-    }
 
     def __init__(self, configuration_path: Path):
         """
@@ -61,10 +46,11 @@ class Evaluation():
         self.results = result_csv.EvaluationResults(self.path_results)
 
         # get the transformaton class based on the method name
-        self.transformation = self.transformation_methods[method](
-            self.configuration_path)
+        self.transformation = general_deformation.GeneralDeformation(
+            self.configuration["result_path"])
 
-        self.transformation.path_deformed = self.transformation.path_deformed / "temp"
+        self.transformation.path_deformed = Path(
+            self.configuration['result_path']) / "temp"
 
         self.path_warped = None
 
@@ -75,8 +61,6 @@ class Evaluation():
 
         if self.transformation.path_deformed is not None and self.transformation.path_deformed.exists():
             shutil.rmtree(self.transformation.path_deformed)
-
-    # TODO first column should contain names of the fixed image only
 
     def evaluate(self, dataset_transformations: Dataset, dataset_data: Dataset) -> None:
         """
@@ -116,9 +100,6 @@ class Evaluation():
                     path_moving_landmarks,
                     fixed_name)
 
-            if i == 1:
-                break
-
         self.results.calculate_mean()
         self.results.calculate_stddev()
         self.results.calculate_min()
@@ -148,28 +129,37 @@ class Evaluation():
             fixed_image_path = item["images"][1]
             moving_image = nib.load(moving_image_path).get_fdata()
             fixed_image = nib.load(fixed_image_path).get_fdata()
-            displacement = nib.load(path_transformation.as_posix()).get_fdata().squeeze()
-            deformed_image_path = self._get_deformed_image_path(moving_image_path.name, fixed_image_path.name)
+            displacement = nib.load(
+                path_transformation.as_posix()).get_fdata().squeeze()
+            deformed_image_path = self._get_deformed_image_path(
+                moving_image_path.name, fixed_image_path.name)
             deformed_image = nib.load(deformed_image_path).get_fdata()
 
-            plots_path = self._create_plots_paths(fixed_image_path.name, moving_image_path.name)
+            plots_path = self._create_plots_paths(
+                fixed_image_path.name, moving_image_path.name)
 
             if "segmentations" in item:
-                moving_segmentation = nib.load(item["segmentations"][0]).get_fdata()
-                fixed_segmentation = nib.load(item["segmentations"][1]).get_fdata()
-                #deformed_segmentation = utils_metrics.deform_segmentations(moving_segmentation, displacement)
-                deformed_segmentation = None # TODO implement function above
+                moving_segmentation = nib.load(
+                    item["segmentations"][0]).get_fdata()
+                fixed_segmentation = nib.load(
+                    item["segmentations"][1]).get_fdata()
+                # deformed_segmentation = utils_metrics.deform_segmentations(moving_segmentation, displacement)
+                deformed_segmentation = None  # TODO implement function above
             if "landmarks" in item:
-                moving_landmarks = np.genfromtxt(item["landmarks"][0], delimiter=',')
-                fixed_landmarks = np.genfromtxt(item["landmarks"][1], delimiter=',')
-                deformed_landmarks = utils_metrics.deform_landmarks(moving_landmarks, displacement)
+                moving_landmarks = np.genfromtxt(
+                    item["landmarks"][0], delimiter=',')
+                fixed_landmarks = np.genfromtxt(
+                    item["landmarks"][1], delimiter=',')
+                deformed_landmarks = utils_metrics.deform_landmarks(
+                    moving_landmarks, displacement)
             visualization.plot_all_registration_results(plots_path, moving_image, fixed_image, deformed_image,
                                                         displacement, fixed_segmentation, deformed_segmentation,
                                                         fixed_landmarks, moving_landmarks, deformed_landmarks)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
-        sd_log_det, fraction_foldings = metrics.displacement_field_metrics(path_displacement)
+        sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
+            path_displacement)
 
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
@@ -197,61 +187,50 @@ class Evaluation():
             None
         """
 
-        fixed, moving, classes1 = utils_metrics.get_maks_and_classes(
-            path_fixed_segmentation, path_moving_segmentation)
-
         dice_mean = 0
         hausdorff_mean = 0
         hausdorff95_mean = 0
 
         # create temp directory
-        temp_dir = Path("temp_multi_class_dice")
+        temp_dir = Path(
+            self.configuration['result_path']) / self.configuration['method_name'] / "temp"
         temp_dir.mkdir(exist_ok=True)
 
-        for cls in classes1:
+        self.path_warped = self.transformation.apply_transformation(path_fixed_segmentation,
+                                                                    path_moving_segmentation,
+                                                                    path_transformation,
+                                                                    temp_dir / "temp_defrmed.nii.gz",
+                                                                    sitk.sitkNearestNeighbor)
 
-            if len(classes1) == 1:
-                postfix = ""
-            else:
-                postfix = f"_{int(cls)}"
+        current_dice_score = metrics.dice_score(path_fixed_segmentation,
+                                                self.path_warped)
+        self.results.add_value("dice",
+                               current_dice_score,
+                               name)
+        dice_mean += current_dice_score
 
-            path_fixed_temp = self._create_temp_segmentation_file_for_a_class(fixed,
-                                                                              path_fixed_segmentation,
-                                                                              cls,
-                                                                              temp_dir)
-            path_moving_temp = self._create_temp_segmentation_file_for_a_class(moving,
-                                                                               path_moving_segmentation,
-                                                                               cls,
-                                                                               temp_dir)
+        current_hausdorff_score = metrics.hausdorff_distance(path_fixed_segmentation,
+                                                             self.path_warped)
+        self.results.add_value("hausdorff",
+                               current_hausdorff_score,
+                               name)
+        hausdorff_mean += current_hausdorff_score
 
-            self.path_warped = self.transformation.apply_transformation(
-                path_fixed_temp, path_moving_temp, path_transformation)
+        current_hausdorff95_score = metrics.hausdorff_distance(path_fixed_segmentation,
+                                                               self.path_warped,
+                                                               percentile=95)
+        self.results.add_value("hausdorff95",
+                               current_hausdorff95_score,
+                               name)
+        hausdorff95_mean += current_hausdorff95_score
 
-            current_dice_score = metrics.dice_score(
-                path_fixed_temp, self.path_warped)
-            self.results.add_value(
-                f"dice" + postfix, current_dice_score, name)
-            dice_mean += current_dice_score
-
-            current_hausdorff_score = metrics.hausdorff_distance(
-                path_fixed_temp, self.path_warped)
-            self.results.add_value(
-                f"hausdorff" + postfix, current_hausdorff_score, name)
-            hausdorff_mean += current_hausdorff_score
-
-            current_hausdorff95_score = metrics.hausdorff_distance(
-                path_fixed_temp, self.path_warped, percentile=95)
-            self.results.add_value(
-                f"hausdorff95" + postfix, current_hausdorff95_score, name)
-            hausdorff95_mean += current_hausdorff95_score
-
-        if len(classes1) > 1:
-            self.results.add_value(
-                "dice_mean", dice_mean / len(classes1), name)
-            self.results.add_value(
-                "hausdorff_mean", hausdorff_mean / len(classes1), name)
-            self.results.add_value(
-                "hausdorff95_mean", hausdorff95_mean / len(classes1), name)
+        # if len(classes1) > 1:
+        #     self.results.add_value(
+        #         "dice_mean", dice_mean / len(classes1), name)
+        #     self.results.add_value(
+        #         "hausdorff_mean", hausdorff_mean / len(classes1), name)
+        #     self.results.add_value(
+        #         "hausdorff95_mean", hausdorff95_mean / len(classes1), name)
 
         # delete all files in the temp directory
         shutil.rmtree(temp_dir)
@@ -264,7 +243,8 @@ class Evaluation():
 
         assert self.dataset_data is not None
 
-        tre = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_transformation, self.dataset_data.spacing)
+        tre = metrics.tre(path_fixed_landmarks, path_moving_landmarks,
+                          path_transformation, self.dataset_data.spacing)
         tre30 = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_transformation, self.dataset_data.spacing,
                             percentile=30)
 
@@ -296,7 +276,8 @@ class Evaluation():
         name_moving = name_moving.replace(".gz", "")
         name_fixed = name_fixed.replace(".gz", "")
 
-        path_plots = self.path_plots / f"{name_moving}_deformed_to_{name_fixed}.pdf"
+        path_plots = self.path_plots / \
+            f"{name_moving}_deformed_to_{name_fixed}.pdf"
         path_plots = path_plots.resolve().as_posix()
 
         return Path(path_plots)
@@ -311,7 +292,8 @@ class Evaluation():
         name_moving = name_moving.replace(".gz", "")
         name_fixed = name_fixed.replace(".gz", "")
 
-        path_plots = self.path_results.parent / f"deformed/{name_moving}_deformed_to_{name_fixed}.nii"
+        path_plots = self.path_results.parent / \
+            f"deformed/{name_moving}_deformed_to_{name_fixed}.nii"
         path_plots = path_plots.resolve().as_posix()
 
         return Path(path_plots)
