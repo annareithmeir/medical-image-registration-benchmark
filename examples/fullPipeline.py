@@ -12,7 +12,10 @@ from registrationbaselines.data_loading import data_loaders
 
 
 def main() -> None:
+
     base_dir = Path(__file__).parent.parent.absolute()
+
+    path_config = base_dir / 'registrationbaselines/configs/DemonsSITK.yaml'
 
     machine_name = socket.gethostname()
     if machine_name == "fryderyk":
