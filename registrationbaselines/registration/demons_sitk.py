@@ -11,17 +11,12 @@ class DemonsSITK(RegistrationInterface):
     No default initialisation, as the choice of registration and resampling should be concious.
     """
 
-    def __init__(self,
-                 configuration_path_registration: Path,
-                 configuration_path_resample: Path) -> None:
+    def __init__(self, configuration_path: Path) -> None:
         # todo make method an enum
         self.method = "DemonsSITK"
 
-        # registration configuration
-        self.config_reg = self.read_config(configuration_path_registration)
-
-        # resample configuration
-        self.config_resample = self.read_config(configuration_path_resample)
+        # configuration
+        self.configuration = self.read_config(configuration_path)
 
         self._create_result_directories()
 
@@ -88,13 +83,13 @@ class DemonsSITK(RegistrationInterface):
 
         if self.fixed_image.GetPixelID() in (sitk.sitkUInt8, sitk.sitkInt8):
             matcher.SetNumberOfHistogramLevels(
-                self.config_reg['histogram_levels_int8'])
+                self.configuration['histogram_levels_int8'])
         else:
             matcher.SetNumberOfHistogramLevels(
-                self.config_reg['histogram_levels_float'])
+                self.configuration['histogram_levels_float'])
 
         matcher.SetNumberOfMatchPoints(
-            self.config_reg['number_of_match_points'])
+            self.configuration['number_of_match_points'])
         matcher.ThresholdAtMeanIntensityOn()
 
         self.moving_image = matcher.Execute(
@@ -103,10 +98,12 @@ class DemonsSITK(RegistrationInterface):
     def __create_displacement_field(self) -> sitk.DisplacementFieldTransform:
 
         demons = sitk.FastSymmetricForcesDemonsRegistrationFilter()
-        demons.SetNumberOfIterations(self.config_reg['number_of_iterations'])
+        demons.SetNumberOfIterations(
+            self.configuration['number_of_iterations'])
 
         # Standard deviation for Gaussian smoothing of displacement field
-        demons.SetStandardDeviations(self.config_reg['standard_deviations'])
+        demons.SetStandardDeviations(
+            self.configuration['standard_deviations'])
 
         # get displacement field
         displacement_field = demons.Execute(
@@ -122,15 +119,15 @@ class DemonsSITK(RegistrationInterface):
         resampler.SetReferenceImage(self.fixed_image)
         self.__set_interpolator(resampler)
         resampler.SetDefaultPixelValue(
-            self.config_resample['default_pixel_value'])
+            self.configuration['default_pixel_value'])
         resampler.SetTransform(transformation)
 
         return resampler.Execute(self.moving_image)
 
     def __set_interpolator(self, sitk_object):
-        if self.config_resample['interpolator'] == "sitkLinear":
+        if self.configuration['interpolator'] == "sitkLinear":
             sitk_object.SetInterpolator(sitk.sitkLinear)
-        elif self.config_resample['interpolator'] == "sitkHammingWindowedSinc":
+        elif self.configuration['interpolator'] == "sitkHammingWindowedSinc":
             sitk_object.SetInterpolator(sitk.sitkHammingWindowedSinc)
         else:
             raise ValueError("Invalid interpolator")
