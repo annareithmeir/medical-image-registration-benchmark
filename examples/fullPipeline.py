@@ -1,6 +1,8 @@
 from pathlib import Path
 import sys
 import logging
+import socket
+
 import matplotlib
 from tqdm import tqdm
 
@@ -12,7 +14,13 @@ from registrationbaselines.data_loading import data_loaders
 
 
 def main() -> None:
+    """
+    Main function to run the full registration and evaluation pipeline.
+    """
+
     base_dir = Path(__file__).parent.parent.absolute()
+
+    path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
 
     machine_name = socket.gethostname()
     if machine_name == "fryderyk":
