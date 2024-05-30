@@ -290,7 +290,7 @@ class Evaluation():
         name_fixed = name_fixed.replace(".gz", "")
 
         path_plots = self.path_results.parent / \
-            f"deformed/{name_moving}_deformed_to_{name_fixed}.nii"
+            f"deformed/{name_moving}_deformed_to_{name_fixed}.nii.gz"
         path_plots = path_plots.resolve().as_posix()
 
         return Path(path_plots)
