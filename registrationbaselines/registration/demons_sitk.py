@@ -58,7 +58,15 @@ class DemonsSITK(RegistrationInterface):
 
         result_transformed_image = self.__resample(result_transformation)
 
-        self._save_results(result_transformed_image, result_transformation)
+        # convert transformation to displacement field
+        displacement_field = sitk.TransformToDisplacementField(result_transformation,
+                                                               sitk.sitkVectorFloat64,
+                                                               self.fixed_image.GetSize(),
+                                                               self.fixed_image.GetOrigin(),
+                                                               self.fixed_image.GetSpacing(),
+                                                               self.fixed_image.GetDirection())
+
+        self._save_results(result_transformed_image, displacement_field)
 
     def get_transformed_image_path(self):
         # Return transformed image
@@ -72,11 +80,11 @@ class DemonsSITK(RegistrationInterface):
     def _save_results(self, deformed, deformation):
         self.result_transformed_image_path, self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
                                                                                                         self.moving_path.stem,
-                                                                                                        ".nii",
-                                                                                                        ".tfm")
+                                                                                                        ".nii.gz",
+                                                                                                        ".nii.gz")
 
         sitk.WriteImage(deformed, self.result_transformed_image_path)
-        sitk.WriteTransform(deformation, self.result_transformation_path)
+        sitk.WriteImage(deformation, self.result_transformation_path)
 
     def __match_images(self) -> None:
         matcher = sitk.HistogramMatchingImageFilter()
