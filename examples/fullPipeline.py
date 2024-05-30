@@ -14,9 +14,15 @@ from registrationbaselines.data_loading import data_loaders
 def main() -> None:
     base_dir = Path(__file__).parent.parent.absolute()
 
-    path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
+    machine_name = socket.gethostname()
+    if machine_name == "fryderyk":
+        path_data = Path("/home/fryderyk/Documents/data/LungCT")
+    elif machine_name == "janus":
+        path_data = Path("/u/home/koeglf/Documents/data/LungCT")
+    else:
+        path_data = Path("/home/anna/datasets/LungCT")
 
-    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0,1,2]) # we only want to use one image pair here
+    loader_data = data_loaders.L2RLungCTDataset(path_data)
 
     # register
     print("\nregister...")
