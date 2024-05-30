@@ -11,7 +11,7 @@ class RegistrationInterface(ABC):
 
     configuration = None
 
-    method = None
+    method = ""
 
     path_results = None
     path_deformed = None
