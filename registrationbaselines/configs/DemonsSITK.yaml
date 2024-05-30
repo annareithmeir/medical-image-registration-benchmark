@@ -1,4 +1,5 @@
-result_path: /u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/tmp/results
+method_name: DemonsSITK
+result_path: /home/fryderyk/Documents/code/registrationbaselines/tmp/results
 
 # matcher
 histogram_levels_int8:  128
