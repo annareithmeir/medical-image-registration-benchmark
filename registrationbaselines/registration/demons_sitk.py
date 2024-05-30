@@ -12,7 +12,7 @@ class DemonsSITK(RegistrationInterface):
     """
 
     def __init__(self, configuration_path: Path) -> None:
-        # todo make method an enum
+
         self.method = "DemonsSITK"
 
         # configuration
@@ -21,16 +21,18 @@ class DemonsSITK(RegistrationInterface):
         self._create_result_directories()
 
         # paths
-        self.fixed_path = Path()
-        self.moving_path = Path()
-        self.result_transformed_image_path = Path()
-        self.result_transformation_path = Path()
-        self.working_dir_path = Path()
+        self.fixed_path: Path
+        self.moving_path: Path
+        self.result_transformed_image_path: Path
+        self.result_transformation_path: Path
+        self.working_dir_path: Path
 
-        self.fixed_image = None
-        self.moving_image = None
+        self.fixed_image: sitk.Image
+        self.moving_image: sitk.Image
 
-    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
+    def register(self, fixed_image_path: Path,
+                 moving_image_path: Path,
+                 print_progress: bool = False):
         """
         Creates a Demons transformation model to register the moving image to the fixed image.
 
@@ -78,10 +80,11 @@ class DemonsSITK(RegistrationInterface):
         return self.result_transformation_path
 
     def _save_results(self, deformed, deformation):
-        self.result_transformed_image_path, self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
-                                                                                                        self.moving_path.stem,
-                                                                                                        ".nii.gz",
-                                                                                                        ".nii.gz")
+        self.result_transformed_image_path, \
+            self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
+                                                                        self.moving_path.stem,
+                                                                        ".nii.gz",
+                                                                        ".nii.gz")
 
         sitk.WriteImage(deformed, self.result_transformed_image_path)
         sitk.WriteImage(deformation, self.result_transformation_path)
