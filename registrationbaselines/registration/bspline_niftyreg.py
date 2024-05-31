@@ -42,15 +42,13 @@ class BSplineNiftyReg(RegistrationInterface):
             Test
         """
 
+        # check that both images exist
+        assert self.fixed_path.exists(), f"File {self.fixed_path} does not exist."
+        assert self.moving_path.exists(), f"File {self.moving_path} does not exist."
+
         self.fixed_path = fixed_image_path
         self.moving_path = moving_image_path
         self.working_dir_path = self.fixed_path.parent
-
-        # check that both images exist
-        assert self.fixed_path.exists(
-        ), f"File {self.fixed_path} does not exist."
-        assert self.moving_path.exists(
-        ), f"File {self.moving_path} does not exist."
 
         self.__create_registration_command_list()
         utils_commandline.run_command_in_terminal(self.command,

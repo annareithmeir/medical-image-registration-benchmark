@@ -21,6 +21,7 @@ def main() -> None:
 
     base_dir = Path(__file__).parent.parent.absolute()
 
+    # method = "BSplines"
     method = "convexAdam"
 
     if method == "BSplines":
@@ -50,11 +51,18 @@ def main() -> None:
         item = loader_data[i]
         registration.register(item["images"][0], item["images"][1])
 
+    if method == "BSplines":
+        loader_transformations = data_loaders.BaselineTransformations(
+            base_dir / "tmp/results/BSplineNiftyReg")
+    elif method == "convexAdam":
+        loader_transformations = data_loaders.BaselineTransformations(
+            base_dir / "tmp/results/ConvexAdam")
+    else:
+        print("Method not implemented")
+
     # evaluate
     print("\nevaluate...")
     evaluation = Evaluation(path_config)
-    loader_transformations = data_loaders.BaselineTransformations(
-        base_dir / "tmp/results/BSplineNiftyReg")
     evaluation.evaluate(loader_transformations, loader_data)
     print("\nplot...")
     evaluation.visualize(loader_transformations, loader_data)

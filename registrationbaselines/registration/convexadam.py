@@ -1,9 +1,6 @@
-import torchio as tio
-import os
 import time
 from pathlib import Path
 from typing import Optional, Union
-
 import nibabel as nib
 import numpy as np
 import SimpleITK as sitk
@@ -11,14 +8,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.ndimage import distance_transform_edt as edt
-
 import sys
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 
+import registrationbaselines.core.utils as utils
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
 from registrationbaselines.core.utils_nifti import set_intent_code
-
 
 import gc
 gc.collect()
@@ -26,28 +22,23 @@ torch.cuda.empty_cache()
 
 
 class ConvexAdam(RegistrationInterface):
+    """
+    Interface for the ConvexAdam registration method (https://github.com/multimodallearning/ConvexAdam) by Hansen, Heinrich 2021
+    """
     def __init__(self, config_path: Path):
-        self.method = "convexadam"
+        self.method = "ConvexAdam"
+        self.base_dir = Path(__file__).parent.parent.absolute().parent
+        self.configuration = self.read_config(config_path)
 
-        self.config = self.read_config(config_path)
+        self._create_result_directories()
 
         # paths
         self.fixed_path = Path()
         self.moving_path = Path()
-        self.result_transformed_image_path = Path(self.config["result_path"]) / 'warped_new.nii.gz'
-        self.result_control_grid_path = Path()
-        self.result_transformation_path = Path(self.config["result_path"]) / 'disp_new.nii.gz'
+        self.result_transformed_image_path = Path()
+        self.result_transformation_path = Path()
 
-        self.feature_type = self.config["features"]
-
-        self.base_dir = Path(__file__).parent.parent.absolute().parent
-
-        print(self.config)
-
-        self.img_moving = None
-        self.img_fixed = None
-        self.mask_moving = None
-        self.mask_fixed = None
+        self.feature_type = self.configuration["features"]
 
     def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False) -> None:
         self.fixed_path = fixed_image_path
@@ -57,81 +48,86 @@ class ConvexAdam(RegistrationInterface):
         assert self.fixed_path.exists(), f"File {self.fixed_path} does not exist."
         assert self.moving_path.exists(), f"File {self.moving_path} does not exist."
 
-        img_moving, img_fixed = self._load_images() # returns torch tensor
+        image_moving = torch.from_numpy(utils.load_image_from_nii_gz(self.moving_path))
+        image_fixed = torch.from_numpy(utils.load_image_from_nii_gz(self.fixed_path))
+        assert image_fixed.shape == image_moving.shape
 
-        img_fixed = img_fixed.float()
-        img_moving = img_moving.float()
-
-        #only for unequal example images
-        #img_fixed = F.pad(input=img_fixed, pad=(72,72,0,0,0,0), mode='constant', value=0)
-        #img_moving = F.pad(input=img_moving, pad=(63,63,0,0,0,0), mode='constant', value=0)
-
-        #img_moving = img_fixed
-
-        assert img_fixed.shape == img_moving.shape
+        self.result_transformed_image_path, \
+            self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
+                                                                      self.moving_path.stem,
+                                                                      ".nii.gz",
+                                                                      ".nii.gz")
 
         if self.feature_type == "MIND":
-            displacements = self.convex_adam_mind(
-                img_fixed=img_fixed,
-                img_moving=img_moving,
-                mind_r=self.config['mind_r'],
-                mind_d=self.config['mind_d'],
-                lambda_weight=self.config['lambda_weight'],
-                grid_sp=self.config['grid_sp'],
-                disp_hw=self.config['disp_hw'],
-                selected_niter=self.config['selected_niter'],
-                selected_smooth=self.config['selected_smooth'],
-                grid_sp_adam=self.config['grid_sp_adam'],
-                ic=self.config['ic'],
-                use_mask=self.config['use_mask'],
-                path_fixed_mask=self.mask_fixed,
-                path_moving_mask=self.mask_moving
+            displacement_field = self.convex_adam_mind(
+                image_fixed=image_fixed,
+                image_moving=image_moving,
+                mind_r=self.configuration['mind_r'],
+                mind_d=self.configuration['mind_d'],
+                lambda_weight=self.configuration['lambda_weight'],
+                grid_sp=self.configuration['grid_sp'],
+                disp_hw=self.configuration['disp_hw'],
+                selected_niter=self.configuration['selected_niter'],
+                selected_smooth=self.configuration['selected_smooth'],
+                grid_sp_adam=self.configuration['grid_sp_adam'],
+                ic=self.configuration['ic'],
+                use_mask=self.configuration['use_mask'],
+                path_fixed_mask=None,
+                path_moving_mask=None
             )
 
         elif self.feature_type=="nnunet":
-            displacements = self.convex_adam_nnunet(
-                img_fixed=img_fixed,
-                img_moving=img_moving,
-                lambda_weight=self.config['lambda_weight'],
-                grid_sp=self.config['grid_sp'],
-                disp_hw=self.config['disp_hw'],
-                selected_niter=self.config['selected_niter'],
-                selected_smooth=self.config['selected_smooth'],
-                grid_sp_adam=self.config['grid_sp_adam'],
-                ic=self.config['ic']
+            displacement_field = self.convex_adam_nnunet(
+                image_fixed=image_fixed,
+                image_moving=image_moving,
+                lambda_weight=self.configuration['lambda_weight'],
+                grid_sp=self.configuration['grid_sp'],
+                disp_hw=self.configuration['disp_hw'],
+                selected_niter=self.configuration['selected_niter'],
+                selected_smooth=self.configuration['selected_smooth'],
+                grid_sp_adam=self.configuration['grid_sp_adam'],
+                ic=self.configuration['ic']
             )
         else:
             print("Feature type must be either MIND or nnunet! Wrong type given in config file.")
 
-        H, W, D = img_moving.shape
+        H, W, D = image_moving.shape
 
-        # displacements = torch.zeros(displacements.shape).numpy() # even with zero disp, only black image is result ...
-        #displacements = torch.rand(displacements.shape).numpy() # even with zero disp, only black image is result ...
-        displacements = np.expand_dims(displacements, axis=3)
-        print(displacements.shape)
-        img_warped = F.grid_sample(img_moving.float().view(1,1,H,W,D),torch.from_numpy(displacements).float().view(1,H,W,D,3),align_corners=False,mode='nearest').numpy()
-
-        self._save_results(displacements, img_warped)
+        displacement_field = np.expand_dims(displacement_field, axis=3)
+        image_warped = F.grid_sample(image_moving.float().view(1,1,H,W,D),torch.from_numpy(displacement_field).float().view(1,H,W,D,3),align_corners=False,mode='nearest').numpy().squeeze()
+        self._save_results(image_warped, displacement_field.squeeze())
         set_intent_code(self.result_transformation_path, 'NIFTI_INTENT_DISPVECT')
 
-
     def convex_adam_nnunet(self,
-                           img_fixed: Union[torch.Tensor, np.ndarray, sitk.Image],
-                           img_moving: Union[torch.Tensor, np.ndarray, sitk.Image],
+                           image_fixed: Union[torch.Tensor, np.ndarray, sitk.Image],
+                           image_moving: Union[torch.Tensor, np.ndarray, sitk.Image],
                            lambda_weight: float = 1.25,
                            grid_sp: int = 6,
                            disp_hw: int = 4,
                            selected_niter: int = 80,
                            selected_smooth: int = 0,
                            grid_sp_adam: int = 2,
-                           ic: bool = True):
+                           ic: bool = True) -> np.ndarray:
+        """
+        Inference for given image pair with nnUNet features
+        @param image_fixed:
+        @param image_moving:
+        @param lambda_weight:
+        @param grid_sp:
+        @param disp_hw:
+        @param selected_niter:
+        @param selected_smooth:
+        @param grid_sp_adam:
+        @param ic:
+        @return: displacement field as np.ndarray
+        """
 
-        img_fixed = self._validate_image(img_fixed)
-        img_moving = self._validate_image(img_moving)
-        img_fixed = img_fixed.float()
-        img_moving = img_moving.float()
+        image_fixed = self._validate_image(image_fixed)
+        image_moving = self._validate_image(image_moving)
+        image_fixed = image_fixed.float()
+        image_moving = image_moving.float()
 
-        H, W, D = img_fixed.shape[-3:]
+        H, W, D = image_fixed.shape[-3:]
 
         torch.cuda.synchronize()
         t0 = time.time()
@@ -141,7 +137,7 @@ class ConvexAdam(RegistrationInterface):
 
             # todo get_nnunet_features(moving, fixed)
 
-            features_fix, features_mov = self._extract_features_nnunet(img_fixed=img_fixed, img_moving=img_moving)
+            features_fix, features_mov = self._extract_features_nnunet(image_fixed=image_fixed, image_moving=image_moving)
 
             features_fix_smooth = F.avg_pool3d(features_fix, grid_sp, stride=grid_sp)
             features_mov_smooth = F.avg_pool3d(features_mov, grid_sp, stride=grid_sp)
@@ -244,14 +240,14 @@ class ConvexAdam(RegistrationInterface):
         x = disp_hr[0, 0, :, :, :].cpu().half().data.numpy()
         y = disp_hr[0, 1, :, :, :].cpu().half().data.numpy()
         z = disp_hr[0, 2, :, :, :].cpu().half().data.numpy()
-        displacements = np.stack((x, y, z), 3).astype(float)
+        displacement_field = np.stack((x, y, z), 3).astype(float)
 
-        return displacements
+        return displacement_field
 
 
     def convex_adam_mind(self,
-            img_fixed: Union[torch.Tensor, np.ndarray, sitk.Image],
-            img_moving: Union[torch.Tensor, np.ndarray, sitk.Image],
+            image_fixed: Union[torch.Tensor, np.ndarray, sitk.Image],
+            image_moving: Union[torch.Tensor, np.ndarray, sitk.Image],
             mind_r: int = 1,
             mind_d: int = 2,
             lambda_weight: float = 1.25,
@@ -265,11 +261,29 @@ class ConvexAdam(RegistrationInterface):
             path_fixed_mask: Optional[Union[Path, str]] = None,
             path_moving_mask: Optional[Union[Path, str]] = None,
     ) -> np.ndarray:
+        """
+        Inference for given data with MIND features
+        @param image_fixed:
+        @param image_moving:
+        @param mind_r:
+        @param mind_d:
+        @param lambda_weight:
+        @param grid_sp:
+        @param disp_hw:
+        @param selected_niter:
+        @param selected_smooth:
+        @param grid_sp_adam:
+        @param ic:
+        @param use_mask:
+        @param path_fixed_mask:
+        @param path_moving_mask:
+        @return: displacement field as np.ndarray
+        """
         """Coupled convex optimisation with adam instance optimisation"""
-        img_fixed = self._validate_image(img_fixed)
-        img_moving = self._validate_image(img_moving)
-        img_fixed = img_fixed.float()
-        img_moving = img_moving.float()
+        image_fixed = self._validate_image(image_fixed)
+        image_moving = self._validate_image(image_moving)
+        image_fixed = image_fixed.float()
+        image_moving = image_moving.float()
 
         if use_mask:
             mask_fixed = torch.from_numpy(nib.load(path_fixed_mask).get_fdata()).float()
@@ -278,7 +292,7 @@ class ConvexAdam(RegistrationInterface):
             mask_fixed = None
             mask_moving = None
 
-        H, W, D = img_fixed.shape
+        H, W, D = image_fixed.shape
 
         torch.cuda.synchronize()
         t0 = time.time()
@@ -286,8 +300,8 @@ class ConvexAdam(RegistrationInterface):
         # compute features and downsample (using average pooling)
         with torch.no_grad():
 
-            features_fix, features_mov = self._extract_features_mind(img_fixed=img_fixed,
-                                                          img_moving=img_moving,
+            features_fix, features_mov = self._extract_features_mind(image_fixed=image_fixed,
+                                                          image_moving=image_moving,
                                                           mind_r=mind_r,
                                                           mind_d=mind_d,
                                                           use_mask=use_mask,
@@ -394,28 +408,35 @@ class ConvexAdam(RegistrationInterface):
         x = disp_hr[0, 0, :, :, :].cpu().half().data.numpy()
         y = disp_hr[0, 1, :, :, :].cpu().half().data.numpy()
         z = disp_hr[0, 2, :, :, :].cpu().half().data.numpy()
-        displacements = np.stack((x, y, z), 3).astype(float)
+        displacement_field = np.stack((x, y, z), 3).astype(float)
 
-        return displacements
+        return displacement_field
 
 
-    def _save_results(self, displacement_field: np.ndarray, img_warped: np.ndarray) -> None:
+    def _save_results(self,  image_warped: np.ndarray, displacement_field: np.ndarray) -> None:
         """
-        @displacement_field: np array of shape (h,w,d,3)
+        Saves the results to files
+        @param image_warped: The warped image
+        @param displacement_field: The displacement fie
+        @return:
         """
 
-        print("saving disp to ", self.result_transformation_path)
-        if not os.path.exists(self.config["result_path"]):
-            os.makedirs(self.config["result_path"])
+        self.path_result_transformed_image, self.path_result_transformation = \
+            self._create_result_paths(self.fixed_path.stem,
+                                      self.moving_path.stem,
+                                      ".nii.gz",
+                                      ".nii.gz")
 
         affine = nib.load(self.fixed_path).affine
-        nib.save(nib.Nifti1Image(displacement_field, affine=affine), self.result_transformation_path)
-        nib.save(nib.Nifti1Image(img_warped, affine=affine), self.result_transformed_image_path)
+        print(self.result_transformation_path)
+
+        utils.save_array_to_nii_gz_image(image_warped, self.result_transformed_image_path, affine=affine)
+        utils.save_array_to_nii_gz_displacement_field(displacement_field, self.result_transformation_path, affine=affine)
 
 
     def _extract_features_mind(self,
-            img_fixed: torch.Tensor,
-            img_moving: torch.Tensor,
+            image_fixed: torch.Tensor,
+            image_moving: torch.Tensor,
             mind_r: int,
             mind_d: int,
             use_mask: bool,
@@ -426,7 +447,7 @@ class ConvexAdam(RegistrationInterface):
 
         # MIND features
         if use_mask:
-            H, W, D = img_fixed.shape[-3:]
+            H, W, D = image_fixed.shape[-3:]
 
             # replicate masking
             avg3 = nn.Sequential(nn.ReplicationPad3d(1), nn.AvgPool3d(3, stride=1))
@@ -434,76 +455,64 @@ class ConvexAdam(RegistrationInterface):
 
             mask = (avg3(mask_fixed.view(1, 1, H, W, D).cuda()) > 0.9).float()
             _, idx = edt((mask[0, 0, ::2, ::2, ::2] == 0).squeeze().cpu().numpy(), return_indices=True)
-            fixed_r = F.interpolate((img_fixed[::2, ::2, ::2].cuda().reshape(-1)[
+            fixed_r = F.interpolate((image_fixed[::2, ::2, ::2].cuda().reshape(-1)[
                 idx[0] * D // 2 * W // 2 + idx[1] * D // 2 + idx[2]]).unsqueeze(0).unsqueeze(0), scale_factor=2,
                                     mode='trilinear')
-            fixed_r.view(-1)[mask.view(-1) != 0] = img_fixed.cuda().reshape(-1)[mask.view(-1) != 0]
+            fixed_r.view(-1)[mask.view(-1) != 0] = image_fixed.cuda().reshape(-1)[mask.view(-1) != 0]
 
             mask = (avg3(mask_moving.view(1, 1, H, W, D).cuda()) > 0.9).float()
             _, idx = edt((mask[0, 0, ::2, ::2, ::2] == 0).squeeze().cpu().numpy(), return_indices=True)
-            moving_r = F.interpolate((img_moving[::2, ::2, ::2].cuda().reshape(-1)[
+            moving_r = F.interpolate((image_moving[::2, ::2, ::2].cuda().reshape(-1)[
                 idx[0] * D // 2 * W // 2 + idx[1] * D // 2 + idx[2]]).unsqueeze(0).unsqueeze(0), scale_factor=2,
                                      mode='trilinear')
-            moving_r.view(-1)[mask.view(-1) != 0] = img_moving.cuda().reshape(-1)[mask.view(-1) != 0]
+            moving_r.view(-1)[mask.view(-1) != 0] = image_moving.cuda().reshape(-1)[mask.view(-1) != 0]
 
             features_fix = MINDSSC(fixed_r.cuda(), mind_r, mind_d).half()
             features_mov = MINDSSC(moving_r.cuda(), mind_r, mind_d).half()
         else:
-            img_fixed = img_fixed.unsqueeze(0).unsqueeze(0)
-            img_moving = img_moving.unsqueeze(0).unsqueeze(0)
-            features_fix = MINDSSC(img_fixed.cuda(), mind_r, mind_d).half()
-            features_mov = MINDSSC(img_moving.cuda(), mind_r, mind_d).half()
+            image_fixed = image_fixed.unsqueeze(0).unsqueeze(0)
+            image_moving = image_moving.unsqueeze(0).unsqueeze(0)
+            features_fix = MINDSSC(image_fixed.cuda(), mind_r, mind_d).half()
+            features_mov = MINDSSC(image_moving.cuda(), mind_r, mind_d).half()
 
         return features_fix, features_mov
 
-    def _extract_features_nnunet(self, img_fixed: torch.Tensor, img_moving: torch.Tensor,):
+    def _extract_features_nnunet(self, image_fixed: torch.Tensor, image_moving: torch.Tensor,):
         # process nnUNet features
 
-        eps = 1e-32
-        H, W, D = pred_fixed.shape[-3:]
+        # eps = 1e-32
+        # H, W, D = pred_fixed.shape[-3:]
+        #
+        # combined_bins = torch.bincount(pred_fixed.long().reshape(-1)) + torch.bincount(pred_moving.long().reshape(-1))
+        #
+        # pos = torch.nonzero(combined_bins).reshape(-1)
+        #
+        # pred_fixed = F.one_hot(pred_fixed.cuda().view(1, H, W, D).long())[:, :, :, :, pos]
+        # pred_moving = F.one_hot(pred_moving.cuda().view(1, H, W, D).long())[:, :, :, :, pos]
+        #
+        # weight = 1 / ((torch.bincount(pred_fixed.permute(0, 4, 1, 2, 3).argmax(1).long().reshape(-1)) + torch.bincount(
+        #     pred_moving.permute(0, 4, 1, 2, 3).argmax(1).long().reshape(-1))) + eps).float().pow(.3)
+        # weight /= weight.mean()
+        #
+        # features_fix = 10 * (pred_fixed.data.float().permute(0, 4, 1, 2, 3).contiguous() * weight.view(1, -1, 1, 1,
+        #                                                                                                1).cuda()).half()
+        # features_mov = 10 * (pred_moving.data.float().permute(0, 4, 1, 2, 3).contiguous() * weight.view(1, -1, 1, 1,
+        #                                                                                                 1).cuda()).half()
+        #
+        # return features_fix, features_mov
 
-        combined_bins = torch.bincount(pred_fixed.long().reshape(-1)) + torch.bincount(pred_moving.long().reshape(-1))
+        print("Not implemented...")
 
-        pos = torch.nonzero(combined_bins).reshape(-1)
-
-        pred_fixed = F.one_hot(pred_fixed.cuda().view(1, H, W, D).long())[:, :, :, :, pos]
-        pred_moving = F.one_hot(pred_moving.cuda().view(1, H, W, D).long())[:, :, :, :, pos]
-
-        weight = 1 / ((torch.bincount(pred_fixed.permute(0, 4, 1, 2, 3).argmax(1).long().reshape(-1)) + torch.bincount(
-            pred_moving.permute(0, 4, 1, 2, 3).argmax(1).long().reshape(-1))) + eps).float().pow(.3)
-        weight /= weight.mean()
-
-        features_fix = 10 * (pred_fixed.data.float().permute(0, 4, 1, 2, 3).contiguous() * weight.view(1, -1, 1, 1,
-                                                                                                       1).cuda()).half()
-        features_mov = 10 * (pred_moving.data.float().permute(0, 4, 1, 2, 3).contiguous() * weight.view(1, -1, 1, 1,
-                                                                                                        1).cuda()).half()
-
-        return features_fix, features_mov
-
-    def _validate_image(self, img: Union[torch.Tensor, np.ndarray, sitk.Image], dtype=float) -> torch.Tensor:
+    def _validate_image(self, image: Union[torch.Tensor, np.ndarray, sitk.Image], dtype=float) -> torch.Tensor:
         """Validate image input"""
-        if not isinstance(img, torch.Tensor):
-            if isinstance(img, sitk.Image):
-                img = sitk.GetArrayFromImage(img)
-            if isinstance(img, np.ndarray):
-                img = torch.from_numpy(img.astype(dtype))
+        if not isinstance(image, torch.Tensor):
+            if isinstance(image, sitk.Image):
+                image = sitk.GetArrayFromImage(image)
+            if isinstance(image, np.ndarray):
+                image = torch.from_numpy(image.astype(dtype))
             else:
                 raise ValueError("Input image must be a torch.Tensor, a numpy.ndarray or a SimpleITK.Image")
-        return img
-
-    def _load_images(self):
-        subject_dict = {
-            "image_m": tio.ScalarImage(self.moving_path),
-            "image_f": tio.ScalarImage(self.fixed_path),
-        }
-        subject = tio.Subject(subject_dict)
-
-        # todo preprocessing
-
-        self.img_moving = subject["image_m"].data
-        self.img_fixed = subject["image_f"].data
-
-        return subject["image_m"].data.squeeze(), subject["image_f"].data.squeeze()
+        return image
 
     def get_transformed_image_path(self):
         # Return transformed image
@@ -511,5 +520,4 @@ class ConvexAdam(RegistrationInterface):
 
     def get_transformation_path(self):
         # Return transformation
-
         return self.result_transformation_path
