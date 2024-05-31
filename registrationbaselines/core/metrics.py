@@ -10,8 +10,15 @@ from registrationbaselines.core import utils_metrics
 
 
 def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarray:
-    displacement_image = sitk.GetImageFromArray(
-        displacement.squeeze(), isVector=True)
+
+    displacement = displacement.squeeze()
+
+    assert displacement.ndim == 4, "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+
+    if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
+        displacement = displacement.transpose(1, 2, 3, 0)
+
+    displacement_image = sitk.GetImageFromArray(displacement, isVector=True)
     jacobian_determinant_image = sitk.DisplacementFieldJacobianDeterminant(
         displacement_image)
     return sitk.GetArrayFromImage(jacobian_determinant_image)
