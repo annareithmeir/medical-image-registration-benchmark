@@ -30,10 +30,19 @@ class GeneralDeformation():
         """
         image_fixed = sitk.ReadImage(path_fixed)
         image_moving = sitk.ReadImage(path_moving)
-        displacement = sitk.ReadImage(path_deformation)
+        displacement_file = sitk.ReadImage(
+            path_deformation, sitk.sitkVectorFloat64)
 
-        # Ensure the displacement field is of the correct type
-        displacement = sitk.Cast(displacement, sitk.sitkVectorFloat64)
+        # get the data from the displacement field
+        displacement = sitk.GetArrayFromImage(displacement_file).squeeze()
+
+        assert displacement.ndim == 4, "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+
+        if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
+            displacement = displacement.transpose(1, 2, 3, 0)
+
+        # Create the displacement field image again
+        displacement = sitk.GetImageFromArray(displacement, isVector=True)
 
         # Create the transform using the displacement field
         displacement_field_transform = sitk.DisplacementFieldTransform(
