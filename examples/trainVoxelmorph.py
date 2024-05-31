@@ -18,13 +18,13 @@ def main():
 
     base_dir = Path(__file__).parent.parent.absolute()
 
-    train_dataset = L2RLungCTDataset(imgs_path=Path("/u/home/koeglf/Documents/data/LungCT"),
+    train_dataset = L2RLungCTDataset(dataset_path=Path("/u/home/koeglf/Documents/data/LungCT"),
                                      transforms=["normalize"],
-                                     idxs=list(train_idx),
+                                     indices=list(train_idx),
                                      return_type="np_array")
-    val_dataset = L2RLungCTDataset(imgs_path=Path("/u/home/koeglf/Documents/data/LungCT"),
+    val_dataset = L2RLungCTDataset(dataset_path=Path("/u/home/koeglf/Documents/data/LungCT"),
                                    transforms=["normalize"],
-                                   idxs=list(val_idx),
+                                   indices=list(val_idx),
                                    return_type="np_array")
 
     print("train dataset:", len(train_dataset),

@@ -14,7 +14,7 @@ from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset, L2
 class TestDataloaders(unittest.TestCase):
 
     def test_L2RLungCTDataset(self):
-        dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+        dataset = L2RLungCTDataset(dataset_path=Path("/home/anna/datasets/LungCT"),
                                    transforms=["normalize", "resample"],
                                    return_type="np_array")
         self.assertEqual(len(dataset), 20)
@@ -22,22 +22,22 @@ class TestDataloaders(unittest.TestCase):
         item = dataset.__getitem__(0)
         m = item["images"][0]
         self.assertIsInstance(m, torch.Tensor)
-        self.assertEqual(m.shape[1:], dataset.img_shape) # shape[0] is batchsize
+        self.assertEqual(m.shape[1:], dataset.images_shape) # shape[0] is batchsize
 
         dataset.preprocess(Path("/home/anna/LungCT_preprocessed"))
 
         item = dataset.__getitem__(0)
         m = item["images"][0]
         self.assertIsInstance(m, torch.Tensor)
-        self.assertEqual(m.shape[1:], dataset.img_shape)  # shape[0] is batchsize
+        self.assertEqual(m.shape[1:], dataset.images_shape)  # shape[0] is batchsize
         self.assertEqual(dataset.spacing, (1.75, 1.75, 1.75))
 
         dataset.plot_random_image()
 
     def test_L2RLungCTDataset_idxs(self):
-        dataset = L2RLungCTDataset(imgs_path=Path("/home/anna/datasets/LungCT"),
+        dataset = L2RLungCTDataset(dataset_path=Path("/home/anna/datasets/LungCT"),
                                    return_type="np_array",
-                                   idxs=[0])
+                                   indices=[0])
         self.assertEqual(len(dataset), 1)
 
     def test_L2RAbdominalMRCTDataset(self):

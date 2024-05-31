@@ -14,7 +14,7 @@ def main() -> None:
 
     evaluation = Evaluation(base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml')
 
-    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), idxs=[0])
+    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"), indices=[0])
     loader_transformations = data_loaders.BaselineTransformations( Path("/home/anna/PycharmProjects/registrationbaselines/tmp/results"))
 
     evaluation.evaluate(loader_transformations, loader_data)
