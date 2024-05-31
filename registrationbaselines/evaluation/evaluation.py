@@ -9,10 +9,10 @@ import nibabel as nib
 import numpy as np
 import SimpleITK as sitk
 
-from registrationbaselines.core import utils, result_csv, utils_metrics
-from registrationbaselines.transforms import general_deformation
+from registrationbaselines.core import utils, result_csv, utils_metrics, general_deformation
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
+from registrationbaselines.data_loading.data_loaders import BaselineTransformations
 
 
 class Evaluation():
@@ -45,30 +45,11 @@ class Evaluation():
 
         self.results = result_csv.EvaluationResults(self.path_results)
 
-        # get the transformaton class based on the method name
-        self.transformation = general_deformation.GeneralDeformation(
-            self.configuration["result_path"])
-
-        self.transformation.path_deformed = Path(
-            self.configuration['result_path']) / "temp"
-
-        self.path_warped = None
-
-    def __del__(self):
-        """
-        Clean up the temporary directory (called at the end of scope to delete the temporary directory).
-        """
-
-        if self.transformation.path_deformed is not None and self.transformation.path_deformed.exists():
-            shutil.rmtree(self.transformation.path_deformed)
-
-    def evaluate(self, dataset_transformations: Dataset, dataset_data: Dataset) -> None:
+    def evaluate(self, dataset_transformations: BaselineTransformations, dataset_data: Dataset) -> None:
         """
         Evaluate the registration model.
         """
 
-        # TODO this should be removed once we worke with entire datasets
-        warnings.warn("Restore the assert, when working with entire datasets.")
         # assert len(dataset_transformations) == len(
         #     dataset_data), "Number of transformations and data must be the same."
         length_datasets = len(dataset_transformations)
@@ -77,18 +58,18 @@ class Evaluation():
         self.dataset_data = dataset_data
 
         for i in tqdm(range(length_datasets)):
-            path_transformation = dataset_transformations[i]
+            path_displacement = dataset_transformations[i]
             item = dataset_data[i]
 
             fixed_name = str(item["images"][0].stem).split('.')[0]
 
-            self._evaluate_displacement(path_transformation, fixed_name)
+            self._evaluate_displacement(path_displacement, fixed_name)
 
             if "segmentations" in item:
                 path_fixed = item["segmentations"][0]
                 path_moving = item["segmentations"][1]
 
-                self._evaluate_segmentation(path_transformation,
+                self._evaluate_segmentation(path_displacement,
                                             path_fixed,
                                             path_moving,
                                             fixed_name)
@@ -97,7 +78,7 @@ class Evaluation():
                 path_fixed_landmarks = item["landmarks"][0]
                 path_moving_landmarks = item["landmarks"][1]
 
-                self._evaluate_landmarks(path_transformation,
+                self._evaluate_landmarks(path_displacement,
                                          path_fixed_landmarks,
                                          path_moving_landmarks,
                                          fixed_name)
@@ -125,14 +106,14 @@ class Evaluation():
             idxs = range(len(dataset_transformations))
 
         for i in tqdm(idxs):
-            path_transformation = dataset_transformations[i]
+            path_displacement = dataset_transformations[i]
             item = dataset_data[i]
             fixed_image_path = item["images"][0]
             moving_image_path = item["images"][1]
             fixed_image = nib.load(fixed_image_path).get_fdata()
             moving_image = nib.load(moving_image_path).get_fdata()
             displacement = nib.load(
-                path_transformation.as_posix()).get_fdata().squeeze()
+                path_displacement.as_posix()).get_fdata().squeeze()
             deformed_image_path = self._get_deformed_image_path(
                 fixed_image_path.name, moving_image_path.name)
             deformed_image = nib.load(deformed_image_path).get_fdata()
@@ -160,16 +141,19 @@ class Evaluation():
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
+        displacement = sitk.ReadImage(
+            path_displacement, sitk.sitkVectorFloat64)
+
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
-            path_displacement)
+            displacement)
 
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
 
     def _evaluate_segmentation(self,
-                               path_transformation: Path,
-                               path_fixed_segmentation: Path,
-                               path_moving_segmentation: Path,
+                               path_displacement: Path,
+                               path_segmentation_fixed: Path,
+                               path_segmentation_moving: Path,
                                name: str) -> None:
         """
         Evaluate segmentations.
@@ -180,9 +164,9 @@ class Evaluation():
 
         Args:
 
-            path_transformation (Path): The path to the transformation file.
-            path_fixed_segmentation (Path): The path to the fixed segmentation file.
-            path_moving_segmentation (Path): The path to the moving segmentation file.
+            path_displacement (Path): The path to the transformation file.
+            path_segmentation_fixed (Path): The path to the fixed segmentation file.
+            path_segmentation_moving (Path): The path to the moving segmentation file.
             name (str): The name of the evaluation.
 
         Returns:
@@ -193,19 +177,17 @@ class Evaluation():
         hausdorff_mean = 0
         hausdorff95_mean = 0
 
-        # create temp directory
-        temp_dir = Path(
-            self.configuration['result_path']) / self.configuration['method_name'] / "temp"
-        temp_dir.mkdir(exist_ok=True)
+        displacement = sitk.ReadImage(
+            path_displacement, sitk.sitkVectorFloat64)
+        segmentation_fixed = sitk.ReadImage(path_segmentation_fixed)
+        segmentation_moving = sitk.ReadImage(path_segmentation_moving)
 
-        self.path_warped = self.transformation.apply_transformation(path_fixed_segmentation,
-                                                                    path_moving_segmentation,
-                                                                    path_transformation,
-                                                                    temp_dir / "temp_defrmed.nii.gz",
-                                                                    sitk.sitkNearestNeighbor)
+        warped = general_deformation.apply_displacement_field(segmentation_fixed,
+                                                              segmentation_moving,
+                                                              displacement,
+                                                              sitk.sitkNearestNeighbor)
 
-        dice_scores = metrics.dice_score(path_fixed_segmentation,
-                                         self.path_warped)
+        dice_scores = metrics.dice_score(segmentation_fixed, warped)
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
         else:
@@ -216,10 +198,10 @@ class Evaluation():
             dice_mean /= len(dice_scores)
             self.results.add_value("dice_mean", dice_mean, name)
 
-        hausdorff_scores = metrics.hausdorff_distance(path_fixed_segmentation,
-                                                      self.path_warped)
-        hausdorff95_scores = metrics.hausdorff_distance(path_fixed_segmentation,
-                                                        self.path_warped,
+        hausdorff_scores = metrics.hausdorff_distance(segmentation_fixed,
+                                                      warped)
+        hausdorff95_scores = metrics.hausdorff_distance(segmentation_fixed,
+                                                        warped,
                                                         percentile=95)
 
         assert len(hausdorff_scores) == len(
@@ -243,11 +225,8 @@ class Evaluation():
             hausdorff95_mean /= len(hausdorff95_scores)
             self.results.add_value("hausdorff95_mean", hausdorff95_mean, name)
 
-        # delete all files in the temp directory
-        shutil.rmtree(temp_dir)
-
     def _evaluate_landmarks(self,
-                            path_transformation: Path,
+                            path_displacement: Path,
                             path_fixed_landmarks: Path,
                             path_moving_landmarks: Path,
                             name: str) -> None:
@@ -255,8 +234,8 @@ class Evaluation():
         assert self.dataset_data is not None
 
         tre = metrics.tre(path_fixed_landmarks, path_moving_landmarks,
-                          path_transformation, self.dataset_data.spacing)
-        tre30 = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_transformation, self.dataset_data.spacing,
+                          path_displacement, self.dataset_data.spacing)
+        tre30 = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_displacement, self.dataset_data.spacing,
                             percentile=30)
 
         self.results.add_value("tre", tre, name)
