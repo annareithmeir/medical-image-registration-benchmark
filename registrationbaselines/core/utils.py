@@ -71,22 +71,26 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
     sitk.WriteImage(image, str(filename))
 
 
-def apply_displacement_field(image_fixed: sitk.Image,
-                             image_moving: sitk.Image,
-                             displacement: sitk.Image,
-                             sitk_interpolator: int) -> sitk.Image:
+def apply_displacement_field(image_fixed: np.ndarray,
+                             image_moving: np.ndarray,
+                             displacement_field: np.ndarray,
+                             sitk_interpolator: int) -> np.ndarray:
     """
     Apply a deformation to an image using the provided deformation.
     @param image_fixed:
     @param image_moving:
-    @param displacement:
+    @param displacement_field:
     @param sitk_interpolator:
     @return:
     """
 
+    image_fixed = sitk.GetImageFromArray(image_fixed)
+    image_moving = sitk.GetImageFromArray(image_moving)
+    displacement_field = sitk.GetImageFromArray(displacement_field, isVector=True)
+
     # Create the transform using the displacement field
     displacement_field_transform = sitk.DisplacementFieldTransform(
-        displacement)
+        displacement_field)
 
     # Apply the transform to the input image
     resampler = sitk.ResampleImageFilter()
@@ -96,7 +100,7 @@ def apply_displacement_field(image_fixed: sitk.Image,
 
     deformed_image = resampler.Execute(image_moving)
 
-    return deformed_image
+    return sitk.GetArrayFromImage(deformed_image)
 
 
 

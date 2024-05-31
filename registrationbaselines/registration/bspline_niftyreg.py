@@ -59,15 +59,6 @@ class BSplineNiftyReg(RegistrationInterface):
             utils_niftyreg.convert_control_point_grid_to_displacement_field(
                 self.result_control_grid_path, self.fixed_path)
 
-    def get_transformed_image_path(self):
-        # Return transformed image
-        return self.result_transformed_image_path
-
-    def get_transformation_path(self):
-        # Return transformation
-
-        return self.result_transformation_path
-
     def _save_results(self, deformed, deformation):
         """
         Nothing happens here because saving is done thorugh the command line.
