@@ -40,10 +40,12 @@ def main() -> None:
     elif machine_name == "janus":
         path_data = Path("/u/home/koeglf/Documents/data/LungCT")
     else:
-        path_data = Path("/home/anna/datasets/LungCT")
+        path_data = Path("/home/anna/datasets/AbdomenMRCT_preprocessed")
+        # path_data = Path("/home/anna/datasets/LungCT")
 
     indices = [0]
-    loader_data = data_loaders.L2RLungCTDataset(path_data, indices = indices)
+    loader_data = data_loaders.L2RAbdominalMRCTDataset(path_data, indices = indices)
+    # loader_data = data_loaders.L2RLungCTDataset(path_data, indices = indices)
 
     # register
     print("\nregister...")
@@ -53,10 +55,10 @@ def main() -> None:
 
     if method == "BSplines":
         loader_transformations = data_loaders.BaselineTransformations(
-            base_dir / "tmp/results/BSplineNiftyReg")
+            base_dir / "tmp/AbdomenMRCT/BSplineNiftyReg")
     elif method == "convexAdam":
         loader_transformations = data_loaders.BaselineTransformations(
-            base_dir / "tmp/results/ConvexAdam")
+            base_dir / "tmp/AbdomenMRCT/ConvexAdam")
     else:
         print("Method not implemented")
 

@@ -121,6 +121,12 @@ class Evaluation():
             plots_path = self._create_plots_paths(
                 fixed_image_path.name, moving_image_path.name)
 
+            fixed_landmarks = None
+            moving_landmarks = None
+            deformed_landmarks = None
+            fixed_segmentation = None
+            deformed_segmentation = None
+
             if "segmentations" in item:
                 fixed_segmentation = nib.load(
                     item["segmentations"][0]).get_fdata()

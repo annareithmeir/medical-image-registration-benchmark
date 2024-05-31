@@ -444,11 +444,11 @@ class L2RAbdominalMRCTDataset(Dataset):
                     out_min_max=(0, 1), percentiles=(0, 100))
                 subject = rescale(subject)
 
-            if "resample" in self.transforms:
-                resample = tio.Resample(1)
-                subject = resample(subject)
-                self.images_shape = subject["image_mr"].data.shape[1:]
-                self.spacing = (1, 1, 1)
+            # if "resample" in self.transforms:
+            #     resample = tio.Resample(1)
+            #     subject = resample(subject)
+            #     self.images_shape = subject["image_m"].data.shape[1:]
+            #     self.spacing = (1, 1, 1)
 
             # save preprocessed images
             subject["image_m"].save(save_path / file_img_m)
