@@ -83,8 +83,8 @@ class BSplineNiftyReg(RegistrationInterface):
         self.result_transformed_image_path, \
             self.result_control_grid_path = self._create_result_paths(self.fixed_path.stem,
                                                                       self.moving_path.stem,
-                                                                      ".nii",
-                                                                      ".nii")
+                                                                      ".nii.gz",
+                                                                      ".nii.gz")
 
         # control point grid is only temporary, we want to remove it later
         self.result_control_grid_path = Path(
