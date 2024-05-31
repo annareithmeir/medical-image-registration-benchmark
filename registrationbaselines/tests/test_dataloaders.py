@@ -41,25 +41,24 @@ class TestDataloaders(unittest.TestCase):
         self.assertEqual(len(dataset), 1)
 
     def test_L2RAbdominalMRCTDataset(self):
-        dataset = L2RAbdominalMRCTDataset(imgs_path=Path("/home/anna/datasets/AbdomenMRCT"),
-                                   transforms=["normalize"],
-                                   return_type="np_array")
-        # dataset = L2RAbdominalMRCTDataset(imgs_path=Path("/home/anna/AbdomenMRCT_preprocessed"),
-        #                                   transforms=["normalize"],
-        #                                   return_type="np_array")
+        # dataset = L2RAbdominalMRCTDataset(imgs_path=Path("/home/anna/datasets/AbdomenMRCT"),
+        #                            transforms=["normalize"],
+        #                            return_type="np_array_dict")
+        dataset = L2RAbdominalMRCTDataset(dataset_path=Path("/home/anna/AbdomenMRCT_preprocessed"),
+                                          return_type="np_array_dict")
         self.assertEqual(len(dataset), 8)
 
         item = dataset.__getitem__(0)
         m = item["images"][0]
         self.assertIsInstance(m, torch.Tensor)
-        self.assertEqual(m.shape[1:], dataset.img_shape) # shape[0] is batchsize
+        self.assertEqual(m.shape[1:], dataset.images_shape) # shape[0] is batchsize
 
-        dataset.preprocess(Path("/home/anna/AbdomenMRCT_preprocessed"))
+        # dataset.preprocess(Path("/home/anna/AbdomenMRCT_preprocessed"))
 
         item = dataset.__getitem__(0)
         m = item["images"][0]
         self.assertIsInstance(m, torch.Tensor)
-        self.assertEqual(m.shape[1:], dataset.img_shape)  # shape[0] is batchsize
+        self.assertEqual(m.shape[1:], dataset.images_shape)  # shape[0] is batchsize
         self.assertEqual(dataset.spacing, (2,2,2))
 
         dataset.plot_random_image()
