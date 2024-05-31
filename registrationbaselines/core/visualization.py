@@ -257,9 +257,14 @@ def plot_all_registration_results(save_path: Path,
     @param title:
     @return: plot
     """
+    displacement = displacement.squeeze()
+
+    assert displacement.ndim == 4, "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+
+    if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
+        displacement = displacement.transpose(1, 2, 3, 0)
 
     assert displacement.shape[-1] == 3 or displacement.shape[-1] == 2
-    assert displacement.ndim == 4
 
     fig = plt.figure(figsize=(40, 7))
     if title:
