@@ -1,6 +1,6 @@
 # ConvexAdam config
-
-result_path : /home/anna/PycharmProjects/registrationbaselines/tmp/convexadam
+method_name: ConvexAdam
+result_path : /home/anna/PycharmProjects/registrationbaselines/tmp/results
 
 # General training args
 batch_size: 1

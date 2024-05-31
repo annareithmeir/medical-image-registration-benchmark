@@ -27,7 +27,7 @@ class L2RLungCTDataset(Dataset):
     Currently only using the 20 training image pairs.
     """
 
-    def __init__(self, dataset_path: Path, transforms: list[str] = None, return_type: str = "path",
+    def __init__(self, dataset_path: Path, transforms: list[str] = None, return_type: str = "path_dict",
                  indices: list[int] = None) -> None:
         """
 
@@ -313,7 +313,7 @@ class L2RAbdominalMRCTDataset(Dataset):
     8 in imagesTr and 8 in imagesTs. Only 8 in Ts are labeled.
     """
 
-    def __init__(self, dataset_path: Path, transforms: list[str] = None, return_type: str = "path",
+    def __init__(self, dataset_path: Path, transforms: list[str] = None, return_type: str = "path_dict",
                  indices: list[int] = None) -> None:
         """
         

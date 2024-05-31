@@ -17,7 +17,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
-from registrationbaselines.core.utils_niftyreg import set_intent_code
+from registrationbaselines.core.utils_nifti import set_intent_code
 
 
 import gc

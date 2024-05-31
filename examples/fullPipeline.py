@@ -9,6 +9,7 @@ from tqdm import tqdm
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg
+from registrationbaselines.registration.convexadam import ConvexAdam
 from registrationbaselines.evaluation.evaluation import Evaluation
 from registrationbaselines.data_loading import data_loaders
 
@@ -20,7 +21,17 @@ def main() -> None:
 
     base_dir = Path(__file__).parent.parent.absolute()
 
-    path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
+    method = "convexAdam"
+
+    if method == "BSplines":
+        path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
+        registration = BSplineNiftyReg(path_config)
+    elif method == "convexAdam":
+        path_config = base_dir / 'registrationbaselines/configs/ConvexAdam.yaml'
+        registration = ConvexAdam(path_config)
+    else:
+        print("Method not implemented")
+
 
     machine_name = socket.gethostname()
     if machine_name == "fryderyk":
@@ -30,12 +41,11 @@ def main() -> None:
     else:
         path_data = Path("/home/anna/datasets/LungCT")
 
-    loader_data = data_loaders.L2RLungCTDataset(path_data)
+    indices = [0]
+    loader_data = data_loaders.L2RLungCTDataset(path_data, indices = indices)
 
     # register
     print("\nregister...")
-    registration = BSplineNiftyReg(path_config)
-
     for i in tqdm(range(len(loader_data))):
         item = loader_data[i]
         registration.register(item["images"][0], item["images"][1])
