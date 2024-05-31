@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import matplotlib
-import matplotlib.pyplot as plt
 from typing import Optional
 
 import pandas as pd
@@ -12,12 +10,16 @@ from scipy.ndimage import binary_erosion
 import matplotlib.colors as colors
 import matplotlib.cm as cm
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 
-matplotlib.rcParams['text.usetex'] = True
-import wandb
 from registrationbaselines.core import metrics
 
-def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None)-> None:
+
+matplotlib.rcParams['text.usetex'] = True
+
+
+def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None) -> None:
     """
     :param u: (h,d,w,3)
     """
@@ -41,7 +43,8 @@ def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None)-> None:
         # input processing
         nb_plots = len(slices_in)
         for slice_in in slices_in:
-            assert len(slice_in.shape) == 3, 'each slice has to be 3d: 2d+2 channels'
+            assert len(
+                slice_in.shape) == 3, 'each slice has to be 3d: 2d+2 channels'
             assert slice_in.shape[-1] == 2, 'each slice has to be 3d: 2d+2 channels'
 
         def input_check(inputs, nb_plots, name):
@@ -57,7 +60,8 @@ def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None)-> None:
             return inputs
 
         assert indexing in ['ij', 'xy']
-        slices_in = np.copy(slices_in)  # Since img_indexing, indexing may modify slices_in in memory
+        # Since img_indexing, indexing may modify slices_in in memory
+        slices_in = np.copy(slices_in)
 
         if indexing == 'ij':
             for si, slc in enumerate(slices_in):
@@ -66,7 +70,8 @@ def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None)-> None:
 
         if img_indexing:
             for si, slc in enumerate(slices_in):
-                slices_in[si] = np.flipud(slc)  # Flip vertical order of y values
+                # Flip vertical order of y values
+                slices_in[si] = np.flipud(slc)
 
         titles = input_check(titles, nb_plots, 'titles')
         cmaps = input_check(cmaps, nb_plots, 'cmaps')
@@ -113,7 +118,8 @@ def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None)-> None:
             if cmaps[i] is None:
                 colormap = cm.winter
             else:
-                raise Exception("custom cmaps not currently implemented for plt.flow()")
+                raise Exception(
+                    "custom cmaps not currently implemented for plt.flow()")
 
             # show figure
             colormap = cm.hsv
@@ -155,6 +161,7 @@ def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None)-> None:
     flow([u], show=False, ax=ax, scale=3)
     # f, axs =neurite.plot.flow([u_slice], show=False, ax=ax)
 
+
 def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[np.ndarray] = None,
                            interval: Optional[int] = 3, title: Optional[str] = None,
                            color: Optional[str] = 'cornflowerblue') -> None:
@@ -174,7 +181,8 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
         background = np.zeros(disp.shape[1:])
 
     id_grid_H, id_grid_W = np.meshgrid(range(0, background.shape[0] - 1, interval),
-                                       range(0, background.shape[1] - 1, interval),
+                                       range(
+                                           0, background.shape[1] - 1, interval),
                                        indexing='ij')
 
     new_grid_H = id_grid_H + disp[0, id_grid_H, id_grid_W]
@@ -182,9 +190,11 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
 
     kwargs = {"linewidth": 0.34, "color": color}
     for i in range(new_grid_H.shape[0]):
-        ax.plot(new_grid_W[i, :], new_grid_H[i, :], **kwargs)  # each draws a horizontal line
+        ax.plot(new_grid_W[i, :], new_grid_H[i, :], **
+                kwargs)  # each draws a horizontal line
     for i in range(new_grid_H.shape[1]):
-        ax.plot(new_grid_W[:, i], new_grid_H[:, i], **kwargs)  # each draws a vertical line
+        ax.plot(new_grid_W[:, i], new_grid_H[:, i], **
+                kwargs)  # each draws a vertical line
 
     ax.set_title(title)
     ax.imshow(background, cmap='gray')
@@ -200,8 +210,8 @@ def plot_max_shear(ax: plt.Axes, displacement_field: np.ndarray) -> None:
     pass
 
 
-def multilabel_to_boundary(label_map:np.ndarray):
-    label_map=label_map.astype(int)
+def multilabel_to_boundary(label_map: np.ndarray):
+    label_map = label_map.astype(int)
     num_labels = np.max(label_map)
     boundary_label_map = np.zeros_like(label_map)
 
@@ -214,21 +224,22 @@ def multilabel_to_boundary(label_map:np.ndarray):
         eroded_label_mask = binary_erosion(label_mask)
 
         # Compute the boundary mask for the current label
-        boundary_mask = label_mask.astype(np.int8) - eroded_label_mask.astype(np.int8)
+        boundary_mask = label_mask.astype(
+            np.int8) - eroded_label_mask.astype(np.int8)
 
         # Assign the boundary mask to the boundary label map
         boundary_label_map += boundary_mask * label
     return boundary_label_map
 
 
-def plot_all_registration_results(save_path:Path,
-                                    moving_image: np.ndarray, fixed_image: np.ndarray, pred_image: np.ndarray,
-                                    displacement: np.ndarray, fixed_labels: Optional[np.array] = None,
-                                    pred_labels: Optional[np.array] = None,
-                                    moving_keypoints: Optional[np.array] = None,
-                                    fixed_keypoints: Optional[np.array] = None,
-                                    pred_keypoints: Optional[np.ndarray] = None,
-                                    title: Optional[str] = None) -> None:
+def plot_all_registration_results(save_path: Path,
+                                  moving_image: np.ndarray, fixed_image: np.ndarray, pred_image: np.ndarray,
+                                  displacement: np.ndarray, fixed_labels: Optional[np.array] = None,
+                                  pred_labels: Optional[np.array] = None,
+                                  moving_keypoints: Optional[np.array] = None,
+                                  fixed_keypoints: Optional[np.array] = None,
+                                  pred_keypoints: Optional[np.ndarray] = None,
+                                  title: Optional[str] = None) -> None:
     """
     plots a figure with 9x3 subplots. Half-slices used for plots in each dimension.
     rows: dims
@@ -246,9 +257,14 @@ def plot_all_registration_results(save_path:Path,
     @param title:
     @return: plot
     """
+    displacement = displacement.squeeze()
+
+    assert displacement.ndim == 4, "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+
+    if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
+        displacement = displacement.transpose(1, 2, 3, 0)
 
     assert displacement.shape[-1] == 3 or displacement.shape[-1] == 2
-    assert displacement.ndim==4
 
     fig = plt.figure(figsize=(40, 7))
     if title:
@@ -256,7 +272,8 @@ def plot_all_registration_results(save_path:Path,
     image_size = moving_image.shape
     image_dim = len(image_size)
 
-    jacobian_determinant = metrics.jacobian_determinant_from_displacement(displacement)
+    jacobian_determinant = metrics.jacobian_determinant_from_displacement(
+        displacement)
 
     if image_dim == 3:
         half_slice_idx = [int(s / 2) for s in image_size]
@@ -267,32 +284,39 @@ def plot_all_registration_results(save_path:Path,
 
             # moving image
             ax = fig.add_subplot(3, 9, (9 * d) + 1)
-            ax.imshow(moving_image.take(half_slice_idx[d], axis=d), cmap='gray')
+            ax.imshow(moving_image.take(
+                half_slice_idx[d], axis=d), cmap='gray')
             if moving_keypoints is not None:
-                kp_slice = moving_keypoints[np.where(abs(moving_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
+                kp_slice = moving_keypoints[np.where(
+                    abs(moving_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
                 ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
-            if toprow: ax.title.set_text("M")
+            if toprow:
+                ax.title.set_text("M")
             plt.axis('off')
 
             # fixed image
             ax = fig.add_subplot(3, 9, (9 * d) + 2)
             ax.imshow(fixed_image.take(half_slice_idx[d], axis=d), cmap='gray')
             if fixed_keypoints is not None:
-                kp_slice = fixed_keypoints[np.where(abs(fixed_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
+                kp_slice = fixed_keypoints[np.where(
+                    abs(fixed_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
                 ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
-            if toprow: ax.title.set_text("F")
+            if toprow:
+                ax.title.set_text("F")
             plt.axis('off')
 
             # deformed image
             ax = fig.add_subplot(3, 9, (9 * d) + 3)
             ax.imshow(pred_image.take(half_slice_idx[d], axis=d), cmap='gray')
             if pred_keypoints is not None:
-                kp_slice = pred_keypoints[np.where(abs(pred_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
+                kp_slice = pred_keypoints[np.where(
+                    abs(pred_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
                 ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
-            if toprow: ax.title.set_text("warped M")
+            if toprow:
+                ax.title.set_text("warped M")
             plt.axis('off')
 
             # displacement field
@@ -301,27 +325,33 @@ def plot_all_registration_results(save_path:Path,
             axes.remove(d)
             fieldAx = displacement[..., axes].take(half_slice_idx[d], axis=d)
             plot_quiverplot(fieldAx, ax=ax)
-            plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(half_slice_idx[d], axis=d), interval=5, color="white")
+            plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(
+                half_slice_idx[d], axis=d), interval=5, color="white")
             ax.set_frame_on(False)
-            if toprow: ax.title.set_text("deformation")
+            if toprow:
+                ax.title.set_text("deformation")
             plt.axis('off')
             # fig.tight_layout()
 
             # difference image before registration
             ax = fig.add_subplot(3, 9, (9 * d) + 5)
-            diff_image = fixed_image.take(half_slice_idx[d], axis=d) - moving_image.take(half_slice_idx[d], axis=d)
+            diff_image = fixed_image.take(
+                half_slice_idx[d], axis=d) - moving_image.take(half_slice_idx[d], axis=d)
             ax.imshow(diff_image, cmap='gray')
             ax.set_frame_on(False)
-            if toprow: ax.title.set_text("diff image")
+            if toprow:
+                ax.title.set_text("diff image")
             plt.axis('off')
             # fig.tight_layout()
 
             # difference image after registration
             ax = fig.add_subplot(3, 9, (9 * d) + 6)
-            diff_image = fixed_image.take(half_slice_idx[d], axis=d) - pred_image.take(half_slice_idx[d], axis=d)
+            diff_image = fixed_image.take(
+                half_slice_idx[d], axis=d) - pred_image.take(half_slice_idx[d], axis=d)
             ax.imshow(diff_image, cmap='gray')
             ax.set_frame_on(False)
-            if toprow: ax.title.set_text("diff image after")
+            if toprow:
+                ax.title.set_text("diff image after")
             plt.axis('off')
 
             # boundaries
@@ -345,16 +375,19 @@ def plot_all_registration_results(save_path:Path,
                 ax.set_frame_on(False)
                 ax.title.set_text("diff image after")
                 plt.axis('off')
-            if toprow: ax.title.set_text("segmentations")
+            if toprow:
+                ax.title.set_text("segmentations")
 
             # jacobian determinant, negative values shown in red
             ax = fig.add_subplot(3, 9, (9 * d) + 8)
             jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
             jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
-            norm = colors.TwoSlopeNorm(vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
+            norm = colors.TwoSlopeNorm(
+                vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
             im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
             ax.set_frame_on(False)
-            if toprow: ax.title.set_text("jac det")
+            if toprow:
+                ax.title.set_text("jac det")
             plt.axis('off')
             plt.colorbar(im1, ax=ax)
 
@@ -363,6 +396,7 @@ def plot_all_registration_results(save_path:Path,
 
     plt.show()
     fig.savefig(save_path)
+    plt.close(fig)
 
 
 # def plot_all_registration_results_debugging_wandb(step: int, log_dir: str, moving_image: np.ndarray,
@@ -388,9 +422,9 @@ def plot_all_registration_results(save_path:Path,
 #     return wandb.Image(fig)
 
 def plot_quantitative_results(df: pd.DataFrame, plot_path: Path):
-    df = df.drop(["min","max","mean","std"])
+    df = df.drop(["min", "max", "mean", "std"])
     df = df.astype(float)
 
     # box plots
-    df.plot(kind='box', subplots=True, figsize= (40,7))
+    df.plot(kind='box', subplots=True, figsize=(40, 7))
     plt.savefig(plot_path)

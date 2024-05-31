@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from typing import Dict, Any
+
 import yaml
 
 
@@ -9,13 +11,13 @@ class RegistrationInterface(ABC):
     Abstract base class for registration models.
     """
 
-    configuration = None
+    configuration: Dict[str, Any]
 
-    method = None
+    method: str
 
-    path_results = None
-    path_deformed = None
-    path_deformations = None
+    path_results: Path
+    path_deformed: Path
+    path_deformations: Path
 
     @abstractmethod
     def __init__(self, configuration_path: Path):
@@ -24,7 +26,10 @@ class RegistrationInterface(ABC):
         """
 
     @abstractmethod
-    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
+    def register(self,
+                 fixed_image_path: Path,
+                 moving_image_path: Path,
+                 print_progress: bool = False):
         """
         Register moving_image to fixed_image.
         """
@@ -85,8 +90,10 @@ class RegistrationInterface(ABC):
         path_deformation = self.path_deformations / \
             f"{name_moving}_deformation_to_{name_fixed}"
 
-        path_deformed = path_deformed.resolve().as_posix() + extension_image
-        path_deformation = path_deformation.resolve().as_posix() + extension_transformation  # nopep8
+        path_deformed = Path(
+            path_deformed.resolve().as_posix() + extension_image)
+        path_deformation = Path(
+            path_deformation.resolve().as_posix() + extension_transformation)
 
         return Path(path_deformed), Path(path_deformation)
 

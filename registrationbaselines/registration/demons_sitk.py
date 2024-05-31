@@ -11,31 +11,28 @@ class DemonsSITK(RegistrationInterface):
     No default initialisation, as the choice of registration and resampling should be concious.
     """
 
-    def __init__(self,
-                 configuration_path_registration: Path,
-                 configuration_path_resample: Path) -> None:
-        # todo make method an enum
+    def __init__(self, configuration_path: Path) -> None:
+
         self.method = "DemonsSITK"
 
-        # registration configuration
-        self.config_reg = self.read_config(configuration_path_registration)
-
-        # resample configuration
-        self.config_resample = self.read_config(configuration_path_resample)
+        # configuration
+        self.configuration = self.read_config(configuration_path)
 
         self._create_result_directories()
 
         # paths
-        self.fixed_path = Path()
-        self.moving_path = Path()
-        self.result_transformed_image_path = Path()
-        self.result_transformation_path = Path()
-        self.working_dir_path = Path()
+        self.fixed_path: Path
+        self.moving_path: Path
+        self.result_transformed_image_path: Path
+        self.result_transformation_path: Path
+        self.working_dir_path: Path
 
-        self.fixed_image = None
-        self.moving_image = None
+        self.fixed_image: sitk.Image
+        self.moving_image: sitk.Image
 
-    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
+    def register(self, fixed_image_path: Path,
+                 moving_image_path: Path,
+                 print_progress: bool = False):
         """
         Creates a Demons transformation model to register the moving image to the fixed image.
 
@@ -63,7 +60,15 @@ class DemonsSITK(RegistrationInterface):
 
         result_transformed_image = self.__resample(result_transformation)
 
-        self._save_results(result_transformed_image, result_transformation)
+        # convert transformation to displacement field
+        displacement_field = sitk.TransformToDisplacementField(result_transformation,
+                                                               sitk.sitkVectorFloat64,
+                                                               self.fixed_image.GetSize(),
+                                                               self.fixed_image.GetOrigin(),
+                                                               self.fixed_image.GetSpacing(),
+                                                               self.fixed_image.GetDirection())
+
+        self._save_results(result_transformed_image, displacement_field)
 
     def get_transformed_image_path(self):
         # Return transformed image
@@ -75,26 +80,27 @@ class DemonsSITK(RegistrationInterface):
         return self.result_transformation_path
 
     def _save_results(self, deformed, deformation):
-        self.result_transformed_image_path, self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
-                                                                                                        self.moving_path.stem,
-                                                                                                        ".nii",
-                                                                                                        ".tfm")
+        self.result_transformed_image_path, \
+            self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
+                                                                        self.moving_path.stem,
+                                                                        ".nii.gz",
+                                                                        ".nii.gz")
 
         sitk.WriteImage(deformed, self.result_transformed_image_path)
-        sitk.WriteTransform(deformation, self.result_transformation_path)
+        sitk.WriteImage(deformation, self.result_transformation_path)
 
     def __match_images(self) -> None:
         matcher = sitk.HistogramMatchingImageFilter()
 
         if self.fixed_image.GetPixelID() in (sitk.sitkUInt8, sitk.sitkInt8):
             matcher.SetNumberOfHistogramLevels(
-                self.config_reg['histogram_levels_int8'])
+                self.configuration['histogram_levels_int8'])
         else:
             matcher.SetNumberOfHistogramLevels(
-                self.config_reg['histogram_levels_float'])
+                self.configuration['histogram_levels_float'])
 
         matcher.SetNumberOfMatchPoints(
-            self.config_reg['number_of_match_points'])
+            self.configuration['number_of_match_points'])
         matcher.ThresholdAtMeanIntensityOn()
 
         self.moving_image = matcher.Execute(
@@ -103,10 +109,12 @@ class DemonsSITK(RegistrationInterface):
     def __create_displacement_field(self) -> sitk.DisplacementFieldTransform:
 
         demons = sitk.FastSymmetricForcesDemonsRegistrationFilter()
-        demons.SetNumberOfIterations(self.config_reg['number_of_iterations'])
+        demons.SetNumberOfIterations(
+            self.configuration['number_of_iterations'])
 
         # Standard deviation for Gaussian smoothing of displacement field
-        demons.SetStandardDeviations(self.config_reg['standard_deviations'])
+        demons.SetStandardDeviations(
+            self.configuration['standard_deviations'])
 
         # get displacement field
         displacement_field = demons.Execute(
@@ -122,15 +130,15 @@ class DemonsSITK(RegistrationInterface):
         resampler.SetReferenceImage(self.fixed_image)
         self.__set_interpolator(resampler)
         resampler.SetDefaultPixelValue(
-            self.config_resample['default_pixel_value'])
+            self.configuration['default_pixel_value'])
         resampler.SetTransform(transformation)
 
         return resampler.Execute(self.moving_image)
 
     def __set_interpolator(self, sitk_object):
-        if self.config_resample['interpolator'] == "sitkLinear":
+        if self.configuration['interpolator'] == "sitkLinear":
             sitk_object.SetInterpolator(sitk.sitkLinear)
-        elif self.config_resample['interpolator'] == "sitkHammingWindowedSinc":
+        elif self.configuration['interpolator'] == "sitkHammingWindowedSinc":
             sitk_object.SetInterpolator(sitk.sitkHammingWindowedSinc)
         else:
             raise ValueError("Invalid interpolator")

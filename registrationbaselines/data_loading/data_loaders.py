@@ -93,8 +93,11 @@ class L2RLungCTDataset(Dataset):
             }
             subject = tio.Subject(subject_dict)
 
-            kp_m = self.imgs_path / self.kps_list[idx][0]
-            kp_f = self.imgs_path / self.kps_list[idx][1]
+            kp_m = np.genfromtxt(self.imgs_path / self.kps_list[idx][0],
+                                 delimiter=',')
+
+            kp_f = np.genfromtxt(self.imgs_path / self.kps_list[idx][1],
+                                 delimiter=',')
 
             img_m = subject["image_m"].data
             img_f = subject["image_f"].data

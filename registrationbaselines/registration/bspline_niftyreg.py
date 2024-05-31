@@ -34,7 +34,10 @@ class BSplineNiftyReg(RegistrationInterface):
         # command to call NiftyReg
         self.command: List[str] = []
 
-    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False) -> None:
+    def register(self,
+                 fixed_image_path: Path,
+                 moving_image_path: Path,
+                 print_progress: bool = False) -> None:
         """
             Test
         """
@@ -54,8 +57,9 @@ class BSplineNiftyReg(RegistrationInterface):
                                                   self.__outputs_exist,
                                                   print_command_list=False)
 
-        self.result_transformation_path = utils_niftyreg.convert_control_point_grid_to_displacement_field(
-            self.result_control_grid_path, self.fixed_path)
+        self.result_transformation_path = \
+            utils_niftyreg.convert_control_point_grid_to_displacement_field(
+                self.result_control_grid_path, self.fixed_path)
 
     def get_transformed_image_path(self):
         # Return transformed image
@@ -76,10 +80,11 @@ class BSplineNiftyReg(RegistrationInterface):
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, self.result_control_grid_path = self._create_result_paths(self.fixed_path.stem,
-                                                                                                      self.moving_path.stem,
-                                                                                                      ".nii",
-                                                                                                      ".nii")
+        self.result_transformed_image_path, \
+            self.result_control_grid_path = self._create_result_paths(self.fixed_path.stem,
+                                                                      self.moving_path.stem,
+                                                                      ".nii",
+                                                                      ".nii")
 
         # control point grid is only temporary, we want to remove it later
         self.result_control_grid_path = Path(
