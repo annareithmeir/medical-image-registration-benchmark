@@ -86,17 +86,17 @@ class L2RLungCTDataset(Dataset):
             }
         else:  # np_array bsxhxwxd
             subject_dict = {
-                "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
-                "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
-                "seg_m": tio.ScalarImage(self.imgs_path / self.segs_list[idx][0]),
-                "seg_f": tio.ScalarImage(self.imgs_path / self.segs_list[idx][1]),
+                "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
+                "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
+                "seg_f": tio.ScalarImage(self.imgs_path / self.segs_list[idx][0]),
+                "seg_m": tio.ScalarImage(self.imgs_path / self.segs_list[idx][1]),
             }
             subject = tio.Subject(subject_dict)
 
-            kp_m = np.genfromtxt(self.imgs_path / self.kps_list[idx][0],
+            kp_f = np.genfromtxt(self.imgs_path / self.kps_list[idx][0],
                                  delimiter=',')
 
-            kp_f = np.genfromtxt(self.imgs_path / self.kps_list[idx][1],
+            kp_m = np.genfromtxt(self.imgs_path / self.kps_list[idx][1],
                                  delimiter=',')
 
             img_m = subject["image_m"].data
@@ -105,9 +105,9 @@ class L2RLungCTDataset(Dataset):
             seg_f = subject["seg_f"].data
 
             item_dict = {
-                "images": [img_m, img_f],
-                "segmentations": [seg_m, seg_f],
-                "landmarks": [kp_m, kp_f]
+                "images": [img_f, img_m],
+                "segmentations": [seg_f, seg_m],
+                "landmarks": [kp_f, kp_m]
             }
         return item_dict
 
@@ -184,7 +184,7 @@ class L2RLungCTDataset(Dataset):
             file_str = "LungCT_" + str(i).zfill(4)
             file_m = Path("imagesTr/" + file_str + "_0001.nii.gz")
             file_f = Path("imagesTr/" + file_str + "_0000.nii.gz")
-            self.imgs_list.append([file_m, file_f])
+            self.imgs_list.append([file_f, file_m])
 
     def __load_segs_list__(self):
         """
@@ -195,7 +195,7 @@ class L2RLungCTDataset(Dataset):
             file_str = "LungCT_" + str(i).zfill(4)
             file_m = Path("masksTr/" + file_str + "_0001.nii.gz")
             file_f = Path("masksTr/" + file_str + "_0000.nii.gz")
-            self.segs_list.append([file_m, file_f])
+            self.segs_list.append([file_f, file_m])
 
     def __load_kps_list__(self):
         """
@@ -206,7 +206,7 @@ class L2RLungCTDataset(Dataset):
             file_str = "LungCT_" + str(i).zfill(4)
             file_m = Path("keypointsTr/" + file_str + "_0001.csv")
             file_f = Path("keypointsTr/" + file_str + "_0000.csv")
-            self.kps_list.append([file_m, file_f])
+            self.kps_list.append([file_f, file_m])
 
     def plot_random_image(self) -> None:
         """
@@ -293,7 +293,7 @@ class L2RAbdominalMRCTDataset(Dataset):
     8 in imagesTr and 8 in imagesTs. Only 8 in Ts are labeled.
     '''
 
-    def __init__(self, imgs_path: Path,transforms: list[str] = list(), return_type: str = "path", idxs: list[int] = None) -> None:
+    def __init__(self, imgs_path: Path, transforms: list[str] = list(), return_type: str = "path", idxs: list[int] = None) -> None:
 
         self.idxs = idxs
         self.imgs_path = imgs_path
@@ -304,7 +304,7 @@ class L2RAbdominalMRCTDataset(Dataset):
         self.spacing = (2, 2, 2)
         self.img_shape = (192, 160, 192)
 
-        self.seg_labels={
+        self.seg_labels = {
             0: "background",
             1: "liver",
             2: "spleen",
@@ -386,11 +386,13 @@ class L2RAbdominalMRCTDataset(Dataset):
             subject = tio.Subject(subject_dict)
 
             if "clip_bones" in self.transforms:
-                clip = tio.Clamp(out_min=WINDOW_BONES[0], out_max=WINDOW_BONES[1])
+                clip = tio.Clamp(
+                    out_min=WINDOW_BONES[0], out_max=WINDOW_BONES[1])
                 subject["image_ct"] = clip(subject["image_ct"])
 
             if "clip_soft_tissue" in self.transforms:
-                clip = tio.Clamp(out_min=WINDOW_SOFT_TISSUE[0], out_max=WINDOW_SOFT_TISSUE[1])
+                clip = tio.Clamp(
+                    out_min=WINDOW_SOFT_TISSUE[0], out_max=WINDOW_SOFT_TISSUE[1])
                 subject["image_ct"] = clip(subject["image_ct"])
 
             if "normalize" in self.transforms:
@@ -408,7 +410,7 @@ class L2RAbdominalMRCTDataset(Dataset):
                 resample = tio.Resample(1)
                 subject = resample(subject)
                 self.img_shape = subject["image_mr"].data.shape[1:]
-                self.spacing=(1,1,1)
+                self.spacing = (1, 1, 1)
 
             # save preprocessed images
             subject["image_m"].save(save_path / file_img_m)
@@ -429,8 +431,8 @@ class L2RAbdominalMRCTDataset(Dataset):
             file_f = "imagesTr/" + file_str + "_0001.nii.gz"
             self.imgs_list.append([file_m, file_f])
             # cases 1-8 have masks available
-            #masks_x_ls.append(self.data_path + "/labelsTr/" + file_str + "_0000.nii.gz")
-            #masks_y_ls.append(self.data_path + "/labelsTr/" + file_str + "_0001.nii.gz")
+            # masks_x_ls.append(self.data_path + "/labelsTr/" + file_str + "_0000.nii.gz")
+            # masks_y_ls.append(self.data_path + "/labelsTr/" + file_str + "_0001.nii.gz")
 
         # for i in range(1051, 1091):
         #     file_str = "AbdomenMRCT_" + str(i).zfill(4)
@@ -448,8 +450,8 @@ class L2RAbdominalMRCTDataset(Dataset):
             file_f = "labelsTr/" + file_str + "_0001.nii.gz"
             self.segs_list.append([file_m, file_f])
             # cases 1-8 have masks available
-            #masks_x_ls.append(self.data_path + "/labelsTr/" + file_str + "_0000.nii.gz")
-            #masks_y_ls.append(self.data_path + "/labelsTr/" + file_str + "_0001.nii.gz")
+            # masks_x_ls.append(self.data_path + "/labelsTr/" + file_str + "_0000.nii.gz")
+            # masks_y_ls.append(self.data_path + "/labelsTr/" + file_str + "_0001.nii.gz")
 
         # for i in range(1051, 1091):
         #     file_str = "AbdomenMRCT_" + str(i).zfill(4)
