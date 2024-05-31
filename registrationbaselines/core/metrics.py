@@ -66,7 +66,7 @@ def dice_score(image1: sitk.Image, image2: sitk.Image) -> List[float]:
 
     # round each value to nearest integer
     data1 = np.round(data1).astype(np.uint8)
-    data2 = np.round(data1).astype(np.uint8)
+    data2 = np.round(data2).astype(np.uint8)
 
     # Ensure the shapes match
     if data1.shape != data2.shape:
