@@ -49,7 +49,7 @@ class L2RLungCTDataset(Dataset):
             1: "lung"
         }
 
-        assert return_type in ["path", "np_array"]
+        assert return_type in ["path_dict", "np_array_dict", "np_arrays"]
         self.return_type = return_type
 
         self.imgs_list = None
@@ -78,13 +78,13 @@ class L2RLungCTDataset(Dataset):
         @return: Returns either a dict[Path] or a dict[np.ndarray] of imgs/segs/kps. In case of np arrays, the data is returned with shape (bs, h, w, d)
         """
 
-        if self.return_type == "path":
-            item_dict = {
+        if self.return_type == "path_dict":
+            item = {
                 "images": [self.imgs_path / self.imgs_list[idx][0], self.imgs_path / self.imgs_list[idx][1]],
                 "segmentations": [self.imgs_path / self.segs_list[idx][0], self.imgs_path / self.segs_list[idx][1]],
                 "landmarks": [self.imgs_path / self.kps_list[idx][0], self.imgs_path / self.kps_list[idx][1]]
             }
-        else:  # np_array bsxhxwxd
+        elif self.return_type == "np_array_dict":  # np_array bsxhxwxd
             subject_dict = {
                 "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
                 "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
@@ -104,12 +104,23 @@ class L2RLungCTDataset(Dataset):
             seg_m = subject["seg_m"].data
             seg_f = subject["seg_f"].data
 
-            item_dict = {
+            item = {
                 "images": [img_f, img_m],
                 "segmentations": [seg_f, seg_m],
                 "landmarks": [kp_f, kp_m]
             }
-        return item_dict
+        else:  # np_arrays of shape bsxhxwxd
+            subject_dict = {
+                "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
+                "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
+            }
+            subject = tio.Subject(subject_dict)
+
+            img_m = subject["image_m"].data
+            img_f = subject["image_f"].data
+
+            item = (img_m, img_f)
+        return item
 
     def preprocess(self, save_path: Path) -> None:
         """
