@@ -14,7 +14,6 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 import registrationbaselines.core.utils as utils
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
-from registrationbaselines.core.utils_nifti import set_intent_code
 
 import gc
 gc.collect()
@@ -90,18 +89,8 @@ class ConvexAdam(RegistrationInterface):
                 ic=self.configuration['ic']
             )
 
-        H, W, D = image_moving.shape
-
-        # displacement_field = sitk.GetImageFromArray(displacement_field)
-        # image_fixed = sitk.GetImageFromArray(image_fixed.numpy())
-        # image_moving = sitk.GetImageFromArray(image_moving.numpy())
         image_deformed = utils.apply_displacement_field(image_fixed.numpy(), image_moving.numpy(), displacement_field.squeeze(), sitk.sitkLinear)
-        print(image_deformed.shape, displacement_field.shape)
-
-        # displacement_field = np.expand_dims(displacement_field, axis=3)
-        # image_deformed = F.grid_sample(image_moving.float().view(1,1,H,W,D),torch.from_numpy(displacement_field).float().view(1,H,W,D,3),align_corners=False,mode='nearest').numpy()
         self._save_results(image_deformed.squeeze(), displacement_field.squeeze())
-        # set_intent_code(self.result_transformation_path, 'NIFTI_INTENT_DISPVECT')
 
     def convex_adam_mind(self,
         image_fixed: Union[torch.Tensor, np.ndarray, sitk.Image],
@@ -261,7 +250,6 @@ class ConvexAdam(RegistrationInterface):
         torch.cuda.synchronize()
         t1 = time.time()
         case_time = t1 - t0
-        print('case time: ', case_time)
 
         x = disp_hr[0, 0, :, :, :].cpu().half().data.numpy()
         y = disp_hr[0, 1, :, :, :].cpu().half().data.numpy()
@@ -289,8 +277,6 @@ class ConvexAdam(RegistrationInterface):
 
         utils.save_array_to_nii_gz_image(image_deformed, self.result_transformed_image_path, affine=affine)
         utils.save_array_to_nii_gz_displacement_field(displacement_field, self.result_transformation_path, affine=affine)
-        set_intent_code(self.result_transformation_path, 'NIFTI_INTENT_DISPVECT')
-
 
     def _extract_features_mind(self,
             image_fixed: torch.Tensor,
