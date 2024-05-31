@@ -85,8 +85,8 @@ class Evaluation():
             self._evaluate_displacement(path_transformation, fixed_name)
 
             if "segmentations" in item:
-                path_moving = item["segmentations"][0]
-                path_fixed = item["segmentations"][1]
+                path_fixed = item["segmentations"][0]
+                path_moving = item["segmentations"][1]
 
                 self._evaluate_segmentation(path_transformation,
                                             path_fixed,
@@ -94,8 +94,8 @@ class Evaluation():
                                             fixed_name)
 
             if "landmarks" in item:
-                path_moving_landmarks = item["landmarks"][0]
-                path_fixed_landmarks = item["landmarks"][1]
+                path_fixed_landmarks = item["landmarks"][0]
+                path_moving_landmarks = item["landmarks"][1]
 
                 self._evaluate_landmarks(path_transformation,
                                          path_fixed_landmarks,
@@ -127,30 +127,30 @@ class Evaluation():
         for i in tqdm(idxs):
             path_transformation = dataset_transformations[i]
             item = dataset_data[i]
-            moving_image_path = item["images"][0]
-            fixed_image_path = item["images"][1]
-            moving_image = nib.load(moving_image_path).get_fdata()
+            fixed_image_path = item["images"][0]
+            moving_image_path = item["images"][1]
             fixed_image = nib.load(fixed_image_path).get_fdata()
+            moving_image = nib.load(moving_image_path).get_fdata()
             displacement = nib.load(
                 path_transformation.as_posix()).get_fdata().squeeze()
             deformed_image_path = self._get_deformed_image_path(
-                moving_image_path.name, fixed_image_path.name)
+                fixed_image_path.name, moving_image_path.name)
             deformed_image = nib.load(deformed_image_path).get_fdata()
 
             plots_path = self._create_plots_paths(
                 fixed_image_path.name, moving_image_path.name)
 
             if "segmentations" in item:
-                moving_segmentation = nib.load(
-                    item["segmentations"][0]).get_fdata()
                 fixed_segmentation = nib.load(
+                    item["segmentations"][0]).get_fdata()
+                moving_segmentation = nib.load(
                     item["segmentations"][1]).get_fdata()
                 # deformed_segmentation = utils_metrics.deform_segmentations(moving_segmentation, displacement)
                 deformed_segmentation = None  # TODO implement function above
             if "landmarks" in item:
-                moving_landmarks = np.genfromtxt(
-                    item["landmarks"][0], delimiter=',')
                 fixed_landmarks = np.genfromtxt(
+                    item["landmarks"][0], delimiter=',')
+                moving_landmarks = np.genfromtxt(
                     item["landmarks"][1], delimiter=',')
                 deformed_landmarks = utils_metrics.deform_landmarks(
                     moving_landmarks, displacement)
@@ -267,11 +267,11 @@ class Evaluation():
         Create the paths for the plots.
         """
 
-        name_moving = name_moving.replace(".nii", "")
         name_fixed = name_fixed.replace(".nii", "")
+        name_moving = name_moving.replace(".nii", "")
 
-        name_moving = name_moving.replace(".gz", "")
         name_fixed = name_fixed.replace(".gz", "")
+        name_moving = name_moving.replace(".gz", "")
 
         path_plots = self.path_plots / \
             f"{name_moving}_deformed_to_{name_fixed}.pdf"
@@ -284,10 +284,10 @@ class Evaluation():
         Get the corresponding deformed image path.
         """
 
-        name_moving = name_moving.replace(".nii", "")
         name_fixed = name_fixed.replace(".nii", "")
-        name_moving = name_moving.replace(".gz", "")
+        name_moving = name_moving.replace(".nii", "")
         name_fixed = name_fixed.replace(".gz", "")
+        name_moving = name_moving.replace(".gz", "")
 
         path_plots = self.path_results.parent / \
             f"deformed/{name_moving}_deformed_to_{name_fixed}.nii.gz"
