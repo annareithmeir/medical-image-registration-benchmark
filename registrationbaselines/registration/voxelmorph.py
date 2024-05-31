@@ -88,8 +88,8 @@ class VoxelmorphReg(RegistrationInterface):
         self.path_result_transformed_image, self.path_result_transformation = \
             self._create_result_paths(self.path_fixed.stem,
                                       self.path_moving.stem,
-                                      ".nii",
-                                      ".nii")
+                                      ".nii.gz",
+                                      ".nii.gz")
 
         vxm.py.utils.save_volfile(
             deformed, self.path_result_transformed_image, self.fixed_affine)
