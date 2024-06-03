@@ -1,16 +1,13 @@
 import random
 from pathlib import Path
-import json
+from typing import List, Union
 
-from typing import List, Union, Optional, Iterator, Tuple
-
+import matplotlib.pyplot as plt
+import numpy as np
 import torchio as tio
 from torch.utils.data import Dataset
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import tqdm
-
+from itertools import combinations
 """
     Dataloader for the Learn2Reg LnugCT dataset.
     Since the test annotations are not available, we only load the training data with the corresponding segmentations and keypoints.
@@ -24,27 +21,33 @@ WINDOW_SOFT_TISSUE = [-150, 250]
 
 
 class L2RLungCTDataset(Dataset):
+    """
+    Learn2Reg Lung CT dataset (available at https://learn2reg.grand-challenge.org/Datasets/)
+    Intra-patient
+    Currently only using the 20 training image pairs.
+    """
 
-    def __init__(self, imgs_path: Path, transforms: list[str] = list(), return_type: str = "path", idxs: list[int] = None):
+    def __init__(self, dataset_path: Path, transforms: list[str] = None, return_type: str = "path_dict",
+                 indices: list[int] = None) -> None:
         """
 
-        @param imgs_path: Path to the original dataset
+        @param dataset_path: Path to the original or pre-processed dataset
         @param transforms: transformations for the pre-processing, if desired
-        @param return_type: The data can either be returned as a dict[Path] or a dict[np.ndarray]
-        @param idxs: If desired, only specific indices can be used for the dataset creation (e.g. for train/val/test split)
+        @param return_type: The data can either be returned as a dict[Path], dict[np.ndarray] or tuple of np.ndarray
+        @param indices: If desired, only specific indices can be used for the dataset creation (e.g. for train/val/test split)
         """
 
-        self.idxs = idxs
-        self.imgs_path = imgs_path
-        self.imgs_path_preprocessed = None
+        self.indices = indices
+        self.images_path = dataset_path
+        self.images_path_preprocessed = None
         self.transforms = transforms
         # self.target_transform = target_transform # todo: do we want torch.transforms too?
         self.ndim = 3
-        self. spacing = (1.75, 1.25, 1.75)
+        self.spacing = (1.75, 1.25, 1.75)
         # after resampling to isotropic 1.75: (192, 138, 208)
-        self.img_shape = (192, 192, 208)
+        self.images_shape = (192, 192, 208)
 
-        self.seg_labels = {
+        self.segmentation_labels = {
             0: "background",
             1: "lung"
         }
@@ -52,26 +55,25 @@ class L2RLungCTDataset(Dataset):
         assert return_type in ["path_dict", "np_array_dict", "np_arrays"]
         self.return_type = return_type
 
-        self.imgs_list = None
-        self.segs_list = None
-        self.kps_list = None
-        self.__load_imgs_list__()
-        self.__load_segs_list__()
-        self.__load_kps_list__()
-        if idxs is not None:  # create subsets for e.g. validation and training
-            self.imgs_list = [self.imgs_list[i] for i in idxs]
-            self.segs_list = [self.segs_list[i] for i in idxs]
-            self.kps_list = [self.kps_list[i] for i in idxs]
-            # print("sliced:", idxs)
+        self.images_list = None
+        self.segmentations_list = None
+        self.keypoints_list = None
+        self.__load_images_list__()
+        self.__load_segmentations_list__()
+        self.__load_keypoints_list__()
+        if indices is not None:  # create subsets for e.g. validation and training
+            self.images_list = [self.images_list[i] for i in indices]
+            self.segmentations_list = [self.segmentations_list[i] for i in indices]
+            self.keypoints_list = [self.keypoints_list[i] for i in indices]
 
     def __len__(self) -> int:
         """
 
         @return: length of the dataset
         """
-        return len(self.imgs_list)
+        return len(self.images_list)
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> tuple | dict:
         """
         For accessing the individual image pairs
         @param idx: idx of image pair to return
@@ -80,29 +82,31 @@ class L2RLungCTDataset(Dataset):
 
         if self.return_type == "path_dict":
             item = {
-                "images": [self.imgs_path / self.imgs_list[idx][0], self.imgs_path / self.imgs_list[idx][1]],
-                "segmentations": [self.imgs_path / self.segs_list[idx][0], self.imgs_path / self.segs_list[idx][1]],
-                "landmarks": [self.imgs_path / self.kps_list[idx][0], self.imgs_path / self.kps_list[idx][1]]
+                "images": [self.images_path / self.images_list[idx][0], self.images_path / self.images_list[idx][1]],
+                "segmentations": [self.images_path / self.segmentations_list[idx][0],
+                                  self.images_path / self.segmentations_list[idx][1]],
+                "landmarks": [self.images_path / self.keypoints_list[idx][0],
+                              self.images_path / self.keypoints_list[idx][1]]
             }
         elif self.return_type == "np_array_dict":  # np_array bsxhxwxd
             subject_dict = {
-                "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
-                "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
-                "seg_f": tio.ScalarImage(self.imgs_path / self.segs_list[idx][0]),
-                "seg_m": tio.ScalarImage(self.imgs_path / self.segs_list[idx][1]),
+                "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
+                "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
+                "seg_f": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
+                "seg_m": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1]),
             }
             subject = tio.Subject(subject_dict)
 
-            kp_f = np.genfromtxt(self.imgs_path / self.kps_list[idx][0],
+            kp_f = np.genfromtxt(self.images_path / self.keypoints_list[idx][0],
                                  delimiter=',')
 
-            kp_m = np.genfromtxt(self.imgs_path / self.kps_list[idx][1],
+            kp_m = np.genfromtxt(self.images_path / self.keypoints_list[idx][1],
                                  delimiter=',')
 
-            img_m = subject["image_m"].data
-            img_f = subject["image_f"].data
-            seg_m = subject["seg_m"].data
-            seg_f = subject["seg_f"].data
+            img_m = subject["image_m"].data.numpy()
+            img_f = subject["image_f"].data.numpy()
+            seg_m = subject["seg_m"].data.numpy()
+            seg_f = subject["seg_f"].data.numpy()
 
             item = {
                 "images": [img_f, img_m],
@@ -111,15 +115,15 @@ class L2RLungCTDataset(Dataset):
             }
         else:  # np_arrays of shape bsxhxwxd
             subject_dict = {
-                "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
-                "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
+                "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
+                "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
             }
             subject = tio.Subject(subject_dict)
 
             img_m = subject["image_m"].data
             img_f = subject["image_f"].data
 
-            item = (img_m, img_f)
+            item = (img_f, img_m)
         return item
 
     def preprocess(self, save_path: Path) -> None:
@@ -135,26 +139,26 @@ class L2RLungCTDataset(Dataset):
         (save_path / "masksTr").mkdir(parents=True, exist_ok=True)
         (save_path / "keypointsTr").mkdir(parents=True, exist_ok=True)
 
-        for idx in tqdm(range(len(self)), desc="Preprocessing ("+str(self.transforms)+")", unit="iteration"):
-            file_img_m = self.imgs_list[idx][0]
-            file_img_f = self.imgs_list[idx][1]
-            file_seg_m = self.segs_list[idx][0]
-            file_seg_f = self.segs_list[idx][1]
-            file_kp_m = self.kps_list[idx][0]
-            file_kp_f = self.kps_list[idx][1]
+        for idx in tqdm(range(len(self)), desc="Preprocessing (" + str(self.transforms) + ")", unit="iteration"):
+            file_img_m = self.images_list[idx][0]
+            file_img_f = self.images_list[idx][1]
+            file_seg_m = self.segmentations_list[idx][0]
+            file_seg_f = self.segmentations_list[idx][1]
+            file_kp_m = self.keypoints_list[idx][0]
+            file_kp_f = self.keypoints_list[idx][1]
 
             subject_dict = {
-                "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
-                "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
-                "seg_m": tio.ScalarImage(self.imgs_path / self.segs_list[idx][0]),
-                "seg_f": tio.ScalarImage(self.imgs_path / self.segs_list[idx][1]),
+                "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
+                "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
+                "seg_m": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
+                "seg_f": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1]),
             }
             subject = tio.Subject(subject_dict)
 
             kp_m = np.genfromtxt(
-                self.imgs_path / self.kps_list[idx][0], delimiter=',')
+                self.images_path / self.keypoints_list[idx][0], delimiter=',')
             kp_f = np.genfromtxt(
-                self.imgs_path / self.kps_list[idx][1], delimiter=',')
+                self.images_path / self.keypoints_list[idx][1], delimiter=',')
 
             if "clip_bones" in self.transforms:
                 clip = tio.Clamp(out_min=-400, out_max=1600)
@@ -168,7 +172,7 @@ class L2RLungCTDataset(Dataset):
             if "resample" in self.transforms:
                 resample = tio.Resample(1.75)
                 subject = resample(subject)
-                self.img_shape = subject["image_m"].data.shape[1:]
+                self.images_shape = subject["image_m"].data.shape[1:]
                 self.spacing = (1.75, 1.75, 1.75)
 
                 # after resmpling, the keypoints coordinates need to be adapted
@@ -183,51 +187,54 @@ class L2RLungCTDataset(Dataset):
             np.savetxt(save_path / file_kp_m, kp_m, delimiter=",")
             np.savetxt(save_path / file_kp_f, kp_f, delimiter=",")
 
-        self.imgs_path = save_path
-        print("From now on reading images from ", self.imgs_path)
+        self.images_path = save_path
+        print("From now on reading images from ", self.images_path)
 
-    def __load_imgs_list__(self) -> None:
+    def __load_images_list__(self) -> None:
         """
-        Reads the image files
+        Initializes the image list from the given dataset path and indices
+        @return:
         """
-        self.imgs_list = list()
+        self.images_list = list()
         for i in range(1, 21):
             file_str = "LungCT_" + str(i).zfill(4)
             file_m = Path("imagesTr/" + file_str + "_0001.nii.gz")
             file_f = Path("imagesTr/" + file_str + "_0000.nii.gz")
-            self.imgs_list.append([file_f, file_m])
+            self.images_list.append([file_f, file_m])
 
-    def __load_segs_list__(self):
+    def __load_segmentations_list__(self) -> None:
         """
-        Reads the segmentation files
+        Initializes the segmentations list from the given dataset path and indices
+        @return:
         """
-        self.segs_list = list()
+        self.segmentations_list = list()
         for i in range(1, 21):
             file_str = "LungCT_" + str(i).zfill(4)
             file_m = Path("masksTr/" + file_str + "_0001.nii.gz")
             file_f = Path("masksTr/" + file_str + "_0000.nii.gz")
-            self.segs_list.append([file_f, file_m])
+            self.segmentations_list.append([file_f, file_m])
 
-    def __load_kps_list__(self):
+    def __load_keypoints_list__(self) -> None:
         """
-        Reads the keypoint files
+        Initializes the keypoints list from the given dataset path and indices
+        @return:
         """
-        self.kps_list = list()
+        self.keypoints_list = list()
         for i in range(1, 21):
             file_str = "LungCT_" + str(i).zfill(4)
             file_m = Path("keypointsTr/" + file_str + "_0001.csv")
             file_f = Path("keypointsTr/" + file_str + "_0000.csv")
-            self.kps_list.append([file_f, file_m])
+            self.keypoints_list.append([file_f, file_m])
 
     def plot_random_image(self) -> None:
         """
         Plots a random image of the dataset including segmentations and keypoints
         """
 
-        rand_idx = random.randint(0, len(self) - 1)
+        random_index = random.randint(0, len(self) - 1)
         tmp = self.return_type
         self.return_type = "path"
-        item = self[rand_idx]
+        item = self[random_index]
         self.return_type = tmp
 
         img_m = tio.ScalarImage(item["images"][0]).numpy().squeeze()
@@ -238,7 +245,7 @@ class L2RLungCTDataset(Dataset):
         kp_f = np.genfromtxt(item["landmarks"][1], delimiter=',')
 
         fig = plt.figure(figsize=(20, 12))
-        image_size = self.img_shape
+        image_size = self.images_shape
         slices = [int(image_size[0] / 2), int(image_size[1] / 2),
                   int(image_size[2] / 2)]
 
@@ -294,28 +301,38 @@ class L2RLungCTDataset(Dataset):
             # plt.gca().invert_yaxis()
 
         plt.tight_layout()
-        plt.suptitle("idx: {}".format(rand_idx))
+        plt.suptitle("idx: {}".format(random_index))
         plt.show()
 
 
 class L2RAbdominalMRCTDataset(Dataset):
-    '''
-    Learn2Reg Abdominal MR/CT dataset, intra-patient. atm only using the 8 paired and labeled images
+    """
+    Learn2Reg Abdominal MR/CT dataset (available at https://learn2reg.grand-challenge.org/Datasets/)
+    Intra-patient
+    Currently only using the 8 paired and labeled images.
     8 in imagesTr and 8 in imagesTs. Only 8 in Ts are labeled.
-    '''
+    """
 
-    def __init__(self, imgs_path: Path, transforms: list[str] = list(), return_type: str = "path", idxs: list[int] = None) -> None:
+    def __init__(self, dataset_path: Path, transforms: list[str] = None, return_type: str = "path_dict",
+                 indices: list[int] = None) -> None:
+        """
+        
+        @param dataset_path: path to the original or preprocessed dataset
+        @param transforms: The preprocessing steps to be done (normalize, clip, resize)
+        @param return_type: data type of return values. Either dict of paths, dict of np arrays or np arrays
+        @param indices: list of indices which form the dataset (e.g. for train/val/test split)
+        """
 
-        self.idxs = idxs
-        self.imgs_path = imgs_path
-        self.imgs_path_preprocessed = None
+        self.indices = indices
+        self.dataset_path = dataset_path
+        self.dataset_path_preprocessed = None
         self.transforms = transforms
         # self.target_transform = self.config["torch_transforms"]
         self.ndim = 3
         self.spacing = (2, 2, 2)
-        self.img_shape = (192, 160, 192)
+        self.images_shape = (192, 160, 192)
 
-        self.seg_labels = {
+        self.segmentation_labels = {
             0: "background",
             1: "liver",
             2: "spleen",
@@ -323,39 +340,44 @@ class L2RAbdominalMRCTDataset(Dataset):
             4: "left kidney"
         }
 
-        assert return_type in ["path", "np_array"]
+        assert return_type in ["path_dict", "np_array_dict", "np_arrays"]
         self.return_type = return_type
 
-        self.imgs_list = None
-        self.segs_list = None
-        self.__load_imgs_list__()
-        self.__load_segs_list__()
-        if idxs is not None:  # create subsets for e.g. validation and training
-            self.imgs_list = [self.imgs_list[i] for i in idxs]
-            self.segs_list = [self.segs_list[i] for i in idxs]
+        self.images_list = None
+        self.segmentations_list = None
+        self.__load_images_list__()
+        self.__load_segmentations_list__()
+        if indices is not None:  # create subsets for e.g. validation and training
+            self.images_list = [self.images_list[i] for i in indices]
+            self.segmentations_list = [self.segmentations_list[i] for i in indices]
             # print("sliced:", idxs)
 
-    def __len__(self):
-        return len(self.imgs_list)
+    def __len__(self) -> int:
+        """
+        Returns length of the dataset
+        @return:
+        """
+        return len(self.images_list)
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> tuple | dict:
         """
         For accessing the individual image pairs
         @param idx: idx of image pair to return
         @return: Returns either a dict[Path] or a dict[np.ndarray] of imgs/segs/kps. In case of np arrays, the data is returned with shape (bs, h, w, d)
         """
 
-        if self.return_type == "path":
-            item_dict = {
-                "images": [self.imgs_path / self.imgs_list[idx][0], self.imgs_path / self.imgs_list[idx][1]],
-                "segmentations": [self.imgs_path / self.segs_list[idx][0], self.imgs_path / self.segs_list[idx][1]]
+        if self.return_type == "path_dict":
+            item = {
+                "images": [self.dataset_path / self.images_list[idx][0], self.dataset_path / self.images_list[idx][1]],
+                "segmentations": [self.dataset_path / self.segmentations_list[idx][0],
+                                  self.dataset_path / self.segmentations_list[idx][1]]
             }
-        else:  # np_array bsxhxwxd
+        elif self.return_type == "np_array_dict":  # np_array bsxhxwxd
             subject_dict = {
-                "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
-                "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
-                "seg_m": tio.ScalarImage(self.imgs_path / self.segs_list[idx][0]),
-                "seg_f": tio.ScalarImage(self.imgs_path / self.segs_list[idx][1]),
+                "image_f": tio.ScalarImage(self.dataset_path / self.images_list[idx][0]),
+                "image_m": tio.ScalarImage(self.dataset_path / self.images_list[idx][1]),
+                "seg_f": tio.ScalarImage(self.dataset_path / self.segmentations_list[idx][0]),
+                "seg_m": tio.ScalarImage(self.dataset_path / self.segmentations_list[idx][1]),
             }
             subject = tio.Subject(subject_dict)
 
@@ -364,11 +386,22 @@ class L2RAbdominalMRCTDataset(Dataset):
             seg_m = subject["seg_m"].data
             seg_f = subject["seg_f"].data
 
-            item_dict = {
-                "images": [img_m, img_f],
-                "segmentations": [seg_m, seg_f]
+            item = {
+                "images": [img_f, img_m],
+                "segmentations": [seg_f, seg_m]
             }
-        return item_dict
+        else:  # np_arrays of shape bsxhxwxd
+            subject_dict = {
+                "image_f": tio.ScalarImage(self.dataset_path / self.images_list[idx][0]),
+                "image_m": tio.ScalarImage(self.dataset_path / self.images_list[idx][1])
+            }
+            subject = tio.Subject(subject_dict)
+
+            img_m = subject["image_m"].data.numpy()
+            img_f = subject["image_f"].data.numpy()
+
+            item = (img_f, img_m)
+        return item
 
     def preprocess(self, save_path: Path) -> None:
         """
@@ -383,16 +416,16 @@ class L2RAbdominalMRCTDataset(Dataset):
         (save_path / "labelsTr").mkdir(parents=True, exist_ok=True)
 
         for idx in tqdm(range(len(self)), desc="Preprocessing (" + str(self.transforms) + ")", unit="iteration"):
-            file_img_m = self.imgs_list[idx][0]
-            file_img_f = self.imgs_list[idx][1]
-            file_seg_m = self.segs_list[idx][0]
-            file_seg_f = self.segs_list[idx][1]
+            file_img_m = self.images_list[idx][1]
+            file_img_f = self.images_list[idx][0]
+            file_seg_m = self.segmentations_list[idx][1]
+            file_seg_f = self.segmentations_list[idx][0]
 
             subject_dict = {
-                "image_m": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][0]),
-                "image_f": tio.ScalarImage(self.imgs_path / self.imgs_list[idx][1]),
-                "seg_m": tio.ScalarImage(self.imgs_path / self.segs_list[idx][0]),
-                "seg_f": tio.ScalarImage(self.imgs_path / self.segs_list[idx][1]),
+                "image_f": tio.ScalarImage(self.dataset_path / self.images_list[idx][0]),
+                "image_m": tio.ScalarImage(self.dataset_path / self.images_list[idx][1]),
+                "seg_f": tio.ScalarImage(self.dataset_path / self.segmentations_list[idx][0]),
+                "seg_m": tio.ScalarImage(self.dataset_path / self.segmentations_list[idx][1])
             }
             subject = tio.Subject(subject_dict)
 
@@ -407,21 +440,15 @@ class L2RAbdominalMRCTDataset(Dataset):
                 subject["image_ct"] = clip(subject["image_ct"])
 
             if "normalize" in self.transforms:
-                # rescale_mr = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                #     subject["image_mr"].numpy().min(), subject["image_mr"].numpy().max()))
-                # rescale_ct = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                #     subject["image_ct"].numpy().min(), subject["image_ct"].numpy().max()))
-                # subject["image_mr"] = rescale_mr(subject["image_mr"])
-                # subject["image_ct"] = rescale_ct(subject["image_ct"])
                 rescale = tio.RescaleIntensity(
                     out_min_max=(0, 1), percentiles=(0, 100))
                 subject = rescale(subject)
 
-            if "resample" in self.transforms:
-                resample = tio.Resample(1)
-                subject = resample(subject)
-                self.img_shape = subject["image_mr"].data.shape[1:]
-                self.spacing = (1, 1, 1)
+            # if "resample" in self.transforms:
+            #     resample = tio.Resample(1)
+            #     subject = resample(subject)
+            #     self.images_shape = subject["image_m"].data.shape[1:]
+            #     self.spacing = (1, 1, 1)
 
             # save preprocessed images
             subject["image_m"].save(save_path / file_img_m)
@@ -429,65 +456,55 @@ class L2RAbdominalMRCTDataset(Dataset):
             subject["seg_m"].save(save_path / file_seg_m)
             subject["seg_f"].save(save_path / file_seg_f)
 
-        self.imgs_path = save_path
-        print("From now on reading images from ", self.imgs_path)
+        self.dataset_path = save_path
+        print("From now on reading images from ", self.dataset_path)
 
-    def __load_imgs_list__(self):
+    def __load_images_list__(self) -> None:
+        """
+        Initializes the image list from the given dataset path and indices
+        @return:
+        """
 
-        self.imgs_list = list()
-
-        for i in range(1, 9):
-            file_str = "AbdomenMRCT_" + str(i).zfill(4)
-            file_m = "imagesTr/" + file_str + "_0000.nii.gz"
-            file_f = "imagesTr/" + file_str + "_0001.nii.gz"
-            self.imgs_list.append([file_m, file_f])
-            # cases 1-8 have masks available
-            # masks_x_ls.append(self.data_path + "/labelsTr/" + file_str + "_0000.nii.gz")
-            # masks_y_ls.append(self.data_path + "/labelsTr/" + file_str + "_0001.nii.gz")
-
-        # for i in range(1051, 1091):
-        #     file_str = "AbdomenMRCT_" + str(i).zfill(4)
-        #     file_m = "imagesTr/" + file_str + "_0000.nii.gz"
-        #     file_f = "imagesTr/" + file_str + "_0001.nii.gz"
-        #     self.imgs_list.append([self.imgs_path / file_m, self.imgs_path / file_f])
-
-    def __load_segs_list__(self):
-
-        self.segs_list = list()
+        self.images_list = list()
 
         for i in range(1, 9):
             file_str = "AbdomenMRCT_" + str(i).zfill(4)
-            file_m = "labelsTr/" + file_str + "_0000.nii.gz"
-            file_f = "labelsTr/" + file_str + "_0001.nii.gz"
-            self.segs_list.append([file_m, file_f])
-            # cases 1-8 have masks available
-            # masks_x_ls.append(self.data_path + "/labelsTr/" + file_str + "_0000.nii.gz")
-            # masks_y_ls.append(self.data_path + "/labelsTr/" + file_str + "_0001.nii.gz")
+            file_m = "imagesTr/" + file_str + "_0001.nii.gz"
+            file_f = "imagesTr/" + file_str + "_0000.nii.gz"
+            self.images_list.append([file_f, file_m])
 
-        # for i in range(1051, 1091):
-        #     file_str = "AbdomenMRCT_" + str(i).zfill(4)
-        #     file_m = "labelsTr/" + file_str + "_0000.nii.gz"
-        #     file_f = "labelsTr/" + file_str + "_0001.nii.gz"
-        #     self.segs_list.append([self.imgs_path / file_m, self.imgs_path / file_f])
+    def __load_segmentations_list__(self) -> None:
+        """
+        Initializes the segmentations list from the given dataset path and indices
+        @return:
+        """
+
+        self.segmentations_list = list()
+
+        for i in range(1, 9):
+            file_str = "AbdomenMRCT_" + str(i).zfill(4)
+            file_m = "labelsTr/" + file_str + "_0001.nii.gz"
+            file_f = "labelsTr/" + file_str + "_0000.nii.gz"
+            self.segmentations_list.append([file_f, file_m])
 
     def plot_random_image(self) -> None:
         """
-        Plots a random image of the dataset including segmentations and keypoints
+        Plots a random image of the dataset including segmentations
         """
 
-        rand_idx = random.randint(0, len(self) - 1)
+        random_index = random.randint(0, len(self) - 1)
         tmp = self.return_type
-        self.return_type = "path"
-        item = self[rand_idx]
+        self.return_type = "path_dict"
+        item = self[random_index]
         self.return_type = tmp
 
-        img_m = tio.ScalarImage(item["images"][0]).numpy().squeeze()
-        img_f = tio.ScalarImage(item["images"][1]).numpy().squeeze()
-        seg_m = tio.LabelMap(item["segmentations"][0]).numpy().squeeze()
-        seg_f = tio.LabelMap(item["segmentations"][1]).numpy().squeeze()
+        img_f = tio.ScalarImage(item["images"][0]).numpy().squeeze()
+        img_m = tio.ScalarImage(item["images"][1]).numpy().squeeze()
+        seg_f = tio.LabelMap(item["segmentations"][0]).numpy().squeeze()
+        seg_m = tio.LabelMap(item["segmentations"][1]).numpy().squeeze()
 
         fig = plt.figure(figsize=(20, 12))
-        image_size = self.img_shape
+        image_size = self.images_shape
         slices = [int(image_size[0] / 2), int(image_size[1] / 2),
                   int(image_size[2] / 2)]
 
@@ -495,38 +512,295 @@ class L2RAbdominalMRCTDataset(Dataset):
             # moving image
             ax = fig.add_subplot(2, 3, a + 1)
             if a == 0:
-                slice_img_m = img_m[slices[a], :, :]
-                slice_seg_m = seg_m[slices[a], :, :]
+                slice_image_m = img_m[slices[a], :, :]
+                slice_segmentation_m = seg_m[slices[a], :, :]
             if a == 1:
-                slice_img_m = img_m[:, slices[a], :]
-                slice_seg_m = seg_m[:, slices[a], :]
+                slice_image_m = img_m[:, slices[a], :]
+                slice_segmentation_m = seg_m[:, slices[a], :]
             if a == 2:
-                slice_img_m = img_m[:, :, slices[a]]
-                slice_seg_m = seg_m[:, :, slices[a]]
+                slice_image_m = img_m[:, :, slices[a]]
+                slice_segmentation_m = seg_m[:, :, slices[a]]
 
-            plt.imshow(slice_img_m, cmap='gray')
+            plt.imshow(slice_image_m, cmap='gray')
             plt.colorbar()
-            plt.imshow(slice_seg_m, alpha=0.3)
+            plt.imshow(slice_segmentation_m, alpha=0.3)
+            plt.title("moving")
 
             # fixed image
             ax = fig.add_subplot(2, 3, a + 4)
             if a == 0:
-                slice_img_f = img_f[slices[a], :, :]
-                slice_seg_f = seg_f[slices[a], :, :]
+                slice_image_f = img_f[slices[a], :, :]
+                slice_segmentation_f = seg_f[slices[a], :, :]
             if a == 1:
-                slice_img_f = img_f[:, slices[a], :]
-                slice_seg_f = seg_f[:, slices[a], :]
+                slice_image_f = img_f[:, slices[a], :]
+                slice_segmentation_f = seg_f[:, slices[a], :]
             if a == 2:
-                slice_img_f = img_f[:, :, slices[a]]
-                slice_seg_f = seg_f[:, :, slices[a]]
+                slice_image_f = img_f[:, :, slices[a]]
+                slice_segmentation_f = seg_f[:, :, slices[a]]
 
-            plt.imshow(slice_img_f, cmap='gray')
+            plt.imshow(slice_image_f, cmap='gray')
+            plt.title("fixed")
             plt.colorbar()
-            plt.imshow(slice_seg_f, alpha=0.3)
+            plt.imshow(slice_segmentation_f, alpha=0.3)
             # plt.gca().invert_yaxis()
 
         plt.tight_layout()
-        plt.suptitle("idx: {}".format(rand_idx))
+        plt.suptitle("idx: {}".format(random_index))
+        plt.show()
+
+
+class L2RAbdominalCTCTDataset(Dataset):
+    """
+    Learn2Reg Abdominal CT dataset (available at https://learn2reg.grand-challenge.org/Datasets/)
+    Inter-patient
+    Currently only using the 30 labeled images and all possible combinations among them (435 pairs)
+    """
+
+    def __init__(self, dataset_path: Path, transforms: list[str] = None, return_type: str = "path_dict",
+                 indices: list[int] = None) -> None:
+        """
+
+        @param dataset_path: path to the original or preprocessed dataset
+        @param transforms: The preprocessing steps to be done (normalize, clip, resize)
+        @param return_type: data type of return values. Either dict of paths, dict of np arrays or np arrays
+        @param indices: list of indices which form the dataset (e.g. for train/val/test split)
+        """
+
+        self.indices = indices
+        self.dataset_path = dataset_path
+        self.dataset_path_preprocessed = None
+        self.transforms = transforms
+        # self.target_transform = self.config["torch_transforms"]
+        self.ndim = 3
+        self.spacing = (2, 2, 2)
+        self.images_shape = (192, 160, 256)
+
+        self.classes = {0: "background",
+                        1: "spleen",
+                        2: "right kidney",
+                        3: "left kidney",
+                        4: "gall bladder",
+                        5: "esophagus",
+                        6: "liver",
+                        7: "stomach",
+                        8: "aorta",
+                        9: "inferior vena cava",
+                        10: "portal and splenic vein",
+                        11: "pancreas",
+                        12: "left adrenal gland",
+                        13: "right adrenal gland"}
+
+        assert return_type in ["path_dict", "np_array_dict", "np_arrays"]
+        self.return_type = return_type
+
+        self.images_list = None
+        self.segmentations_list = None
+        self.__load_images_list__()
+        self.__load_segmentations_list__()
+        if indices is not None:  # create subsets for e.g. validation and training
+            self.images_list = [self.images_list[i] for i in indices]
+            self.segmentations_list = [self.segmentations_list[i] for i in indices]
+            # print("sliced:", idxs)
+
+    def __len__(self) -> int:
+        """
+        Returns length of the dataset
+        @return:
+        """
+        return len(self.images_list)
+
+    def __getitem__(self, idx: int) -> tuple | dict:
+        """
+        For accessing the individual image pairs
+        @param idx: idx of image pair to return
+        @return: Returns either a dict[Path] or a dict[np.ndarray] of imgs/segs/kps. In case of np arrays, the data is returned with shape (bs, h, w, d)
+        """
+
+        if self.return_type == "path_dict":
+            item = {
+                "images": [self.dataset_path / self.images_list[idx][0], self.dataset_path / self.images_list[idx][1]],
+                "segmentations": [self.dataset_path / self.segmentations_list[idx][0],
+                                  self.dataset_path / self.segmentations_list[idx][1]]
+            }
+        elif self.return_type == "np_array_dict":  # np_array bsxhxwxd
+            subject_dict = {
+                "image_f": tio.ScalarImage(self.dataset_path / self.images_list[idx][0]),
+                "image_m": tio.ScalarImage(self.dataset_path / self.images_list[idx][1]),
+                "seg_f": tio.ScalarImage(self.dataset_path / self.segmentations_list[idx][0]),
+                "seg_m": tio.ScalarImage(self.dataset_path / self.segmentations_list[idx][1]),
+            }
+            subject = tio.Subject(subject_dict)
+
+            img_m = subject["image_m"].data
+            img_f = subject["image_f"].data
+            seg_m = subject["seg_m"].data
+            seg_f = subject["seg_f"].data
+
+            item = {
+                "images": [img_f, img_m],
+                "segmentations": [seg_f, seg_m]
+            }
+        else:  # np_arrays of shape bsxhxwxd
+            subject_dict = {
+                "image_f": tio.ScalarImage(self.dataset_path / self.images_list[idx][0]),
+                "image_m": tio.ScalarImage(self.dataset_path / self.images_list[idx][1])
+            }
+            subject = tio.Subject(subject_dict)
+
+            img_m = subject["image_m"].data.numpy()
+            img_f = subject["image_f"].data.numpy()
+
+            item = (img_f, img_m)
+        return item
+
+    def preprocess(self, save_path: Path) -> None:
+        """
+        Preprocessing of the whole dataset
+        @param save_path: The path where the preprocessing data should be saved. The same folder structure as in the
+         original dataset will be created there automatically and after preprocessing, the data will be loaded from this path instead of the original one.
+        @return: None
+        """
+
+        files_images = list()
+        files_segmentations = list()
+        for i in range(1, 31):
+            file_str = "AbdomenCTCT_" + str(i).zfill(4)
+            file_seg = "labelsTr/" + file_str + "_0000.nii.gz"
+            file_img = "imagesTr/" + file_str + "_0000.nii.gz"
+            files_segmentations.append(file_seg)
+            files_images.append(file_img)
+
+        save_path.mkdir(parents=True, exist_ok=True)
+        (save_path / "imagesTr").mkdir(parents=True, exist_ok=True)
+        (save_path / "labelsTr").mkdir(parents=True, exist_ok=True)
+
+        for idx in tqdm(range(len(files_images)), desc="Preprocessing (" + str(self.transforms) + ")", unit="iteration"):
+            file_img_m = files_images[idx]
+            file_seg_m = files_segmentations[idx]
+
+            subject_dict = {
+                "image_m": tio.ScalarImage(self.dataset_path / self.images_list[idx][1]),
+                "seg_m": tio.ScalarImage(self.dataset_path / self.segmentations_list[idx][1])
+            }
+            subject = tio.Subject(subject_dict)
+
+            if "clip_bones" in self.transforms:
+                clip = tio.Clamp(
+                    out_min=WINDOW_BONES[0], out_max=WINDOW_BONES[1])
+                subject["image_ct"] = clip(subject["image_ct"])
+
+            if "clip_soft_tissue" in self.transforms:
+                clip = tio.Clamp(
+                    out_min=WINDOW_SOFT_TISSUE[0], out_max=WINDOW_SOFT_TISSUE[1])
+                subject["image_ct"] = clip(subject["image_ct"])
+
+            if "normalize" in self.transforms:
+                rescale = tio.RescaleIntensity(
+                    out_min_max=(0, 1), percentiles=(0, 100))
+                subject = rescale(subject)
+
+            # if "resample" in self.transforms:
+            #     resample = tio.Resample(1)
+            #     subject = resample(subject)
+            #     self.images_shape = subject["image_m"].data.shape[1:]
+            #     self.spacing = (1, 1, 1)
+
+            # save preprocessed images
+            subject["image_m"].save(save_path / file_img_m)
+            subject["seg_m"].save(save_path / file_seg_m)
+
+        self.dataset_path = save_path
+        print("From now on reading images from ", self.dataset_path)
+
+    def __load_images_list__(self) -> None:
+        """
+        Initializes the image list from the given dataset path and indices
+        @return:
+        """
+
+        self.images_list = list()
+        files=list()
+        for i in range(1, 31):
+            file_str = "AbdomenCTCT_" + str(i).zfill(4)
+            file = "imagesTr/" + file_str + "_0000.nii.gz"
+            files.append(file)
+
+        self.images_list = [(x, y) for x, y in combinations(files, 2) if x != y]
+
+    def __load_segmentations_list__(self) -> None:
+        """
+        Initializes the segmentations list from the given dataset path and indices
+        @return:
+        """
+
+        self.segmentations_list = list()
+        files = list()
+        for i in range(1, 31):
+            file_str = "AbdomenCTCT_" + str(i).zfill(4)
+            file = "labelsTr/" + file_str + "_0000.nii.gz"
+            files.append(file)
+
+        self.segmentations_list = [(x, y) for x, y in combinations(files, 2) if x != y]
+
+    def plot_random_image(self) -> None:
+        """
+        Plots a random image of the dataset including segmentations
+        """
+
+        random_index = random.randint(0, len(self) - 1)
+        tmp = self.return_type
+        self.return_type = "path_dict"
+        item = self[random_index]
+        self.return_type = tmp
+
+        img_f = tio.ScalarImage(item["images"][0]).numpy().squeeze()
+        img_m = tio.ScalarImage(item["images"][1]).numpy().squeeze()
+        seg_f = tio.LabelMap(item["segmentations"][0]).numpy().squeeze()
+        seg_m = tio.LabelMap(item["segmentations"][1]).numpy().squeeze()
+
+        fig = plt.figure(figsize=(20, 12))
+        image_size = self.images_shape
+        slices = [int(image_size[0] / 2), int(image_size[1] / 2),
+                  int(image_size[2] / 2)]
+
+        for a in range(0, 3):
+            # moving image
+            ax = fig.add_subplot(2, 3, a + 1)
+            if a == 0:
+                slice_image_m = img_m[slices[a], :, :]
+                slice_segmentation_m = seg_m[slices[a], :, :]
+            if a == 1:
+                slice_image_m = img_m[:, slices[a], :]
+                slice_segmentation_m = seg_m[:, slices[a], :]
+            if a == 2:
+                slice_image_m = img_m[:, :, slices[a]]
+                slice_segmentation_m = seg_m[:, :, slices[a]]
+
+            plt.imshow(slice_image_m, cmap='gray')
+            plt.colorbar()
+            plt.imshow(slice_segmentation_m, alpha=0.3)
+            plt.title("moving")
+
+            # fixed image
+            ax = fig.add_subplot(2, 3, a + 4)
+            if a == 0:
+                slice_image_f = img_f[slices[a], :, :]
+                slice_segmentation_f = seg_f[slices[a], :, :]
+            if a == 1:
+                slice_image_f = img_f[:, slices[a], :]
+                slice_segmentation_f = seg_f[:, slices[a], :]
+            if a == 2:
+                slice_image_f = img_f[:, :, slices[a]]
+                slice_segmentation_f = seg_f[:, :, slices[a]]
+
+            plt.imshow(slice_image_f, cmap='gray')
+            plt.title("fixed")
+            plt.colorbar()
+            plt.imshow(slice_segmentation_f, alpha=0.3)
+            # plt.gca().invert_yaxis()
+
+        plt.tight_layout()
+        plt.suptitle("idx: {}".format(random_index))
         plt.show()
 
 
@@ -611,61 +885,3 @@ class PathPairDataset():
 
     def __getitem__(self, idx: int) -> tuple[Path, Path]:
         return self.path_pairs[idx]
-
-
-# class L2RLungCTDataset():
-#     def __init__(self, path_root: Path):
-#         """
-#         Initialize the dataset.
-#
-#         params:
-#         path_root (Union[Path, List[List[Path]]]): Path to the root directory containing the images
-#         or a list of lists of paths to the images.
-#         """
-#
-#         self.path_list = self._load_imgs_list(path_root)
-#
-#     def __len__(self):
-#         return len(self.path_list)
-#
-#     def __getitem__(self,
-#                     idx,
-#                     return_segmentation: Optional[bool] = None) -> tuple[Path, Path]:
-#
-#         fixed_path = None
-#         moving_path = None
-#
-#         if return_segmentation:
-#             fixed_path = self.path_list[idx]["mask_f"]
-#             moving_path = self.path_list[idx]["mask_m"]
-#         else:
-#             fixed_path = self.path_list[idx]["image_f"]
-#             moving_path = self.path_list[idx]["image_m"]
-#
-#         return fixed_path, moving_path
-#
-#     def __iter__(self):
-#         raise NotImplementedError(
-#             "This method is not implemented. Use the method __getitem__ instead.")
-#
-#     def _load_imgs_list(self, path_root: Path):
-#
-#         path_list = []
-#
-#         for i in range(1, 21):
-#             file_str = "LungCT_" + str(i).zfill(4)
-#
-#             file_image_f = "imagesTr/" + file_str + "_0000.nii.gz"
-#             file_image_m = "imagesTr/" + file_str + "_0001.nii.gz"
-#
-#             flie_mask_f = "masksTr/" + file_str + "_0000.nii.gz"
-#             file_mask_m = "masksTr/" + file_str + "_0001.nii.gz"
-#
-#             path_list.append({
-#                 "image_f": path_root / file_image_f,
-#                 "image_m": path_root / file_image_m,
-#                 "mask_f": path_root / flie_mask_f,
-#                 "mask_m": path_root / file_mask_m
-#             })
-#
-#         return path_list
