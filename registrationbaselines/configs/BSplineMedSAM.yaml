@@ -1,0 +1,8 @@
+method_name:            BSplineMedSAM
+result_path:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/results
+encoder:                MedSAM
+featureMetric:          MI
+lr:                     0.0001
+regularisation_weight:  10
+iterations:             2
+sigma:                  [15, 15]

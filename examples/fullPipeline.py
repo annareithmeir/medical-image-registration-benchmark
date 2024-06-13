@@ -9,7 +9,8 @@ from tqdm import tqdm
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg
-from registrationbaselines.registration.convexadam import ConvexAdam
+from registrationbaselines.registration.bspline_feature import BSplineFeature
+# from registrationbaselines.registration.convexadam import ConvexAdam
 from registrationbaselines.evaluation.evaluation import Evaluation
 from registrationbaselines.data_loading import data_loaders
 
@@ -22,36 +23,44 @@ def main() -> None:
     base_dir = Path(__file__).parent.parent.absolute()
 
     # method = "BSplines"
-    method = "convexAdam"
+    # method = "convexAdam"
+    method = "BSplineMedSAM"
 
     if method == "BSplines":
         path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
         registration = BSplineNiftyReg(path_config)
     elif method == "convexAdam":
         path_config = base_dir / 'registrationbaselines/configs/ConvexAdam.yaml'
-        registration = ConvexAdam(path_config)
+        # registration = ConvexAdam(path_config)
+    elif method == "BSplineMedSAM":
+        path_config = base_dir / 'registrationbaselines/configs/BSplineMedSAM.yaml'
+        registration = BSplineFeature(path_config)
     else:
         print("Method not implemented")
-
 
     machine_name = socket.gethostname()
     if machine_name == "fryderyk":
         path_data = Path("/home/fryderyk/Documents/data/LungCT")
     elif machine_name == "janus":
         path_data = Path("/u/home/koeglf/Documents/data/LungCT")
+        path_data = Path("/data/FIRE/")
     else:
         path_data = Path("/home/anna/datasets/AbdomenCTCT_preprocessed")
         # path_data = Path("/home/anna/datasets/LungCT")
 
     indices = [0]
-    loader_data = data_loaders.L2RAbdominalCTCTDataset(path_data, indices = indices)
+    # loader_data = data_loaders.L2RAbdominalCTCTDataset(
+    #     path_data, indices=indices)
     # loader_data = data_loaders.L2RLungCTDataset(path_data, indices = indices)
+    loader_data = data_loaders.FIREDataset(path_data, return_type="path_dict")
 
     # register
     print("\nregister...")
     for i in tqdm(range(len(loader_data))):
         item = loader_data[i]
         registration.register(item["images"][0], item["images"][1])
+        if i == 1:
+            break
 
     if method == "BSplines":
         loader_transformations = data_loaders.BaselineTransformations(
@@ -59,6 +68,9 @@ def main() -> None:
     elif method == "convexAdam":
         loader_transformations = data_loaders.BaselineTransformations(
             base_dir / "tmp/AbdomenCTCT/ConvexAdam")
+    elif method == "BSplineMedSAM":
+        loader_transformations = data_loaders.BaselineTransformations(
+            base_dir / "tmp/results/BSplineMedSAM")
     else:
         print("Method not implemented")
 

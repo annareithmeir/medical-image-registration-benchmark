@@ -75,8 +75,15 @@ class Evaluation():
                                             fixed_name)
 
             if "landmarks" in item:
-                path_fixed_landmarks = item["landmarks"][0]
-                path_moving_landmarks = item["landmarks"][1]
+                is2d = sitk.GetArrayFromImage(sitk.ReadImage(
+                    path_displacement, sitk.sitkVectorFloat64)).shape[-1] == 2
+
+                if is2d:
+                    path_fixed_landmarks = item["landmarks"]
+                    path_moving_landmarks = item["landmarks"]
+                else:
+                    path_fixed_landmarks = item["landmarks"][0]
+                    path_moving_landmarks = item["landmarks"][1]
 
                 self._evaluate_landmarks(path_displacement,
                                          path_fixed_landmarks,

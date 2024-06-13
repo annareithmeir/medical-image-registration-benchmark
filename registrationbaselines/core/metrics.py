@@ -13,7 +13,9 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
 
     displacement = displacement.squeeze()
 
-    assert displacement.ndim == 4, "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+    assert displacement.ndim == 4 and displacement.shape[-1] == 3 or \
+        displacement.ndim == 3 and displacement.shape[-1] == 2, \
+        "Displacement field should have shape (h, w, d, 3) or (w, d, 2)"
 
     if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
         displacement = displacement.transpose(1, 2, 3, 0)
@@ -187,10 +189,11 @@ def tre(landmarks_fixed_path: Path,
     """
 
     displacement = nib.load(displacement_path.as_posix()).get_fdata().squeeze()
-    landmarks_moving = np.genfromtxt(landmarks_moving_path, delimiter=',')
-    landmarks_fixed = np.genfromtxt(landmarks_fixed_path, delimiter=',')
+    landmarks_fixed, landmarks_moving = read_lanmdarks(
+        landmarks_fixed_path, landmarks_moving_path)
+
     assert landmarks_moving.shape == landmarks_fixed.shape
-    assert landmarks_fixed.shape[-1] == 3
+    assert landmarks_fixed.shape[-1] == 3 or landmarks_fixed.shape[-1] == 2
 
     mov_lms_warped = utils_metrics.deform_landmarks(
         landmarks_moving, displacement)
@@ -205,3 +208,17 @@ def tre(landmarks_fixed_path: Path,
         result = all_errors.mean()
 
     return result
+
+
+def read_lanmdarks(landmarks_fixed_path: Path, landmarks_moving_path: Path) -> np.ndarray:
+    # hacky but if both paths are the same we are dealign iwth 2d landmarks stored in one file
+    if landmarks_fixed_path != landmarks_moving_path:
+        return np.genfromtxt(landmarks_fixed_path, delimiter=','), np.genfromtxt(landmarks_moving_path, delimiter=',')
+
+    else:
+        values = np.genfromtxt(landmarks_fixed_path)
+
+        fixed = values[:, 0:2]
+        moving = values[:, 2:4]
+
+        return fixed, moving
