@@ -1,5 +1,6 @@
 method_name:            BSplineMedSAM
-result_path:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/results
+result_path:            /home/anna/PycharmProjects/registrationbaselines/tmp/results
+#result_path:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/results
 encoder:                MedSAM
 featureMetric:          MI
 lr:                     0.0001

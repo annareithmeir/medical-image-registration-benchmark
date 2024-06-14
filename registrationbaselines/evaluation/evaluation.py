@@ -56,7 +56,6 @@ class Evaluation():
         self.results.number_of_images = length_datasets
 
         self.dataset_data = dataset_data
-
         for i in tqdm(range(length_datasets)):
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
@@ -75,10 +74,10 @@ class Evaluation():
                                             fixed_name)
 
             if "landmarks" in item:
-                is2d = sitk.GetArrayFromImage(sitk.ReadImage(
-                    path_displacement, sitk.sitkVectorFloat64)).shape[-1] == 2
+                # is2d = sitk.GetArrayFromImage(sitk.ReadImage(
+                #     path_displacement, sitk.sitkVectorFloat64)).shape[-1] == 2
 
-                if is2d:
+                if dataset_data.ndim==2:
                     path_fixed_landmarks = item["landmarks"]
                     path_moving_landmarks = item["landmarks"]
                 else:
@@ -98,7 +97,7 @@ class Evaluation():
         self.results.write()
         self.results.plot(self.path_results_plots)
 
-    def visualize(self, dataset_transformations: Dataset, dataset_data: Dataset, idxs: Optional[list[int]] = None,
+    def visualize(self, dataset_transformations: BaselineTransformations, dataset_data: Dataset, idxs: Optional[list[int]] = None,
                   plot_to_wandb: Optional[bool] = False) -> None:
         """
         Create plots for the evaluation.
@@ -112,18 +111,22 @@ class Evaluation():
         if idxs is None:
             idxs = range(len(dataset_transformations))
 
+        print(idxs)
+
         for i in tqdm(idxs):
+            print(i)
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
             fixed_image_path = item["images"][0]
             moving_image_path = item["images"][1]
-            fixed_image = nib.load(fixed_image_path).get_fdata()
-            moving_image = nib.load(moving_image_path).get_fdata()
-            displacement = nib.load(
-                path_displacement.as_posix()).get_fdata().squeeze()
+            fixed_image = sitk.ReadImage(fixed_image_path)
+            moving_image = sitk.ReadImage(moving_image_path)
+            # displacement = sitk.ReadImage(
+            #     path_displacement.as_posix(), sitk.sitkVectorFloat64)
+            displacement = nib.load(path_displacement.as_posix()).get_fdata().squeeze()
             deformed_image_path = self._get_deformed_image_path(
                 fixed_image_path.name, moving_image_path.name)
-            deformed_image = nib.load(deformed_image_path).get_fdata()
+            deformed_image = sitk.ReadImage(deformed_image_path)
 
             plots_path = self._create_plots_paths(
                 fixed_image_path.name, moving_image_path.name)
@@ -135,22 +138,37 @@ class Evaluation():
             deformed_segmentation = None
 
             if "segmentations" in item:
-                fixed_segmentation = nib.load(
-                    item["segmentations"][0]).get_fdata()
-                moving_segmentation = nib.load(
-                    item["segmentations"][1]).get_fdata()
+                fixed_segmentation = sitk.GetArrayFromImage(sitk.ReadImage(
+                    item["segmentations"][0]))
+                # moving_segmentation = sitk.GetArrayFromImage(sitk.ReadImage(
+                #     item["segmentations"][1]))
                 # deformed_segmentation = utils_metrics.deform_segmentations(moving_segmentation, displacement)
                 deformed_segmentation = None  # TODO implement function above
             if "landmarks" in item:
-                fixed_landmarks = np.genfromtxt(
-                    item["landmarks"][0], delimiter=',')
-                moving_landmarks = np.genfromtxt(
-                    item["landmarks"][1], delimiter=',')
+
+                if dataset_data.ndim==2:
+                    path_fixed_landmarks = item["landmarks"]
+                    path_moving_landmarks = item["landmarks"]
+                else:
+                    path_fixed_landmarks = item["landmarks"][0]
+                    path_moving_landmarks = item["landmarks"][1]
+
+                landmarks_fixed, landmarks_moving = metrics.read_lanmdarks(
+                    path_fixed_landmarks, path_moving_landmarks)
+
+                assert landmarks_moving.shape == landmarks_fixed.shape
+                assert landmarks_fixed.shape[-1] == 3 or landmarks_fixed.shape[-1] == 2
+
+                # fixed_landmarks = np.genfromtxt(path_fixed_landmarks, delimiter=',')
+                # moving_landmarks = np.genfromtxt(path_moving_landmarks, delimiter=',')
+
                 deformed_landmarks = utils_metrics.deform_landmarks(
-                    moving_landmarks, displacement)
-            visualization.plot_all_registration_results(plots_path, moving_image, fixed_image, deformed_image,
-                                                        displacement, fixed_segmentation, deformed_segmentation,
-                                                        fixed_landmarks, moving_landmarks, deformed_landmarks)
+                    landmarks_moving, displacement)
+                # deformed_landmarks = utils_metrics.deform_landmarks(
+                #     moving_landmarks, displacement)
+            visualization.plot_all_registration_results(plots_path, sitk.GetArrayFromImage(moving_image), sitk.GetArrayFromImage(fixed_image), sitk.GetArrayFromImage(deformed_image),
+                                                        displacement, fixed_labels=fixed_segmentation, pred_labels=deformed_segmentation,
+                                                        fixed_keypoints=landmarks_fixed, moving_keypoints=landmarks_moving, pred_keypoints=deformed_landmarks)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
@@ -259,12 +277,15 @@ class Evaluation():
         Create the paths for the plots.
         """
 
-        name_fixed = name_fixed.replace(".nii", "")
-        name_moving = name_moving.replace(".nii", "")
+        if name_fixed.endswith(".nii") or name_fixed.endswith(".nii.gz"):
+            name_fixed = name_fixed.replace(".nii", "")
+            name_moving = name_moving.replace(".nii", "")
 
-        name_fixed = name_fixed.replace(".gz", "")
-        name_moving = name_moving.replace(".gz", "")
-
+            name_fixed = name_fixed.replace(".gz", "")
+            name_moving = name_moving.replace(".gz", "")
+        elif name_fixed.endswith(".jpg"):
+            name_fixed = name_fixed.replace(".jpg", "")
+            name_moving = name_moving.replace(".jpg", "")
         path_plots = self.path_plots / \
             f"{name_moving}_deformed_to_{name_fixed}.pdf"
         path_plots = path_plots.resolve().as_posix()
@@ -276,13 +297,19 @@ class Evaluation():
         Get the corresponding deformed image path.
         """
 
-        name_fixed = name_fixed.replace(".nii", "")
-        name_moving = name_moving.replace(".nii", "")
-        name_fixed = name_fixed.replace(".gz", "")
-        name_moving = name_moving.replace(".gz", "")
+        if name_fixed.endswith(".nii") or name_fixed.endswith(".nii.gz"):
+            name_fixed = name_fixed.replace(".nii", "")
+            name_moving = name_moving.replace(".nii", "")
+            name_fixed = name_fixed.replace(".gz", "")
+            name_moving = name_moving.replace(".gz", "")
+            path_plots = self.path_results.parent / \
+                         f"deformed/{name_moving}_deformed_to_{name_fixed}.nii.gz"
+        elif name_fixed.endswith(".jpg"):
+            name_fixed = name_fixed.replace(".jpg", "")
+            name_moving = name_moving.replace(".jpg", "")
 
-        path_plots = self.path_results.parent / \
-            f"deformed/{name_moving}_deformed_to_{name_fixed}.nii.gz"
+            path_plots = self.path_results.parent / \
+                f"deformed/{name_moving}_deformed_to_{name_fixed}.jpg"
         path_plots = path_plots.resolve().as_posix()
 
         return Path(path_plots)

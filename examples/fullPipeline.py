@@ -45,7 +45,8 @@ def main() -> None:
         path_data = Path("/u/home/koeglf/Documents/data/LungCT")
         path_data = Path("/data/FIRE/")
     else:
-        path_data = Path("/home/anna/datasets/AbdomenCTCT_preprocessed")
+        path_data = Path("/home/anna/datasets/FIRE")
+        # path_data = Path("/home/anna/datasets/AbdomenCTCT_preprocessed")
         # path_data = Path("/home/anna/datasets/LungCT")
 
     indices = [0]
