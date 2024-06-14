@@ -124,6 +124,11 @@ def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None) -> None:
 
             # show figure
             colormap = cm.hsv
+            step = 10
+            # X = x[::step, ::step]
+            # Y = y[::step, ::step]
+            u = u[::step, ::step]
+            v = v[::step, ::step]
             ax.quiver(u, v,
                       color=colormap(norm(colors).flatten()),
                       angles='xy',
@@ -429,7 +434,7 @@ def plot_all_registration_results(save_path: Path,
         fieldAx = displacement
         # plot_quiverplot(fieldAx, ax=ax)
         # neurite.plot.flow([displacement], show=False)
-        plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image, interval=5, color="black")
+        plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image, interval=50, color="white")
         ax.set_frame_on(False)
         if toprow:
             ax.title.set_text("deformation")

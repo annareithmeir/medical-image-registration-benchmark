@@ -36,8 +36,8 @@ def main() -> None:
 
     # method = "BSplines"
     # method = "convexAdam"
-    # method = "BSplineMedSAM"
-    method = "voxelmorph_feature"
+    method = "BSplineMedSAM"
+    # method = "voxelmorph_feature"
 
     if method == "BSplines":
         path_config = base_dir / 'registrationbaselines/configs/BSplineNiftyReg.yaml'
