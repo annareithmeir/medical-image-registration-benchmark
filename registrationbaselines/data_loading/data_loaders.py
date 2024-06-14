@@ -2,6 +2,7 @@ import random
 from pathlib import Path
 from typing import List, Union, Tuple
 import copy
+from PIL import Image
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -921,7 +922,7 @@ class FIREDataset(Dataset):
         self.img_shape = (256, 256)
 
         assert return_type in ["path_dict", "np_array_dict",
-                               "np_arrays", "np_arrays4", "np_arrays_and_rgb"]
+                               "np_arrays", "np_arrays4", "np_arrays_and_rgb", "np_arrays_rgb", "np_arrays_rgb_kps"]
         self.return_type = return_type
 
         self.imgs_list = None
@@ -987,6 +988,19 @@ class FIREDataset(Dataset):
             kp_f, kp_m = self._get_keypoints_pair(idx)
 
             item = (img_f, img_m, kp_f, kp_m, img_f_rgb, img_m_rgb)
+        elif self.return_type == "np_arrays_rgb":  # np_array bsxhxwxd
+
+            img_f_rgb, img_m_rgb = self._get_image_pair(
+                idx, self.transforms_without_greyscale)
+
+            item = (img_f_rgb, img_m_rgb)
+        elif self.return_type == "np_arrays_rgb_kps":  # np_array bsxhxwxd
+
+            img_f_rgb, img_m_rgb = self._get_image_pair(
+                idx, self.transforms_without_greyscale)
+            kp_f, kp_m = self._get_keypoints_pair(idx)
+
+            item = (img_f_rgb, img_m_rgb, kp_f, kp_m)
         return item
 
     def preprocess(self, save_path: Path) -> None:
@@ -1007,9 +1021,6 @@ class FIREDataset(Dataset):
         path_images = self.imgs_path / "Images"
         all_paths = list(path_images.glob("*.*"))
         all_paths.sort()
-        print(all_paths)
-        for i in range(0, len(all_paths), 2):
-            print(i, len(all_paths))
         path_pairs = [[all_paths[i], all_paths[i + 1]]
                       for i in range(0, len(all_paths), 2)]
         self.imgs_list = path_pairs
