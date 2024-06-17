@@ -21,34 +21,13 @@ import latent_space_registration.airlab.loss as al_loss
 import latent_space_registration.airlab.regulariser as al_regulariser
 
 
-def apply_displacement_field(image_fixed: sitk.Image,
-                             image_moving: sitk.Image,
-                             displacement: sitk.Image,
-                             sitk_interpolator: int):
-    """
-    Apply a deformation to an image using the provided deformation.
-    """
-    # Create the transform using the displacement field
-    displacement_field_transform = sitk.DisplacementFieldTransform(
-        displacement)
-
-    # Apply the transform to the input image
-    resampler = sitk.ResampleImageFilter()
-    resampler.SetReferenceImage(image_fixed)
-    resampler.SetInterpolator(sitk_interpolator)
-    resampler.SetTransform(displacement_field_transform)
-
-    deformed_image = resampler.Execute(image_moving)
-
-    return deformed_image
-
-
-def create_grid_image(size, grid_size):
+def create_grid_image(size, grid_size, line_thickness):
     """
     Creates a white square image with a black grid using numpy.
 
     :param size: The size of the image (width and height).
     :param grid_size: The size of the grid squares.
+    :param line_thickness: The thickness of the grid lines.
     :return: A numpy array representing the image.
     """
     # Create a white square image (3 channels for RGB)
@@ -56,26 +35,28 @@ def create_grid_image(size, grid_size):
 
     # Draw horizontal lines
     for y in range(0, size, grid_size):
-        img[y:y+1, :] = 0  # Set the row to black
+        img[y:y+line_thickness, :] = 0  # Set the rows to black
 
     # Draw vertical lines
     for x in range(0, size, grid_size):
-        img[:, x:x+1] = 0  # Set the column to black
+        img[:, x:x+line_thickness] = 0  # Set the columns to black
 
     return img
 
 
-image_moving_shape = (100, 100)
-grid_spacing = 10
+image_moving_shape = (2912, 2912)
+grid_spacing = 200
+line_thickness = 5
 dtype = torch.float32
 device = torch.device("cuda:0")
-sigma = [20, 20]
+sigma = [500, 500]
+
 
 # Example usage
 image_fixed = create_grid_image(
-    image_moving_shape[0], grid_spacing)
+    image_moving_shape[0], grid_spacing, line_thickness)
 image_moving = create_grid_image(
-    image_moving_shape[0], grid_spacing)
+    image_moving_shape[0], grid_spacing, line_thickness)
 
 image_moving = np.moveaxis(image_moving, -1, 0)
 image_moving = al.utils.image_from_numpy(
@@ -90,8 +71,8 @@ transformation = al_transformation.pairwise.BsplineTransformation(image_moving.s
                                                                   diffeomorphic=True)
 
 p = transformation.trans_parameters.detach()
-p[0, 0, 4, 4] = 0.5
-p[0, 1, 4, 4] = 0.5
+p[0, 0, 4, 4] = 0.2
+p[0, 1, 4, 4] = 0.
 transformation.trans_parameters = Parameter(p)
 
 displacement = transformation.get_displacement()
@@ -100,12 +81,12 @@ warped_image = al_transformation.utils.warp_image(
 
 new_image = warped_image.image.detach().cpu().numpy().squeeze()
 
-keypoints = np.array([[70.0, 70.0], [80.0, 10.0]])
+keypoints = np.array([[2000.0, 1800.0], [80.0, 10.0]])
 
 tmp_displacement1 = al_transformation.utils.unit_displacement_to_displacement(
-    displacement.movedim(0, 1))  # unit measures to image domain measures
+    displacement)  # unit measures to image domain measures
 tmp_displacement2 = al.create_displacement_image_from_image(
-    tmp_displacement1, image_moving)
+    displacement, image_moving)
 deformed_landmarks = al.utils.points.Points.transform(
     keypoints, tmp_displacement2)
 
