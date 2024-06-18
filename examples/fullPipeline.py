@@ -24,7 +24,7 @@ from registrationbaselines.data_loading import data_loaders
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
 
-from latent_space_registration.datasets import MNISTDataset
+# from latent_space_registration.datasets import MNISTDataset
 
 
 def main() -> None:

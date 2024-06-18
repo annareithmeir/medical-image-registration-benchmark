@@ -1,6 +1,6 @@
 method_name: VoxelMorphDINOv2-variant1-MI
-encoder: DINOv2
-feature_metric: MI # MI, MSE
+encoder: SAM
+feature_metric: COSINE # MI, MSE
 loss_function_variant: 1
 feature_reg_weight: 0.5
 
@@ -28,7 +28,7 @@ src_feats: 3 #1
 trg_feats: 3 #1
 sim_loss: "ncc" #'mse'
 reg_weight: 0.01 #0.01
-use_wandb: False
+use_wandb: True
 wandb_config_path: "registrationbaselines/configs/Wandb.yaml"
 gpu:  '0'
 cudnn_nondet: False #False

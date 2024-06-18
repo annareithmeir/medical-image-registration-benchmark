@@ -17,6 +17,8 @@ import SimpleITK as sitk
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.core import utils
+import math
+import torch.nn.functional as F
 
 os.environ['NEURITE_BACKEND'] = 'pytorch'
 os.environ['VXM_BACKEND'] = 'pytorch'
@@ -158,7 +160,8 @@ class VoxelmorphFeatureTraining(TrainingInterface):
         if type == 0:
             # as in original voxelmorph, no features used here at all
             if self.config['sim_loss'] == 'ncc':
-                image_loss_func = vxm.losses.NCC().loss
+                image_loss_func = custom_losses.NCC().loss
+                # image_loss_func = vxm.losses.NCC().loss
             elif self.config['sim_loss'] == 'mse':
                 image_loss_func = vxm.losses.MSE().loss
             else:
@@ -205,7 +208,8 @@ class VoxelmorphFeatureTraining(TrainingInterface):
         elif type == 2:
             # feature MSE used in additional regularization term
             if self.config['sim_loss'] == 'ncc':
-                image_loss_func = vxm.losses.NCC().loss
+                image_loss_func = custom_losses.NCC().loss
+                # image_loss_func = vxm.losses.NCC().loss
             elif self.config['sim_loss'] == 'mse':
                 image_loss_func = vxm.losses.MSE().loss
             else:
@@ -317,28 +321,6 @@ class VoxelmorphFeatureTraining(TrainingInterface):
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config['lr'])
         self._prepare_training_loss(self.loss_function_option)
 
-        # prepare image loss
-        if self.config['sim_loss'] == 'ncc':
-            image_loss_func = vxm.losses.NCC().loss
-        elif self.config['sim_loss'] == 'mse':
-            image_loss_func = vxm.losses.MSE().loss
-        else:
-            raise ValueError(
-                'Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
-
-        # need two image loss functions if bidirectional
-        if self.config['bidir']:
-            losses = [image_loss_func, image_loss_func]
-            weights = [0.5, 0.5]
-        else:
-            losses = [image_loss_func]
-            weights = [1]
-
-        # prepare deformation loss
-        losses += [vxm.losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
-        weights += [self.config['reg_weight']]
-
         # training loops
         for epoch in range(self.config['initial_epoch'], self.config['epochs']):
 
@@ -383,7 +365,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                 # calculate total loss
                 loss = 0
                 loss_list = []
-                for n, loss_function in enumerate(losses):
+                for n, loss_function in enumerate(self.losses):
                     if self.loss_function_option == 1 and n == 0:
                         f_pred = y_pred[n].to("cuda")
                         f_true = y_true[n].to("cuda")
@@ -447,14 +429,13 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                             val_y_pred = (
                                 val_y_pred[0], val_y_pred[1], val_warped_rgb_m)
 
-                        val_loss = 0
 
                         # for n, loss_function in enumerate(self.losses):
                         #     val_curr_loss = loss_function(
                         #         val_y_true[n], val_y_pred[n]) * self.weights[n]
                         #     val_loss += val_curr_loss
-                        # val_loss_list.append(0)
-                        val_loss_list.append(val_loss.item())
+                        val_loss_list.append(0)
+                        # val_loss_list.append(val_loss.item())
 
                         disp = -val_y_pred[1].cpu().numpy().squeeze()
 
