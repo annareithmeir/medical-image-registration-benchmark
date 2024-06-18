@@ -75,7 +75,7 @@ def main() -> None:
     train_idx, val_idx = idxs[:124], idxs[124:]
     loader_data = data_loaders.FIREDataset(path_data, return_type="path_dict", idxs=[0])
     train_dataset = data_loaders.FIREDataset(path_data, return_type="np_arrays_rgb", idxs=[0])
-    val_dataset = data_loaders.FIREDataset(path_data, return_type="np_arrays_rgb",idxs=[0])
+    val_dataset = data_loaders.FIREDataset(path_data, return_type="np_arrays_rgb_kps",idxs=[0])
     # train_dataset = MNISTDataset(train=True, subset_range=100, return_type="np_arrays_rgb")
     # val_dataset = MNISTDataset(train=False, subset_range=1, return_type="np_arrays_rgb")
     # loader_data = MNISTDataset(train=False, subset_range=1, return_type="path_dict")
@@ -86,31 +86,31 @@ def main() -> None:
         vxm_registration.train()
 
     # register
-    print("\nregister...")
-    for i in tqdm(range(len(loader_data))):
-        item = loader_data[i]
-        registration.register(item["images"][0], item["images"][1])
-        if i == 1:
-            break
-
-    if method == "BSplines":
-        loader_transformations = data_loaders.BaselineTransformations(
-            base_dir / "tmp/AbdomenCTCT/BSplineNiftyReg")
-    elif method == "convexAdam":
-        loader_transformations = data_loaders.BaselineTransformations(
-            base_dir / "tmp/AbdomenCTCT/ConvexAdam")
-    elif method == "BSplineMedSAM":
-        loader_transformations = data_loaders.BaselineTransformations(
-            base_dir / "tmp/results/BSplineMedSAM")
-    else:
-        print("Method not implemented")
-
-    # evaluate
-    print("\nevaluate...")
-    evaluation = Evaluation(path_config)
-    evaluation.evaluate(loader_transformations, loader_data)
-    print("\nplot...")
-    evaluation.visualize(loader_transformations, loader_data)
+    # print("\nregister...")
+    # for i in tqdm(range(len(loader_data))):
+    #     item = loader_data[i]
+    #     registration.register(item["images"][0], item["images"][1])
+    #     if i == 1:
+    #         break
+    #
+    # if method == "BSplines":
+    #     loader_transformations = data_loaders.BaselineTransformations(
+    #         base_dir / "tmp/AbdomenCTCT/BSplineNiftyReg")
+    # elif method == "convexAdam":
+    #     loader_transformations = data_loaders.BaselineTransformations(
+    #         base_dir / "tmp/AbdomenCTCT/ConvexAdam")
+    # elif method == "BSplineMedSAM":
+    #     loader_transformations = data_loaders.BaselineTransformations(
+    #         base_dir / "tmp/results/BSplineMedSAM")
+    # else:
+    #     print("Method not implemented")
+    #
+    # # evaluate
+    # print("\nevaluate...")
+    # evaluation = Evaluation(path_config)
+    # evaluation.evaluate(loader_transformations, loader_data)
+    # print("\nplot...")
+    # evaluation.visualize(loader_transformations, loader_data)
 
 
 if __name__ == "__main__":

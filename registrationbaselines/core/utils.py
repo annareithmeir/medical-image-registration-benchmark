@@ -118,3 +118,12 @@ def explore_memory():
     print(f"Available memory: {available_memory / (1024 ** 2)} MB")
     print(f"Available memory: {available_memory / total_memory * 100} %")
 
+
+def rgb_to_grayscale(rgb_image):
+    r, g, b = rgb_image[0], rgb_image[1], rgb_image[2]
+    grayscale_image = 0.2989 * r + 0.5870 * g + 0.1140 * b
+    return grayscale_image
+
+
+def normalize_tensor_to_0_1(tensor: torch.tensor)-> torch.Tensor:
+    return (tensor - tensor.min()) / (tensor.max() - tensor.min())

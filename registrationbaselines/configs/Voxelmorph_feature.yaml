@@ -13,8 +13,8 @@ multichannel: False
 # Voxelmorph training configuration, taking all default parameters from original repo
 result_model_path: "tmp/results/VoxelMorph"
 initial_weights_path : "tmp/_w.pt"
-batch_size: 1 #1
-epochs: 2 #1
+batch_size: 32 #1
+epochs: 200 #1
 steps_per_epoch: 3 #100
 load_model: null #null
 initial_epoch: 0 #0

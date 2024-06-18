@@ -245,7 +245,7 @@ def plot_all_registration_results(save_path: Path,
                                   moving_keypoints: Optional[np.array] = None,
                                   fixed_keypoints: Optional[np.array] = None,
                                   pred_keypoints: Optional[np.ndarray] = None,
-                                  title: Optional[str] = None) -> None:
+                                  title: Optional[str] = None) -> plt.Figure:
     """
     plots a figure with 9x3 subplots. Half-slices used for plots in each dimension.
     rows: dims
@@ -502,13 +502,18 @@ def plot_all_registration_results(save_path: Path,
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.01, hspace=0.01)
 
-    fig.show()
-    fig.savefig(save_path)
-    plt.close(fig)
+    # fig.show()
+    if save_path is not None:
+        fig.savefig(save_path)
+        plt.close(fig)
+    return fig
 
-def plot_all_registration_results_debugging_wandb(step: int, log_dir: str, moving_image: np.ndarray,
-                                                  fixed_image: np.ndarray, pred_image: np.ndarray,
-                                                  displacement: np.ndarray, fixed_labels: Optional[np.array] = None,
+
+def plot_all_registration_results_debugging_wandb(moving_image: np.ndarray,
+                                                  fixed_image: np.ndarray,
+                                                  pred_image: np.ndarray,
+                                                  displacement: np.ndarray,
+                                                  fixed_labels: Optional[np.array] = None,
                                                   pred_labels: Optional[np.array] = None,
                                                   moving_keypoints: Optional[np.array] = None,
                                                   fixed_keypoints: Optional[np.array] = None,
@@ -517,11 +522,10 @@ def plot_all_registration_results_debugging_wandb(step: int, log_dir: str, movin
     # 9x3 subplots, warp in shape (x,y,z,3)
     # rows: dims
     # cols: M,F, diff_before, warpedM,phi_grid, phi_quiver, diffimg,jacdet, jacdet_violin,maxshear
-
     assert displacement.shape[-1] == 3 or displacement.shape[-1] == 2
 
-    log_file = log_dir + '/debugging_results_epoch_' + str(step) + '.pdf'
-    fig = plot_all_registration_results(moving_image, fixed_image, pred_image, displacement,
+    # log_file = log_dir + '/debugging_results_epoch_' + str(step) + '.pdf'
+    fig = plot_all_registration_results(None, moving_image, fixed_image, pred_image, displacement,
                                                   fixed_labels=fixed_labels, pred_labels=pred_labels,
                                                   moving_keypoints=moving_keypoints, fixed_keypoints=fixed_keypoints,
                                                   pred_keypoints=pred_keypoints, title=title)

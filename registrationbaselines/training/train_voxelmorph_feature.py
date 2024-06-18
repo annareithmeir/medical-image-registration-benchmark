@@ -346,9 +346,9 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                 # inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
                 # y_true = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in y_true]
 
-                if self.loss_function_option == 2:
-                    imgs_rgb = inputs[-2:]
-                    inputs = inputs[:-2]
+                # if self.loss_function_option == 2:
+                #     imgs_rgb = inputs[-2:]
+                #     inputs = inputs[:-2]
                 inputs = [d.to(device).float() for d in inputs]
                 y_true = [d.to(device).float() for d in y_true]
 
@@ -357,9 +357,9 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
                 if self.loss_function_option == 2:
                     # here, the third loss term depends on y_true[0],y_pred[0]
-                    y_true += imgs_rgb[1],
+                    y_true += y_true[0],
                     warped_rgb_m = torch.from_numpy(utils_metrics.apply_displacement_to_rgb_images_batch(
-                        imgs_rgb[0].cpu().numpy().squeeze(), -y_pred[1].detach().cpu().numpy().squeeze()))
+                        inputs[0].cpu().numpy().squeeze(), -y_pred[1].detach().cpu().numpy().squeeze()))
                     y_pred += warped_rgb_m,
 
                 # calculate total loss
@@ -409,9 +409,9 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                     # print("beginning val")
                     # utils.explore_memory()
                     for i in range(len(self.val_dataset)):
-                        val_inputs, val_y_true = next(val_generator)
-                        val_kps = None
-                        # val_inputs, val_y_true, val_kps = next(val_generator)
+                        # val_inputs, val_y_true = next(val_generator)
+                        # val_kps = None
+                        val_inputs, val_y_true, val_kps = next(val_generator)
                         val_inputs = [d.to(device).float() for d in val_inputs]
                         val_y_true = [d.to(device).float() for d in val_y_true]
 
@@ -429,13 +429,13 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                             val_y_pred = (
                                 val_y_pred[0], val_y_pred[1], val_warped_rgb_m)
 
-
-                        # for n, loss_function in enumerate(self.losses):
-                        #     val_curr_loss = loss_function(
-                        #         val_y_true[n], val_y_pred[n]) * self.weights[n]
-                        #     val_loss += val_curr_loss
-                        val_loss_list.append(0)
-                        # val_loss_list.append(val_loss.item())
+                        val_loss = 0
+                        for n, loss_function in enumerate(self.losses):
+                            val_curr_loss = loss_function(
+                                val_y_true[n], val_y_pred[n]) * self.weights[n]
+                            val_loss += val_curr_loss
+                        # val_loss_list.append(0)
+                        val_loss_list.append(val_loss.item())
 
                         disp = -val_y_pred[1].cpu().numpy().squeeze()
 
@@ -464,7 +464,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                             disp = disp.transpose(1, 2, 0)
                             if val_kps is not None:
                                 fig = visualization.plot_all_registration_results_debugging_wandb(
-                                    moving_img, fixed_image, pred_image, disp, moving_keypoints=kp_x, fixed_keypoints=kp_y, pred_keypoints=kp_warped)
+                                    utils.rgb_to_grayscale(moving_img), utils.rgb_to_grayscale(fixed_image), utils.rgb_to_grayscale(pred_image), disp, moving_keypoints=kp_x, fixed_keypoints=kp_y, pred_keypoints=kp_warped)
                             else:
                                 fig = visualization.plot_all_registration_results_debugging_wandb(utils.rgb_to_grayscale(
                                     moving_img), utils.rgb_to_grayscale(fixed_image), utils.rgb_to_grayscale(pred_image), disp)
@@ -473,6 +473,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
             epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config['epochs'])
             time_info = '%.4f sec/step' % np.mean(epoch_step_time)
             mean_loss = np.mean(epoch_loss, axis=0)
+            tre_info = '%.4f TRE' % np.mean(val_tre_list)
             losses_info = ', '.join(['%.4e' % f for f in mean_loss])
             if self.val_dataset is not None:
                 loss_info = 'loss: %.4e  (%s), validation loss: %.4e' % (
@@ -480,16 +481,20 @@ class VoxelmorphFeatureTraining(TrainingInterface):
             else:
                 loss_info = 'loss: %.4e  (%s)' % (
                     np.mean(epoch_total_loss), losses_info)
-            print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
+            print(' - '.join((epoch_info, time_info, loss_info, tre_info)), flush=True)
 
             # wandb logging
             if self.config['use_wandb']:
+                feature_space_loss = mean_loss[2] if len(
+                    mean_loss) == 3 else 0.0
                 if self.val_dataset is not None:
-                    wandb.log({"loss": np.mean(
-                        epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1], "val-loss": np.mean(val_loss_list)})
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1],
+                               "feature-space-loss": feature_space_loss,
+                               "val-loss": np.mean(val_loss_list), "TRE": np.mean(val_tre_list), "plot": fig})
                 else:
-                    wandb.log({"loss": np.mean(epoch_total_loss),
-                              "sim-loss": mean_loss[0], "grad-loss": mean_loss[1]})
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1],
+                               "feature-space-loss": feature_space_loss, "TRE": np.mean(val_tre_list),
+                               "plot": fig})
 
         # final model save
         model.save(os.path.join(model_dir, '%04d_final.pt' %
