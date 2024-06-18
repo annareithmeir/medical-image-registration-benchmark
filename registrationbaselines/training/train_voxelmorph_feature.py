@@ -1,3 +1,9 @@
+import gc
+from registrationbaselines.core.training_interface import TrainingInterface
+import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
+import latent_space_registration.utils_metrics as utils_metrics
+import latent_space_registration.custom_losses as custom_losses
+from latent_space_registration.FeatureExtractor import FeatureExtractor
 from pathlib import Path
 import sys
 import os
@@ -20,14 +26,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
 
-from latent_space_registration.FeatureExtractor import FeatureExtractor
-import latent_space_registration.custom_losses as custom_losses
-import latent_space_registration.utils_metrics as utils_metrics
 
-import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
-from registrationbaselines.core.training_interface import TrainingInterface
-
-import gc
 gc.collect()
 torch.cuda.empty_cache()
 
@@ -176,14 +175,19 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
             # prepare deformation loss
             losses += [custom_losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
+                                          loss_mult=self.config['int_downsize']).loss]
             weights += [self.config['reg_weight']]
         elif type == 1:
             # image loss is based on MI of features
-            if self.config["feature_metric"]=="MI":
-                image_loss_func = custom_losses.FeatureSpaceMI(self.feature_extractor).loss
-            elif self.config["feature_metric"]=="MSE":
-                image_loss_func = custom_losses.FeatureSpaceMSE(self.feature_extractor).loss
+            if self.config["feature_metric"] == "MI":
+                image_loss_func = custom_losses.FeatureSpaceMI(
+                    self.feature_extractor).loss
+            elif self.config["feature_metric"] == "MSE":
+                image_loss_func = custom_losses.FeatureSpaceMSE(
+                    self.feature_extractor).loss
+            elif self.config["feature_metric"] == "COSINE":
+                image_loss_func = custom_losses.FeatureSpaceCosine(
+                    self.feature_extractor).loss
 
             # need two image loss functions if bidirectional
             if self.config['bidir']:
@@ -195,7 +199,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
             # prepare deformation loss
             losses += [custom_losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
+                                          loss_mult=self.config['int_downsize']).loss]
             weights += [self.config['reg_weight']]
 
         elif type == 2:
@@ -206,7 +210,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                 image_loss_func = vxm.losses.MSE().loss
             else:
                 raise ValueError(
-                    'Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
+                    'Image loss should be "mse", "ncc" or "COSINE", but found "%s"' % self.config['image_loss'])
 
             # need two image loss functions if bidirectional
             if self.config['bidir']:
@@ -218,12 +222,16 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
             # prepare deformation loss
             losses += [custom_losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
+                                          loss_mult=self.config['int_downsize']).loss]
             weights += [self.config['reg_weight']]
 
             # prepare feature regularization loss
-            if self.config["feature_metric"]=="MI":
-                losses += [custom_losses.FeatureSpaceMI(self.feature_extractor).loss]
+            if self.config["feature_metric"] == "MI":
+                losses += [custom_losses.FeatureSpaceMI(
+                    self.feature_extractor).loss]
+            elif self.config["feature_metric"] == "COSINE":
+                image_loss_func = custom_losses.FeatureSpaceCosine(
+                    self.feature_extractor).loss
             weights += [self.config['feature_reg_weight']]
 
         else:
@@ -391,9 +399,11 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                         # # f_pred = f_pred.to(device)
                         # f_true = f_true.to(device)
                         print(f_pred.device, f_true.device)
-                        curr_loss = loss_function(f_true, f_pred) * self.weights[n]
+                        curr_loss = loss_function(
+                            f_true, f_pred) * self.weights[n]
                     else:
-                        curr_loss = loss_function(y_true[n], y_pred[n]) * self.weights[n]
+                        curr_loss = loss_function(
+                            y_true[n], y_pred[n]) * self.weights[n]
                     loss_list.append(curr_loss.item())
                     loss += curr_loss
 
@@ -429,9 +439,13 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
                         if self.loss_function_option == 2:
                             # here, the third loss term depends on y_true[0],y_pred[0]
-                            val_y_true.append(val_y_true[0])  # repreat moving image for third loss
-                            val_warped_rgb_m = utils_metrics.apply_displacement_to_rgb_images_batch(val_inputs[0], -val_y_pred[1])
-                            val_y_pred = (val_y_pred[0], val_y_pred[1], val_warped_rgb_m)  # append warped moving rgb image to y_pred
+                            # repreat moving image for third loss
+                            val_y_true.append(val_y_true[0])
+                            val_warped_rgb_m = utils_metrics.apply_displacement_to_rgb_images_batch(
+                                val_inputs[0], -val_y_pred[1])
+                            # append warped moving rgb image to y_pred
+                            val_y_pred = (
+                                val_y_pred[0], val_y_pred[1], val_warped_rgb_m)
 
                         val_loss = 0
 
@@ -458,7 +472,8 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                         else:
                             # placeholder DICE for MNSIT
                             # print(torch.unique(val_inputs[0]), val_inputs[0].min(), val_inputs[0].max(), val_inputs[0].mean())
-                            dsc = metrics.dice_score(sitk.GetImageFromArray((val_inputs[1] > 0.5).cpu().numpy().astype(np.int8).squeeze()), sitk.GetImageFromArray((val_y_pred[0] > 0.5).cpu().numpy().astype(np.int8).squeeze()))
+                            dsc = metrics.dice_score(sitk.GetImageFromArray((val_inputs[1] > 0.5).cpu().numpy().astype(
+                                np.int8).squeeze()), sitk.GetImageFromArray((val_y_pred[0] > 0.5).cpu().numpy().astype(np.int8).squeeze()))
                             val_tre_list.append(dsc)
 
                         if i == 0 and self.config["use_wandb"]:
