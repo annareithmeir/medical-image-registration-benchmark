@@ -1,0 +1,524 @@
+from pathlib import Path
+import sys
+import os
+import wandb
+import time
+import numpy as np
+import torch
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+import SimpleITK as sitk
+from registrationbaselines.core import metrics
+from registrationbaselines.core import visualization
+from registrationbaselines.core import utils
+
+os.environ['NEURITE_BACKEND'] = 'pytorch'
+os.environ['VXM_BACKEND'] = 'pytorch'
+
+sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
+
+sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
+sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
+
+from latent_space_registration.FeatureExtractor import FeatureExtractor
+import latent_space_registration.custom_losses as custom_losses
+import latent_space_registration.utils_metrics as utils_metrics
+
+import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
+from registrationbaselines.core.training_interface import TrainingInterface
+
+import gc
+gc.collect()
+torch.cuda.empty_cache()
+
+
+class VoxelmorphFeatureTraining(TrainingInterface):
+    """
+    Training for voxelmorph.
+    """
+
+    def __init__(self, train_dataset: Dataset, config_path: Path(), val_dataset: Dataset = None):
+
+        # paths
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+        self.config = self.read_config(config_path)
+        self.method = self.config["method_name"]
+        self.base_dir = Path(__file__).parent.parent.absolute().parent
+
+        self.feature_extractor_name = self.config["encoder"]
+        print("Using feature extractor: ", self.feature_extractor_name)
+        utils.explore_memory()
+        self.feature_extractor = FeatureExtractor(self.feature_extractor_name)
+        # 0: standard, 1: features in sim loss, 2: features in additional reg loss
+        utils.explore_memory()
+        self.loss_function_option = self.config["loss_function_variant"]
+
+        self.train_dataset = train_dataset
+        self.val_dataset = val_dataset
+
+        print(self.config)
+        print(type(self.config['enc']))
+
+        if self.config['use_wandb']:
+            self.init_wandb(self.base_dir / self.config['wandb_config_path'])
+
+    # def scan_to_scan_generator(self, dataset: Dataset):
+    #     """
+    #     Reimplementation from vxm.generators.py to fit with dataset class
+    #     (voxelmorph uses an internal generator that prepares the images and an 'empty' deformation in lists for inputs and outputs
+    #     The basis generator for the desired dataset from the original voxelmorph code
+    #     invols = [x, y] both of shape (bs, 1, h,d,w)
+    #     outvols = [y, zeros] zeros of shape (bs,3,h,d,w)
+    #
+    #     :return: Generator with data of form (invols[m,f], outvols[m,f])
+    #     """
+    #
+    #     dataloader = DataLoader(
+    #         dataset, batch_size=self.config['batch_size'], shuffle=True)
+    #     while True:
+    #         x, y = next(iter(dataloader))
+    #
+    #         shape = x.shape[2:]
+    #         zeros = torch.from_numpy(
+    #             np.zeros((self.config['batch_size'], len(shape), *shape)))
+    #
+    #         invols = [x, y]
+    #         outvols = [y, zeros]
+    #         yield (invols, outvols)
+
+    def scan_to_scan_generator(self, dataset: Dataset, shuffle=True):
+        """
+        Reimplementation from vxm.generators.py to fit with dataset class
+        (voxelmorph uses an internal generator that prepares the images and an 'empty' deformation in lists for inputs and outputs
+        The basis generator for the desired dataset from the original voxelmorph code
+        invols = [x, y] both of shape (bs, 1, h,d,w)
+        outvols = [y, zeros] zeros of shape (bs,3,h,d,w)
+
+        :return: Generator with data of form (invols[m,f], outvols[m,f])
+        """
+        if shuffle is True:
+            dataloader = DataLoader(
+                dataset, batch_size=self.config['batch_size'], shuffle=True)
+        else:
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+        while True:
+            if dataset.return_type == "np_arrays" or dataset.return_type == "np_arrays_rgb":
+                y, x = next(iter(dataloader))
+                shape = x.shape[2:]
+                zeros = torch.from_numpy(
+                    np.zeros((self.config['batch_size'], len(shape), *shape)))
+
+                invols = [x, y]
+                outvols = [y, zeros]
+                yield (invols, outvols)
+            if dataset.return_type == "np_arrays_rgb_kps":
+                y, x, kps_y, kps_x = next(iter(dataloader))
+                shape = x.shape[2:]
+                zeros = torch.from_numpy(
+                    np.zeros((self.config['batch_size'], len(shape), *shape)))
+
+                invols = [x, y]
+                outvols = [y, zeros]
+                kps = [kps_y, kps_x]
+                yield (invols, outvols, kps)
+            elif dataset.return_type == "np_arrays4":
+                # y, x, kp_y, kp_x = next(iter(dataloader))
+                y, x = next(iter(dataloader))
+                shape = x.shape[2:]
+                zeros = torch.from_numpy(
+                    np.zeros((self.config['batch_size'], len(shape), *shape)))
+
+                invols = [x, y]
+                outvols = [y, zeros]
+                yield (invols, outvols)
+                # yield (invols, outvols, [kp_x, kp_y])
+            # elif dataset.return_type == "np_arrays_and_rgb":
+            #     # y, x, kp_y, kp_x, img_y_rgb, img_x_rgb = next(iter(dataloader)) #MNIST
+            #     y, x, img_y_rgb, img_x_rgb = next(iter(dataloader))
+            #     shape = x.shape[2:]
+            #     zeros = torch.from_numpy(
+            #         np.zeros((self.config['batch_size'], len(shape), *shape)))
+            #
+            #     # print("img rgb", img_y_rgb.shape)
+            #
+            #     invols = [x, y, img_x_rgb, img_y_rgb]
+            #     # outvols = [y, zeros]
+            #     outvols = [y, img_y_rgb, zeros]
+            #     yield (invols, outvols)
+            else:
+                print("wrong return_type")
+
+    def _prepare_training_loss(self, type: int):
+        """
+
+        :param type: 0: classic, 1: use SSD on features in sim, 2: use SSD on features as additional reg term
+        :return:
+        """
+
+        if type == 0:
+            # as in original voxelmorph, no features used here at all
+            if self.config['sim_loss'] == 'ncc':
+                image_loss_func = vxm.losses.NCC().loss
+            elif self.config['sim_loss'] == 'mse':
+                image_loss_func = vxm.losses.MSE().loss
+            else:
+                raise ValueError(
+                    'Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
+
+            # need two image loss functions if bidirectional
+            if self.config['bidir']:
+                losses = [image_loss_func, image_loss_func]
+                weights = [0.5, 0.5]
+            else:
+                losses = [image_loss_func]
+                weights = [1]
+
+            # prepare deformation loss
+            losses += [custom_losses.Grad('l2',
+                                   loss_mult=self.config['int_downsize']).loss]
+            weights += [self.config['reg_weight']]
+        elif type == 1:
+            # image loss is based on MI of features
+            if self.config["feature_metric"]=="MI":
+                image_loss_func = custom_losses.FeatureSpaceMI(self.feature_extractor).loss
+            elif self.config["feature_metric"]=="MSE":
+                image_loss_func = custom_losses.FeatureSpaceMSE(self.feature_extractor).loss
+
+            # need two image loss functions if bidirectional
+            if self.config['bidir']:
+                losses = [image_loss_func, image_loss_func]
+                weights = [0.5, 0.5]
+            else:
+                losses = [image_loss_func]
+                weights = [1]
+
+            # prepare deformation loss
+            losses += [custom_losses.Grad('l2',
+                                   loss_mult=self.config['int_downsize']).loss]
+            weights += [self.config['reg_weight']]
+
+        elif type == 2:
+            # feature MSE used in additional regularization term
+            if self.config['sim_loss'] == 'ncc':
+                image_loss_func = vxm.losses.NCC().loss
+            elif self.config['sim_loss'] == 'mse':
+                image_loss_func = vxm.losses.MSE().loss
+            else:
+                raise ValueError(
+                    'Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
+
+            # need two image loss functions if bidirectional
+            if self.config['bidir']:
+                losses = [image_loss_func, image_loss_func]
+                weights = [0.5, 0.5]
+            else:
+                losses = [image_loss_func]
+                weights = [1]
+
+            # prepare deformation loss
+            losses += [custom_losses.Grad('l2',
+                                   loss_mult=self.config['int_downsize']).loss]
+            weights += [self.config['reg_weight']]
+
+            # prepare feature regularization loss
+            if self.config["feature_metric"]=="MI":
+                losses += [custom_losses.FeatureSpaceMI(self.feature_extractor).loss]
+            weights += [self.config['feature_reg_weight']]
+
+        else:
+            print("Not implemented")
+
+        self.losses = losses
+        self.weights = weights
+
+    def train(self):
+
+        assert len(self.train_dataset) > 0, 'Could not find any training data.'
+        print('Training with dataset of length ', len(self.train_dataset))
+        if self.val_dataset is not None:
+            print('Validation with dataset of length ', len(self.val_dataset))
+
+        # scan-to-scan generator
+        generator = self.scan_to_scan_generator(self.train_dataset)
+        if self.val_dataset is not None:
+            val_generator = self.scan_to_scan_generator(self.val_dataset)
+
+        # extract shape from sampled input
+        inshape = self.train_dataset.img_shape
+
+        # prepare model folder
+        model_dir = self.base_dir / self.config['result_model_path']
+        os.makedirs(model_dir, exist_ok=True)
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print('Using device:', device)
+        print()
+
+        # device handling
+        gpus = self.config['gpu'].split(',')
+        nb_gpus = len(gpus)
+        print('nb_gpus: ', nb_gpus)
+        # device = 'cuda'
+        os.environ['CUDA_VISIBLE_DEVICES'] = self.config['gpu']
+        assert np.mod(self.config['batch_size'], nb_gpus) == 0, \
+            'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (
+                self.config['batch_size'], nb_gpus)
+
+        # enabling cudnn determinism appears to speed up training by a lot
+        torch.backends.cudnn.deterministic = not self.config['cudnn_nondet']
+
+        # unet architecture
+        enc_nf = self.config['enc']
+        dec_nf = self.config['dec']
+
+        print("BEFORE ALLOC VXM")
+        utils.explore_memory()
+
+        if self.config['load_model']:
+            # load initial model (if specified)
+            model = vxm.networks.VxmDense.load(
+                self.config['load_model'], device)
+        else:
+            # otherwise configure new model
+            model = vxm.networks.VxmDense(
+                inshape=inshape,
+                nb_unet_features=[enc_nf, dec_nf],
+                bidir=self.config['bidir'],
+                int_steps=self.config['int_steps'],
+                int_downsize=self.config['int_downsize'],
+                src_feats=self.config['src_feats'],
+                trg_feats=self.config['trg_feats']
+            )
+
+        if nb_gpus > 1:
+            # use multiple GPUs via DataParallel
+            model = torch.nn.DataParallel(model)
+            model.save = model.module.save
+
+        # prepare the model for training and send to device
+        model.to(device)
+        self.model = model
+        if self.config['initial_weights_path'] is not None:
+            self.save_initial_weights()
+        model.train()
+
+        utils.explore_memory()
+
+        # set optimizer
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.config['lr'])
+        self._prepare_training_loss(self.loss_function_option)
+
+        # prepare image loss
+        if self.config['sim_loss'] == 'ncc':
+            image_loss_func = vxm.losses.NCC().loss
+        elif self.config['sim_loss'] == 'mse':
+            image_loss_func = vxm.losses.MSE().loss
+        else:
+            raise ValueError(
+                'Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
+
+        # need two image loss functions if bidirectional
+        if self.config['bidir']:
+            losses = [image_loss_func, image_loss_func]
+            weights = [0.5, 0.5]
+        else:
+            losses = [image_loss_func]
+            weights = [1]
+
+        # prepare deformation loss
+        losses += [vxm.losses.Grad('l2',
+                                   loss_mult=self.config['int_downsize']).loss]
+        weights += [self.config['reg_weight']]
+
+        # training loops
+        for epoch in range(self.config['initial_epoch'], self.config['epochs']):
+
+            model.train()
+
+            # save model checkpoint
+            if epoch % self.config['save_checkpoint'] == 0:
+                model.save(os.path.join(model_dir, '%04d.pt' % epoch))
+
+            epoch_loss = []
+            epoch_total_loss = []
+            epoch_step_time = []
+
+            for step in range(self.config['steps_per_epoch']):
+
+                # print("Step:", step)
+                # utils.explore_memory()
+
+                step_start_time = time.time()
+
+                # generate inputs (and true outputs) and convert them to tensors
+                inputs, y_true = next(generator)
+                # inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
+                # y_true = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in y_true]
+
+                if self.loss_function_option == 2:
+                    imgs_rgb = inputs[-2:]
+                    inputs = inputs[:-2]
+                inputs = [d.to(device).float() for d in inputs]
+                y_true = [d.to(device).float() for d in y_true]
+
+                # run inputs through the model to produce a warped image and flow field
+                y_pred = model(*inputs)
+
+                if self.loss_function_option == 2:
+                    # here, the third loss term depends on y_true[0],y_pred[0]
+                    y_true += imgs_rgb[1],
+                    warped_rgb_m = torch.from_numpy(utils_metrics.apply_displacement_to_rgb_images_batch(
+                        imgs_rgb[0].cpu().numpy().squeeze(), -y_pred[1].detach().cpu().numpy().squeeze()))
+                    y_pred += warped_rgb_m,
+
+                # calculate total loss
+                loss = 0
+                loss_list = []
+                for n, loss_function in enumerate(losses):
+                    if self.loss_function_option == 1 and n == 0:
+                        f_pred = y_pred[n].to("cuda")
+                        f_true = y_true[n].to("cuda")
+                        # f_pred = y_pred[n].to("cpu")
+                        # f_true = y_true[n].to("cpu")
+
+                        # f_pred = self.feature_extractor.compute_features_from_batch_of_RGB_images(f_pred, reshape=True,
+                        #                                                                           normalize=True,
+                        #                                                                           with_torch_no_grad=False)
+                        # f_true = self.feature_extractor.compute_features_from_batch_of_RGB_images(f_true, reshape=True,
+                        #                                                                           normalize=True,
+                        #                                                                           with_torch_no_grad=False)
+                        # # f_pred = f_pred.to(device)
+                        # f_true = f_true.to(device)
+                        print(f_pred.device, f_true.device)
+                        curr_loss = loss_function(f_true, f_pred) * self.weights[n]
+                    else:
+                        curr_loss = loss_function(y_true[n], y_pred[n]) * self.weights[n]
+                    loss_list.append(curr_loss.item())
+                    loss += curr_loss
+
+                epoch_loss.append(loss_list)
+                epoch_total_loss.append(loss.item())
+
+                # backpropagate and optimize
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                # get compute time
+                epoch_step_time.append(time.time() - step_start_time)
+
+            # Validation
+            val_loss_list = list()
+            val_tre_list = list()
+            if self.val_dataset is not None:
+                model.eval()
+                with torch.no_grad():
+                    # print("beginning val")
+                    # utils.explore_memory()
+                    for i in range(len(self.val_dataset)):
+                        val_inputs, val_y_true = next(val_generator)
+                        val_kps = None
+                        # val_inputs, val_y_true, val_kps = next(val_generator)
+                        val_inputs = [d.to(device).float() for d in val_inputs]
+                        val_y_true = [d.to(device).float() for d in val_y_true]
+
+                        val_y_pred = model(*val_inputs)
+                        # print("step", i)
+                        # utils.explore_memory()
+
+                        if self.loss_function_option == 2:
+                            # here, the third loss term depends on y_true[0],y_pred[0]
+                            val_y_true.append(val_y_true[0])  # repreat moving image for third loss
+                            val_warped_rgb_m = utils_metrics.apply_displacement_to_rgb_images_batch(val_inputs[0], -val_y_pred[1])
+                            val_y_pred = (val_y_pred[0], val_y_pred[1], val_warped_rgb_m)  # append warped moving rgb image to y_pred
+
+                        val_loss = 0
+
+                        # for n, loss_function in enumerate(self.losses):
+                        #     val_curr_loss = loss_function(
+                        #         val_y_true[n], val_y_pred[n]) * self.weights[n]
+                        #     val_loss += val_curr_loss
+                        # val_loss_list.append(0)
+                        val_loss_list.append(val_loss.item())
+
+                        disp = -val_y_pred[1].cpu().numpy().squeeze()
+
+                        # Calculate the TRE
+                        if val_kps is not None:
+                            kp_x, kp_y = val_kps
+                            kp_x = kp_x.cpu().numpy().squeeze()
+                            kp_y = kp_y.cpu().numpy().squeeze()
+
+                            kp_warped = utils_metrics.deform_landmarks(
+                                kp_x, disp.transpose(1, 2, 0))
+                            tre = np.linalg.norm(
+                                (kp_warped - kp_y) * self.val_dataset.spacing, axis=1).mean()
+                            val_tre_list.append(tre)
+                        else:
+                            # placeholder DICE for MNSIT
+                            # print(torch.unique(val_inputs[0]), val_inputs[0].min(), val_inputs[0].max(), val_inputs[0].mean())
+                            dsc = metrics.dice_score(sitk.GetImageFromArray((val_inputs[1] > 0.5).cpu().numpy().astype(np.int8).squeeze()), sitk.GetImageFromArray((val_y_pred[0] > 0.5).cpu().numpy().astype(np.int8).squeeze()))
+                            val_tre_list.append(dsc)
+
+                        if i == 0 and self.config["use_wandb"]:
+                            moving_img = val_inputs[0].cpu().numpy().squeeze()
+                            fixed_image = val_inputs[1].cpu().numpy().squeeze()
+                            pred_image = val_y_pred[0].cpu().numpy().squeeze()
+                            disp = disp.transpose(1, 2, 0)
+                            if val_kps is not None:
+                                fig = visualization.plot_all_registration_results_debugging_wandb(
+                                    moving_img, fixed_image, pred_image, disp, moving_keypoints=kp_x, fixed_keypoints=kp_y, pred_keypoints=kp_warped)
+                            else:
+                                fig = visualization.plot_all_registration_results_debugging_wandb(utils.rgb_to_grayscale(
+                                    moving_img), utils.rgb_to_grayscale(fixed_image), utils.rgb_to_grayscale(pred_image), disp)
+
+            # print epoch info
+            epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config['epochs'])
+            time_info = '%.4f sec/step' % np.mean(epoch_step_time)
+            mean_loss = np.mean(epoch_loss, axis=0)
+            losses_info = ', '.join(['%.4e' % f for f in mean_loss])
+            if self.val_dataset is not None:
+                loss_info = 'loss: %.4e  (%s), validation loss: %.4e' % (
+                    np.mean(epoch_total_loss), losses_info, np.mean(val_loss_list))
+            else:
+                loss_info = 'loss: %.4e  (%s)' % (
+                    np.mean(epoch_total_loss), losses_info)
+            print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
+
+            # wandb logging
+            if self.config['use_wandb']:
+                if self.val_dataset is not None:
+                    wandb.log({"loss": np.mean(
+                        epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1], "val-loss": np.mean(val_loss_list)})
+                else:
+                    wandb.log({"loss": np.mean(epoch_total_loss),
+                              "sim-loss": mean_loss[0], "grad-loss": mean_loss[1]})
+
+        # final model save
+        model.save(os.path.join(model_dir, '%04d_final.pt' %
+                   self.config['epochs']))
+        self.model = model
+
+        if self.config['use_wandb']:
+            wandb.finish()
+
+    def get_trained_model_path(self):
+        return self.config['result_model_path']
+
+    def get_initial_weights_path(self):
+        return self.initial_weights_path
+
+    def save_initial_weights(self):
+        assert self.model is not None, "Model is not yet initialized!"
+        torch.save(self.model.state_dict(), self.base_dir /
+                   self.config['initial_weights_path'])  # '.pth'
+
+    def init_wandb(self, wandb_config_path):
+        wandb_config = self.read_config(wandb_config_path)
+        wandb.init(
+            project=wandb_config['project'],
+            group=wandb_config['group'],
+            name=wandb_config['name'],
+            config=wandb_config['config_dict']
+        )

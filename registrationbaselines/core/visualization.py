@@ -1,7 +1,8 @@
 from pathlib import Path
-
 from typing import Optional
-
+import os
+os.environ['NEURITE_BACKEND']="pytorch"
+import neurite
 import pandas as pd
 # plt.switch_backend('agg')
 from matplotlib.colors import ListedColormap
@@ -123,6 +124,11 @@ def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None) -> None:
 
             # show figure
             colormap = cm.hsv
+            step = 10
+            # X = x[::step, ::step]
+            # Y = y[::step, ::step]
+            u = u[::step, ::step]
+            v = v[::step, ::step]
             ax.quiver(u, v,
                       color=colormap(norm(colors).flatten()),
                       angles='xy',
@@ -259,18 +265,21 @@ def plot_all_registration_results(save_path: Path,
     """
     displacement = displacement.squeeze()
 
-    assert displacement.ndim == 4, "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+    assert displacement.ndim in [3,4], "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+    assert displacement.shape[-1] == 3 or displacement.shape[-1] == 2
 
     if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
         displacement = displacement.transpose(1, 2, 3, 0)
 
-    assert displacement.shape[-1] == 3 or displacement.shape[-1] == 2
+    elif displacement.shape[-1] != 2 and displacement.shape[0] == 2:
+        displacement = displacement.transpose(1, 2, 0)
 
     fig = plt.figure(figsize=(40, 7))
     if title:
         fig.suptitle(title)
     image_size = moving_image.shape
-    image_dim = len(image_size)
+    image_dim = displacement.shape[-1]
+    # print(image_dim)
 
     jacobian_determinant = metrics.jacobian_determinant_from_displacement(
         displacement)
@@ -390,14 +399,112 @@ def plot_all_registration_results(save_path: Path,
                 ax.title.set_text("jac det")
             plt.axis('off')
             plt.colorbar(im1, ax=ax)
+    elif image_dim ==2:
+        toprow = True
+
+        # moving image
+        ax = fig.add_subplot(3, 9, 1)
+        ax.imshow(moving_image, cmap='gray')
+        if moving_keypoints is not None:
+            ax.scatter(moving_keypoints[:, 1], moving_keypoints[:, 0], marker='x', c='red')
+        if toprow:
+            ax.title.set_text("M")
+        plt.axis('off')
+
+        # fixed image
+        ax = fig.add_subplot(3, 9, 2)
+        ax.imshow(fixed_image, cmap='gray')
+        if fixed_keypoints is not None:
+            ax.scatter(fixed_keypoints[:, 1], fixed_keypoints[:, 0], marker='x', c='red')
+        if toprow:
+            ax.title.set_text("F")
+        plt.axis('off')
+
+        # deformed image
+        ax = fig.add_subplot(3, 9, 3)
+        ax.imshow(pred_image, cmap='gray')
+        if pred_keypoints is not None:
+            ax.scatter(pred_keypoints[:, 1], pred_keypoints[:, 0], marker='x', c='red')
+        if toprow:
+            ax.title.set_text("warped M")
+        plt.axis('off')
+
+        # displacement field
+        ax = fig.add_subplot(3, 9, 4)
+        fieldAx = displacement
+        # plot_quiverplot(fieldAx, ax=ax)
+        # neurite.plot.flow([displacement], show=False)
+        plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image, interval=50, color="white")
+        ax.set_frame_on(False)
+        if toprow:
+            ax.title.set_text("deformation")
+        plt.axis('off')
+        fig.tight_layout()
+
+        # difference image before registration
+        ax = fig.add_subplot(3, 9, 5)
+        diff_image = fixed_image - moving_image
+        ax.imshow(diff_image, cmap='gray')
+        ax.set_frame_on(False)
+        if toprow:
+            ax.title.set_text("diff image")
+        plt.axis('off')
+        # fig.tight_layout()
+
+        # difference image after registration
+        ax = fig.add_subplot(3, 9, 6)
+        diff_image = fixed_image - pred_image
+        ax.imshow(diff_image, cmap='gray')
+        ax.set_frame_on(False)
+        if toprow:
+            ax.title.set_text("diff image after")
+        plt.axis('off')
+
+        # boundaries
+        ax = fig.add_subplot(3, 9,  7)
+        if (fixed_labels is not None) and (pred_labels is not None):
+            fixed_boundary = multilabel_to_boundary(fixed_labels)
+            pred_boundary = multilabel_to_boundary(pred_labels)
+            fixed_boundary = fixed_boundary.astype(np.int8)
+            pred_boundary = pred_boundary.astype(np.int8)
+            fixed_boundary[fixed_boundary > 0] = 1
+            pred_boundary[pred_boundary > 0] = 1
+
+            boundaries = fixed_boundary  # true=red
+            boundaries[pred_boundary == 1] = 2  # pred=blue
+
+            from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+            # cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=3)
+            cmap = ListedColormap(['w', 'crimson', 'cornflowerblue'])
+            ax.imshow(boundaries, cmap=cmap, interpolation='none')
+            ax.set_frame_on(False)
+            ax.title.set_text("diff image after")
+            plt.axis('off')
+        if toprow:
+            ax.title.set_text("segmentations")
+
+        # jacobian determinant, negative values shown in red
+        ax = fig.add_subplot(3, 9,  8)
+        jacdet_d = jacobian_determinant
+        jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
+        norm = colors.TwoSlopeNorm(
+            vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
+        im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
+        ax.set_frame_on(False)
+        if toprow:
+            ax.title.set_text("jac det")
+        plt.axis('off')
+        plt.colorbar(im1, ax=ax)
+
+    else:
+        print("Not implemented")
 
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.01, hspace=0.01)
 
-    plt.show()
+    fig.show()
     fig.savefig(save_path)
     plt.close(fig)
-
 
 # def plot_all_registration_results_debugging_wandb(step: int, log_dir: str, moving_image: np.ndarray,
 #                                                   fixed_image: np.ndarray, pred_image: np.ndarray,

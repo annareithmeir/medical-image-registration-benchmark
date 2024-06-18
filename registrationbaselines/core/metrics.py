@@ -13,7 +13,9 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
 
     displacement = displacement.squeeze()
 
-    assert displacement.ndim == 4, "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+    assert displacement.ndim == 4 and displacement.shape[-1] == 3 or \
+        displacement.ndim == 3 and displacement.shape[-1] == 2, \
+        "Displacement field should have shape (h, w, d, 3) or (w, d, 2)"
 
     if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
         displacement = displacement.transpose(1, 2, 3, 0)
@@ -24,16 +26,15 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
     return sitk.GetArrayFromImage(jacobian_determinant_image)
 
 
-def displacement_field_metrics(path_displacement: Path) -> Tuple[float, float]:
+def displacement_field_metrics(displacement: sitk.Image) -> Tuple[float, float]:
     """
     Calculate the fraction of foldings and the standard deviation of the logarithm of the Jacobian determinant.
     """
 
     epsilon = 1e-6  # so we don't get log(0)
 
-    displacement = nib.load(path_displacement.as_posix()).get_fdata()
-
-    jacobian_determinant = jacobian_determinant_from_displacement(displacement)
+    jacobian_determinant = jacobian_determinant_from_displacement(
+        sitk.GetArrayFromImage(displacement))
 
     # foldings are where the jacobian determinant is negative
     num_foldings = int((jacobian_determinant < 0).astype(float).sum())
@@ -48,7 +49,7 @@ def displacement_field_metrics(path_displacement: Path) -> Tuple[float, float]:
     return sd_log_det, fraction_foldings
 
 
-def dice_score(nifti1_path: Path, nifti2_path: Path) -> List[float]:
+def dice_score(image1: sitk.Image, image2: sitk.Image) -> List[float]:
     """
     Calculate the Dice score between two NIfTI files using scipy's dice function. It is assumed that both
     images have only one class.
@@ -58,21 +59,16 @@ def dice_score(nifti1_path: Path, nifti2_path: Path) -> List[float]:
 
         Dice(A, B) = 2 * |A ∩ B| / (|A| + |B|)
 
-    Args:
-        nifti1_path (Path): Path to the first NIfTI file.
-        nifti2_path (Path): Path to the second NIfTI file.
-
     Returns:
         float: The Dice score between the two NIfTI files.
     """
 
-    # Load the NIfTI files
-    nifti1 = nib.load(nifti1_path)
-    nifti2 = nib.load(nifti2_path)
+    data1 = sitk.GetArrayFromImage(image1)
+    data2 = sitk.GetArrayFromImage(image2)
 
     # round each value to nearest integer
-    data1 = np.round(nifti1.get_fdata()).astype(np.uint8)
-    data2 = np.round(nifti2.get_fdata()).astype(np.uint8)
+    data1 = np.round(data1).astype(np.uint8)
+    data2 = np.round(data2).astype(np.uint8)
 
     # Ensure the shapes match
     if data1.shape != data2.shape:
@@ -105,7 +101,7 @@ def dice_score(nifti1_path: Path, nifti2_path: Path) -> List[float]:
     return scores
 
 
-def hausdorff_distance(nifti1_path: Path, nifti2_path: Path, percentile: Optional[float] = None) -> List[float]:
+def hausdorff_distance(image1: sitk.Image, image2: sitk.Image, percentile: Optional[float] = None) -> List[float]:
     """
     Calculate the 95th percentile of the Hausdorff distance between two NIfTI files for each class.
 
@@ -118,12 +114,12 @@ def hausdorff_distance(nifti1_path: Path, nifti2_path: Path, percentile: Optiona
     """
 
     # Load the NIfTI files
-    nifti1 = nib.load(nifti1_path)
-    nifti2 = nib.load(nifti2_path)
+    data1 = sitk.GetArrayFromImage(image1)
+    data2 = sitk.GetArrayFromImage(image2)
 
     # round each value to nearest integer
-    data1 = np.round(nifti1.get_fdata()).astype(np.uint8)
-    data2 = np.round(nifti2.get_fdata()).astype(np.uint8)
+    data1 = np.round(data1).astype(np.uint8)
+    data2 = np.round(data1).astype(np.uint8)
 
     # Ensure the shapes match
     if data1.shape != data2.shape:
@@ -193,10 +189,11 @@ def tre(landmarks_fixed_path: Path,
     """
 
     displacement = nib.load(displacement_path.as_posix()).get_fdata().squeeze()
-    landmarks_moving = np.genfromtxt(landmarks_moving_path, delimiter=',')
-    landmarks_fixed = np.genfromtxt(landmarks_fixed_path, delimiter=',')
+    landmarks_fixed, landmarks_moving = read_lanmdarks(
+        landmarks_fixed_path, landmarks_moving_path)
+
     assert landmarks_moving.shape == landmarks_fixed.shape
-    assert landmarks_fixed.shape[-1] == 3
+    assert landmarks_fixed.shape[-1] == 3 or landmarks_fixed.shape[-1] == 2
 
     mov_lms_warped = utils_metrics.deform_landmarks(
         landmarks_moving, displacement)
@@ -211,3 +208,17 @@ def tre(landmarks_fixed_path: Path,
         result = all_errors.mean()
 
     return result
+
+
+def read_lanmdarks(landmarks_fixed_path: Path, landmarks_moving_path: Path) -> np.ndarray:
+    # hacky but if both paths are the same we are dealign iwth 2d landmarks stored in one file
+    if landmarks_fixed_path != landmarks_moving_path:
+        return np.genfromtxt(landmarks_fixed_path, delimiter=','), np.genfromtxt(landmarks_moving_path, delimiter=',')
+
+    else:
+        values = np.genfromtxt(landmarks_fixed_path)
+
+        fixed = values[:, 0:2]
+        moving = values[:, 2:4]
+
+        return fixed, moving

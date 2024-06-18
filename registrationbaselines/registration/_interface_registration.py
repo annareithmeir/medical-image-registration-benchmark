@@ -19,6 +19,9 @@ class RegistrationInterface(ABC):
     path_deformed: Path
     path_deformations: Path
 
+    result_transformation_path: Path
+    result_transformed_image_path: Path
+
     @abstractmethod
     def __init__(self, configuration_path: Path):
         """
@@ -34,17 +37,17 @@ class RegistrationInterface(ABC):
         Register moving_image to fixed_image.
         """
 
-    @abstractmethod
     def get_transformation_path(self):
         """
         Return the transformation model.
         """
+        return self.result_transformation_path
 
-    @abstractmethod
     def get_transformed_image_path(self):
         """
         Return the transformed image.
         """
+        return self.result_transformed_image_path
 
     @abstractmethod
     def _save_results(self, deformed, deformation):

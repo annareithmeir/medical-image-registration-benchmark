@@ -56,9 +56,7 @@ class VoxelmorphTraining(TrainingInterface):
         dataloader = DataLoader(
             dataset, batch_size=self.config['batch_size'], shuffle=True)
         while True:
-            loader_dict = next(iter(dataloader))
-            x = loader_dict['images'][1]
-            y = loader_dict['images'][0]
+            x, y = next(iter(dataloader))
 
             shape = x.shape[2:]
             zeros = torch.from_numpy(
