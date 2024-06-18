@@ -11,6 +11,13 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
 
 from registrationbaselines.data_loading.data_loaders import DemoImageDataset, L2RLungCTDataset
 
+class TestDLModelsTraining(unittest.TestCase):
+        
+    if os.uname().nodename == 'fryderyk':
+        lung_dataset_path = Path("/home/fryderyk/Documents/data/LungCT_learn2reg2021")
+    else:
+        lung_dataset_path = Path("/home/anna/datasets/LungCT")
+    
 
 class TestVoxelmorphTraining(unittest.TestCase):
 
