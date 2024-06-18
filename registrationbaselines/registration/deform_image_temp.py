@@ -11,6 +11,7 @@ import time
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import scipy.ndimage as ndimage
+from scipy.ndimage import map_coordinates
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
@@ -94,6 +95,29 @@ def warp_landmarks(keypoints, displacement, image_size, device):
     return deformed_landmarks
 
 
+def deform_landmarks(moving_landmarks: np.ndarray, displacement: np.ndarray) -> np.ndarray:
+    # Map the moving landmarks to the fixed landmarks using the displacement field of shape (...,2) or (...,3)
+    from scipy.ndimage import map_coordinates
+    assert displacement.shape[-1] in [2, 3]
+
+    if displacement.ndim == 4:
+        mov_lms_disp_x = map_coordinates(
+            displacement[:, :, :, 0], moving_landmarks.transpose())
+        mov_lms_disp_y = map_coordinates(
+            displacement[:, :, :, 1], moving_landmarks.transpose())
+        mov_lms_disp_z = map_coordinates(
+            displacement[:, :, :, 2], moving_landmarks.transpose())
+        mov_lms_disp = np.array(
+            (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
+    if displacement.ndim == 3:
+        mov_lms_disp_x = map_coordinates(
+            displacement[:, :, 1], moving_landmarks.transpose())
+        mov_lms_disp_y = map_coordinates(
+            displacement[:, :, 0], moving_landmarks.transpose())
+        mov_lms_disp = np.array((mov_lms_disp_y, mov_lms_disp_x)).transpose()
+    return moving_landmarks + mov_lms_disp
+
+
 image_moving_shape = (2912, 2100)
 grid_spacing = 200
 line_thickness = 5
@@ -173,18 +197,19 @@ new_image = warped_image.image.detach().cpu().numpy().squeeze()
 # p[0, 0, 5, 4] = -tx
 # p[0, 1, 5, 4] = -ty
 # transformation.trans_parameters = Parameter(p)
+# displacement = transformation.get_displacement()
 
-# displacement_points = transformation.get_displacement()
-
-keypoints = np.array([[2200.0, 1600.0], [80.0, 10.0], [7, 49]])
+keypoints = np.array([[1600.0, 2200.0], [80.0, 10.0], [7, 49]])
 
 displacement = al_transformation.utils.unit_displacement_to_displacement(
     displacement)  # unit measures to image domain measures
 displacement = al.create_displacement_image_from_image(
     displacement, image_moving)
 
-deformed_landmarks = al.utils.points.Points.transform(
-    keypoints, displacement)
+# deformed_landmarks = al.utils.points.Points.transform(
+#     keypoints, displacement)
+deformed_landmarks = deform_landmarks(
+    keypoints, displacement.image.detach().cpu().numpy().squeeze())
 
 # deformed_landmarks = warp_landmarks(
 #     keypoints, displacement, image_moving.size, device)
