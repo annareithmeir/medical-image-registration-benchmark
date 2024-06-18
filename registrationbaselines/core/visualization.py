@@ -406,7 +406,7 @@ def plot_all_registration_results(save_path: Path,
         ax = fig.add_subplot(3, 9, 1)
         ax.imshow(moving_image, cmap='gray')
         if moving_keypoints is not None:
-            ax.scatter(moving_keypoints[:, 1], moving_keypoints[:, 0], marker='x', c='red')
+            ax.scatter(moving_keypoints[:, 0], moving_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("M")
         plt.axis('off')
@@ -415,7 +415,7 @@ def plot_all_registration_results(save_path: Path,
         ax = fig.add_subplot(3, 9, 2)
         ax.imshow(fixed_image, cmap='gray')
         if fixed_keypoints is not None:
-            ax.scatter(fixed_keypoints[:, 1], fixed_keypoints[:, 0], marker='x', c='red')
+            ax.scatter(fixed_keypoints[:, 0], fixed_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("F")
         plt.axis('off')
@@ -424,7 +424,7 @@ def plot_all_registration_results(save_path: Path,
         ax = fig.add_subplot(3, 9, 3)
         ax.imshow(pred_image, cmap='gray')
         if pred_keypoints is not None:
-            ax.scatter(pred_keypoints[:, 1], pred_keypoints[:, 0], marker='x', c='red')
+            ax.scatter(pred_keypoints[:, 0], pred_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("warped M")
         plt.axis('off')

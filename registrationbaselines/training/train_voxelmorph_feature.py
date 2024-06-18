@@ -121,7 +121,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
                 invols = [x, y]
                 outvols = [y, zeros]
-                kps = [kps_y, kps_x]
+                kps = [kps_x, kps_y]
                 yield (invols, outvols, kps)
             elif dataset.return_type == "np_arrays4":
                 # y, x, kp_y, kp_x = next(iter(dataloader))
