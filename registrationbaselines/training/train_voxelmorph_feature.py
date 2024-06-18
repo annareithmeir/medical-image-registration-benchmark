@@ -48,8 +48,10 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
         self.feature_extractor_name = self.config["encoder"]
         print("Using feature extractor: ", self.feature_extractor_name)
+        utils.explore_memory()
         self.feature_extractor = FeatureExtractor(self.feature_extractor_name)
         # 0: standard, 1: features in sim loss, 2: features in additional reg loss
+        utils.explore_memory()
         self.loss_function_option = self.config["loss_function_variant"]
 
         self.train_dataset = train_dataset
@@ -270,6 +272,9 @@ class VoxelmorphFeatureTraining(TrainingInterface):
         enc_nf = self.config['enc']
         dec_nf = self.config['dec']
 
+        print("BEFORE ALLOC VXM")
+        utils.explore_memory()
+
         if self.config['load_model']:
             # load initial model (if specified)
             model = vxm.networks.VxmDense.load(
@@ -297,6 +302,8 @@ class VoxelmorphFeatureTraining(TrainingInterface):
         if self.config['initial_weights_path'] is not None:
             self.save_initial_weights()
         model.train()
+
+        utils.explore_memory()
 
         # set optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config['lr'])
@@ -339,13 +346,14 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
             for step in range(self.config['steps_per_epoch']):
 
+                # print("Step:", step)
+                # utils.explore_memory()
+
                 step_start_time = time.time()
 
                 # generate inputs (and true outputs) and convert them to tensors
                 inputs, y_true = next(generator)
-                inputs = [d.to(device).float() for d in inputs]
                 # inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
-                y_true = [d.to(device).float() for d in y_true]
                 # y_true = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in y_true]
 
                 if self.loss_function_option == 2:
@@ -385,8 +393,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                         print(f_pred.device, f_true.device)
                         curr_loss = loss_function(f_true, f_pred) * self.weights[n]
                     else:
-                        curr_loss = loss_function(
-                            y_true[n], y_pred[n]) * self.weights[n]
+                        curr_loss = loss_function(y_true[n], y_pred[n]) * self.weights[n]
                     loss_list.append(curr_loss.item())
                     loss += curr_loss
 
@@ -407,6 +414,8 @@ class VoxelmorphFeatureTraining(TrainingInterface):
             if self.val_dataset is not None:
                 model.eval()
                 with torch.no_grad():
+                    # print("beginning val")
+                    # utils.explore_memory()
                     for i in range(len(self.val_dataset)):
                         val_inputs, val_y_true = next(val_generator)
                         val_kps = None
@@ -415,6 +424,8 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                         val_y_true = [d.to(device).float() for d in val_y_true]
 
                         val_y_pred = model(*val_inputs)
+                        # print("step", i)
+                        # utils.explore_memory()
 
                         if self.loss_function_option == 2:
                             # here, the third loss term depends on y_true[0],y_pred[0]
@@ -424,10 +435,11 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
                         val_loss = 0
 
-                        for n, loss_function in enumerate(self.losses):
-                            val_curr_loss = loss_function(
-                                val_y_true[n], val_y_pred[n]) * self.weights[n]
-                            val_loss += val_curr_loss
+                        # for n, loss_function in enumerate(self.losses):
+                        #     val_curr_loss = loss_function(
+                        #         val_y_true[n], val_y_pred[n]) * self.weights[n]
+                        #     val_loss += val_curr_loss
+                        # val_loss_list.append(0)
                         val_loss_list.append(val_loss.item())
 
                         disp = -val_y_pred[1].cpu().numpy().squeeze()

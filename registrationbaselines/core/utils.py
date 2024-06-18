@@ -2,6 +2,7 @@ from pathlib import Path
 import yaml
 import numpy as np
 import SimpleITK as sitk
+import torch
 
 def read_config(file_path: Path):
     """
@@ -103,5 +104,17 @@ def apply_displacement_field(image_fixed: np.ndarray,
     return sitk.GetArrayFromImage(deformed_image)
 
 
+def explore_memory():
+    allocated_memory = torch.cuda.memory_allocated()
+    print(f"Allocated memory: {allocated_memory / (1024 ** 2)} MB")
 
+    # Print the amount of reserved memory
+    reserved_memory = torch.cuda.memory_reserved()
+    print(f"Reserved memory: {reserved_memory / (1024 ** 2)} MB")
+
+    total_memory = torch.cuda.get_device_properties(0).total_memory
+    available_memory = total_memory - allocated_memory
+
+    print(f"Available memory: {available_memory / (1024 ** 2)} MB")
+    print(f"Available memory: {available_memory / total_memory * 100} %")
 
