@@ -1,8 +1,10 @@
 from pathlib import Path
+from scipy.ndimage import map_coordinates
 import yaml
 import numpy as np
 import SimpleITK as sitk
 import torch
+
 
 def read_config(file_path: Path):
     """
@@ -13,7 +15,7 @@ def read_config(file_path: Path):
         return yaml.safe_load(file)
 
 
-def load_image_from_nii_gz(image_path:Path) -> np.ndarray:
+def load_image_from_nii_gz(image_path: Path) -> np.ndarray:
     """
     Loads a .nii.gz file to a numpy array
     @param image_path: path of image
@@ -23,7 +25,7 @@ def load_image_from_nii_gz(image_path:Path) -> np.ndarray:
     return sitk.GetArrayFromImage(image)
 
 
-def save_array_to_nii_gz_image(array: np.ndarray, filename: Path, affine: np.ndarray=None) -> None:
+def save_array_to_nii_gz_image(array: np.ndarray, filename: Path, affine: np.ndarray = None) -> None:
     """
     Saves a 3D numpy array to a .nii.gz file
     @param array: array
@@ -47,7 +49,7 @@ def save_array_to_nii_gz_image(array: np.ndarray, filename: Path, affine: np.nda
     sitk.WriteImage(image, str(filename))
 
 
-def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, affine: np.ndarray=None) -> None:
+def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, affine: np.ndarray = None) -> None:
     """
     Saves a displacement field in form of np array to a .nii.gz file
     @param array: np array of shape (H,W,D,3)
@@ -56,7 +58,7 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
     @return: 
     """
     assert array.ndim == 4
-    assert array.shape[-1]==3
+    assert array.shape[-1] == 3
     image = sitk.GetImageFromArray(array, isVector=True)
 
     if affine is not None:
@@ -72,10 +74,10 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
     sitk.WriteImage(image, str(filename))
 
 
-def apply_displacement_field(image_fixed: np.ndarray,
-                             image_moving: np.ndarray,
-                             displacement_field: np.ndarray,
-                             sitk_interpolator: int) -> np.ndarray:
+def deform_image(image_fixed: np.ndarray | sitk.Image,
+                 image_moving: np.ndarray | sitk.Image,
+                 displacement_field: np.ndarray | sitk.Image,
+                 sitk_interpolator: int) -> np.ndarray | sitk.Image:
     """
     Apply a deformation to an image using the provided deformation.
     @param image_fixed:
@@ -85,9 +87,15 @@ def apply_displacement_field(image_fixed: np.ndarray,
     @return:
     """
 
-    image_fixed = sitk.GetImageFromArray(image_fixed)
-    image_moving = sitk.GetImageFromArray(image_moving)
-    displacement_field = sitk.GetImageFromArray(displacement_field, isVector=True)
+    return_type = sitk.Image
+
+    if isinstance(image_fixed, np.ndarray) and isinstance(image_moving, np.ndarray) and isinstance(displacement_field, np.ndarray):
+        image_fixed = sitk.GetImageFromArray(image_fixed)
+        image_moving = sitk.GetImageFromArray(image_moving)
+        displacement_field = sitk.GetImageFromArray(
+            displacement_field, isVector=True)
+
+        return_type = np.ndarray
 
     # Create the transform using the displacement field
     displacement_field_transform = sitk.DisplacementFieldTransform(
@@ -101,7 +109,10 @@ def apply_displacement_field(image_fixed: np.ndarray,
 
     deformed_image = resampler.Execute(image_moving)
 
-    return sitk.GetArrayFromImage(deformed_image)
+    if return_type == np.ndarray:
+        return sitk.GetArrayFromImage(deformed_image)
+    else:
+        return deformed_image
 
 
 def explore_memory():
@@ -125,5 +136,37 @@ def rgb_to_grayscale(rgb_image):
     return grayscale_image
 
 
-def normalize_tensor_to_0_1(tensor: torch.tensor)-> torch.Tensor:
+def normalize_tensor_to_0_1(tensor: torch.tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
+
+
+def deform_landmarks(moving_landmarks: np.ndarray, displacement: np.ndarray) -> np.ndarray:
+    """
+    This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
+    then the landmark at moving_landmarks[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
+    in the direction of the displacement. On the other hand, F.grid_sample works non-intuitively, that is
+    it pulls - so 
+
+    Map the moving landmarks to the fixed landmarks using the displacement field
+    """
+
+    if moving_landmarks.shape[-1] == 3:
+        mov_lms_disp_x = map_coordinates(
+            displacement[:, :, :, 0], moving_landmarks.transpose())
+        mov_lms_disp_y = map_coordinates(
+            displacement[:, :, :, 1], moving_landmarks.transpose())
+        mov_lms_disp_z = map_coordinates(
+            displacement[:, :, :, 2], moving_landmarks.transpose())
+        mov_lms_disp = np.array(
+            (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
+    elif moving_landmarks.shape[-1] == 2:
+        mov_lms_disp_x = map_coordinates(
+            displacement[:, :, 0], moving_landmarks.transpose())
+        mov_lms_disp_y = map_coordinates(
+            displacement[:, :, 1], moving_landmarks.transpose())
+        mov_lms_disp = np.array((mov_lms_disp_x, mov_lms_disp_y)).transpose()
+    else:
+        raise ValueError(
+            "The landmark shape is not supported. It should be either 2 or 3.")
+
+    return moving_landmarks + mov_lms_disp

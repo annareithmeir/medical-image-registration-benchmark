@@ -9,7 +9,7 @@ import nibabel as nib
 import numpy as np
 import SimpleITK as sitk
 
-from registrationbaselines.core import utils, result_csv, utils_metrics, general_deformation
+from registrationbaselines.core import utils, result_csv, general_deformation
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations
@@ -77,7 +77,7 @@ class Evaluation():
                 # is2d = sitk.GetArrayFromImage(sitk.ReadImage(
                 #     path_displacement, sitk.sitkVectorFloat64)).shape[-1] == 2
 
-                if dataset_data.ndim==2:
+                if dataset_data.ndim == 2:
                     path_fixed_landmarks = item["landmarks"]
                     path_moving_landmarks = item["landmarks"]
                 else:
@@ -123,7 +123,8 @@ class Evaluation():
             moving_image = sitk.ReadImage(moving_image_path)
             # displacement = sitk.ReadImage(
             #     path_displacement.as_posix(), sitk.sitkVectorFloat64)
-            displacement = nib.load(path_displacement.as_posix()).get_fdata().squeeze()
+            displacement = nib.load(
+                path_displacement.as_posix()).get_fdata().squeeze()
             deformed_image_path = self._get_deformed_image_path(
                 fixed_image_path.name, moving_image_path.name)
             deformed_image = sitk.ReadImage(deformed_image_path)
@@ -146,7 +147,7 @@ class Evaluation():
                 deformed_segmentation = None  # TODO implement function above
             if "landmarks" in item:
 
-                if dataset_data.ndim==2:
+                if dataset_data.ndim == 2:
                     path_fixed_landmarks = item["landmarks"]
                     path_moving_landmarks = item["landmarks"]
                 else:
@@ -162,7 +163,7 @@ class Evaluation():
                 # fixed_landmarks = np.genfromtxt(path_fixed_landmarks, delimiter=',')
                 # moving_landmarks = np.genfromtxt(path_moving_landmarks, delimiter=',')
 
-                deformed_landmarks = utils_metrics.deform_landmarks(
+                deformed_landmarks = utils.deform_landmarks(
                     landmarks_moving, displacement)
                 # deformed_landmarks = utils_metrics.deform_landmarks(
                 #     moving_landmarks, displacement)
@@ -213,10 +214,10 @@ class Evaluation():
         segmentation_fixed = sitk.ReadImage(path_segmentation_fixed)
         segmentation_moving = sitk.ReadImage(path_segmentation_moving)
 
-        warped = general_deformation.apply_displacement_field(segmentation_fixed,
-                                                              segmentation_moving,
-                                                              displacement,
-                                                              sitk.sitkNearestNeighbor)
+        warped = utils.deform_image(segmentation_fixed,
+                                    segmentation_moving,
+                                    displacement,
+                                    sitk.sitkNearestNeighbor)
 
         dice_scores = metrics.dice_score(segmentation_fixed, warped)
         if len(dice_scores) == 1:
@@ -303,7 +304,7 @@ class Evaluation():
             name_fixed = name_fixed.replace(".gz", "")
             name_moving = name_moving.replace(".gz", "")
             path_plots = self.path_results.parent / \
-                         f"deformed/{name_moving}_deformed_to_{name_fixed}.nii.gz"
+                f"deformed/{name_moving}_deformed_to_{name_fixed}.nii.gz"
         elif name_fixed.endswith(".jpg"):
             name_fixed = name_fixed.replace(".jpg", "")
             name_moving = name_moving.replace(".jpg", "")
