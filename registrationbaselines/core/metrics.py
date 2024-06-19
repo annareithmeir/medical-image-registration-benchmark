@@ -6,7 +6,7 @@ from scipy.spatial.distance import dice, directed_hausdorff
 from scipy.spatial import KDTree
 import nibabel as nib
 import SimpleITK as sitk
-from registrationbaselines.registrationbaselines.core import utils
+from registrationbaselines.core import utils
 
 
 def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarray:

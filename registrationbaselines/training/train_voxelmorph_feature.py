@@ -1,9 +1,5 @@
 import gc
-from registrationbaselines.core.training_interface import TrainingInterface
-import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
-import latent_space_registration.utils_metrics as utils_metrics
-import latent_space_registration.custom_losses as custom_losses
-from latent_space_registration.FeatureExtractor import FeatureExtractor
+
 from pathlib import Path
 import sys
 import os
@@ -28,6 +24,11 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
 
+from registrationbaselines.core.training_interface import TrainingInterface  # nopep8
+import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm  # nopep8
+import latent_space_registration.utils_metrics as utils_metrics  # nopep8
+import latent_space_registration.custom_losses as custom_losses  # nopep8
+from latent_space_registration.FeatureExtractor import FeatureExtractor  # nopep8
 
 gc.collect()
 torch.cuda.empty_cache()
