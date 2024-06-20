@@ -8,7 +8,6 @@ os.environ['NEURITE_BACKEND'] = 'pytorch'
 os.environ['VXM_BACKEND'] = 'pytorch'
 
 import matplotlib
-from tqdm import tqdm
 import numpy as np
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
@@ -61,7 +60,8 @@ def main() -> None:
         path_data = Path("/u/home/koeglf/Documents/data/LungCT")
         path_data = Path("/data/FIRE/")
     else:
-        path_data = Path("/home/anna/datasets/FIRE")
+        path_data = Path("/home/anna/datasets/ACDC")
+        # path_data = Path("/home/anna/datasets/FIRE")
         # path_data = Path("/home/anna/datasets/AbdomenCTCT_preprocessed")
         # path_data = Path("/home/anna/datasets/LungCT")
 
@@ -72,18 +72,24 @@ def main() -> None:
 
     idxs = np.arange(134)
     #np.random.shuffle(idxs)
+    trafos=["normalize", "greyscale"]
     train_idx, val_idx = idxs[:124], idxs[124:]
-    loader_data = data_loaders.FIREDataset(path_data, return_type="path_dict", idxs=[0])
-    train_dataset = data_loaders.FIREDataset(path_data, return_type="np_arrays_rgb", idxs=[0])
-    val_dataset = data_loaders.FIREDataset(path_data, return_type="np_arrays_rgb_kps",idxs=[0])
+    idx = 2
+    # loader_data = data_loaders.FIREDataset(path_data, return_type="path_dict", idxs=[idx], transforms=trafos)
+    # train_dataset = data_loaders.FIREDataset(path_data, return_type="np_arrays_rgb", idxs=[idx], transforms=trafos)
+    # val_dataset = data_loaders.FIREDataset(path_data, return_type="np_arrays_rgb_kps",idxs=[idx], transforms=trafos)
     # train_dataset = MNISTDataset(train=True, subset_range=100, return_type="np_arrays_rgb")
     # val_dataset = MNISTDataset(train=False, subset_range=1, return_type="np_arrays_rgb")
     # loader_data = MNISTDataset(train=False, subset_range=1, return_type="path_dict")
 
+    #ACDC retrun mode is "<2/4>_<train/val/test>". 2 only gives images, 4 also gives labels
+    train_dataset = data_loaders.ACDCDataset(path_data, return_mode = "train_imgs4", normalize_mode=True, roi_only=True, dim_mode='2d-middle', idxs=[0])
+    train_dataset.plot_random_image()
+
     # train
-    if method == "voxelmorph_feature":
-        vxm_registration = VoxelmorphFeatureTraining(train_dataset, path_config, val_dataset)
-        vxm_registration.train()
+    # if method == "voxelmorph_feature":
+    #     vxm_registration = VoxelmorphFeatureTraining(train_dataset, path_config, val_dataset)
+    #     vxm_registration.train()
 
     # register
     # print("\nregister...")
@@ -115,7 +121,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     # Set the logging level for matplotlib to WARNING
-    matplotlib.use('Agg')
+    # matplotlib.use('Agg')
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
     main()
