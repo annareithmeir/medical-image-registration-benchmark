@@ -131,15 +131,22 @@ class Evaluation():
             fixed_segmentation = None
             deformed_segmentation = None
 
-            if "segmentations" in item:
-                fixed_segmentation = sitk.GetArrayFromImage(
-                    item["labels_x"][1])
-                moving_segmentation = sitk.GetArrayFromImage(
-                    item["labels_y"][1])
-                displacement_seg = sitk.ReadImage(
-                    path_displacement, sitk.sitkVectorFloat64)
-                deformed_segmentation = utils.deform_image(
-                    moving_segmentation, displacement_seg)
+            fixed_segmentation = sitk.GetImageFromArray(
+                item["labels_x"][1].squeeze())
+            moving_segmentation = sitk.GetImageFromArray(
+                item["labels_y"][1].squeeze())
+            displacement_seg = sitk.ReadImage(
+                path_displacement, sitk.sitkVectorFloat64)
+            deformed_segmentation = utils.deform_image(fixed_segmentation,
+                                                       moving_segmentation,
+                                                       displacement_seg,
+                                                       sitk.sitkNearestNeighbor)
+
+            fixed_segmentation = sitk.GetArrayFromImage(fixed_segmentation)
+            moving_segmentation = sitk.GetArrayFromImage(moving_segmentation)
+            deformed_segmentation = sitk.GetArrayFromImage(
+                deformed_segmentation)
+
             if "landmarks" in item:
 
                 if dataset_data.ndim == 2:
