@@ -484,6 +484,11 @@ def plot_all_registration_results(save_path: Path,
             ax.set_frame_on(False)
             ax.title.set_text("diff image after")
             plt.axis('off')
+
+            from matplotlib.patches import Patch
+            legend_elements = [Patch(facecolor='crimson', edgecolor='black', label='True'),
+                               Patch(facecolor='cornflowerblue', edgecolor='black', label='Predicted')]
+            ax.legend(handles=legend_elements, loc='upper right')
         if toprow:
             ax.title.set_text("segmentations")
 
