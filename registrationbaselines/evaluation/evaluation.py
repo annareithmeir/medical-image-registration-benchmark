@@ -22,23 +22,15 @@ class Evaluation():
     It requires a precomputed transformation.
     """
 
-    def __init__(self, configuration_path: Path):
+    def __init__(self, result_path: Path, method: str) -> None:
         """
-        Initialize the registration model.
+        Initialize the evaluatin model.
         """
-
-        self.configuration_path = configuration_path
-        self.configuration = utils.read_config(configuration_path)
-
-        method = self.configuration['method_name']
 
         # create the csv file and all its parents if doesn't exist
-        self.path_results = Path(
-            self.configuration['result_path']) / method / 'results.csv'
-        self.path_results_plots = Path(
-            self.configuration['result_path']) / method / 'results.pdf'
-        self.path_plots = Path(
-            self.configuration['result_path']) / method / 'plots'
+        self.path_results = result_path / method / 'results.csv'
+        self.path_results_plots = result_path / method / 'results.pdf'
+        self.path_plots = result_path / method / 'plots'
         self.path_results.parent.mkdir(parents=True, exist_ok=True)
         self.path_plots.mkdir(parents=True, exist_ok=True)
         self.path_results.touch()

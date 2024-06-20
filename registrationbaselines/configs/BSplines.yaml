@@ -1,0 +1,9 @@
+method_name:             BSplines
+# result_path:            /home/anna/PycharmProjects/registrationbaselines/tmp/results
+result_path:             /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_paramsearch
+encoders:                [no_encoder]
+metrics:                 [MSE]
+lrs:                     [0.005]
+regularisation_weights:  [[2, 10, 100], [1, 5, 50]]
+iterationss:             [[100, 100, 100]]
+sigmas:                  [[[256, 256], [256, 256], [64, 64]], [[128, 128], [128, 128], [32, 32]]]

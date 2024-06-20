@@ -6,7 +6,7 @@ import SimpleITK as sitk
 import torch
 
 
-def read_config(file_path: Path):
+def read_config(file_path: Path) -> dict:
     """
     Read the configuration file.
     """
