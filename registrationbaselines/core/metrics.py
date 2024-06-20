@@ -49,20 +49,10 @@ def displacement_field_metrics(displacement: sitk.Image) -> Tuple[float, float]:
     return sd_log_det, fraction_foldings
 
 
-def dice_score(image1: sitk.Image, image2: sitk.Image) -> List[float]:
+def preprocess_segmentations(image1: sitk.Image, image2: sitk.Image):
     """
-    Calculate the Dice score between two NIfTI files using scipy's dice function. It is assumed that both
-    images have only one class.
-
-    The function reads two NIfTI files, ensures the classes are the same in both images, and calculates
-    the Dice score for each class. The Dice score is a measure of overlap between two samples, defined as:
-
-        Dice(A, B) = 2 * |A ∩ B| / (|A| + |B|)
-
-    Returns:
-        float: The Dice score between the two NIfTI files.
+    Prepares egmentations for evaluation by ensuring the classes are the same and removing class 0.
     """
-
     data1 = sitk.GetArrayFromImage(image1)
     data2 = sitk.GetArrayFromImage(image2)
 
@@ -86,11 +76,29 @@ def dice_score(image1: sitk.Image, image2: sitk.Image) -> List[float]:
 
     # remove class 0
     classes1 = np.delete(classes1, idx)
-    classes2 = np.delete(classes2, idx)
+
+    return classes1, data1, data2
+
+
+def dice_score(image1: sitk.Image, image2: sitk.Image) -> List[float]:
+    """
+    Calculate the Dice score between two NIfTI files using scipy's dice function. It is assumed that both
+    images have only one class.
+
+    The function reads two NIfTI files, ensures the classes are the same in both images, and calculates
+    the Dice score for each class. The Dice score is a measure of overlap between two samples, defined as:
+
+        Dice(A, B) = 2 * |A ∩ B| / (|A| + |B|)
+
+    Returns:
+        float: The Dice score between the two NIfTI files.
+    """
+
+    classes, data1, data2 = preprocess_segmentations(image1, image2)
 
     scores = []
 
-    for c in classes1:
+    for c in classes:
         # Create binary masks for the current class
         mask1 = (data1 == c).astype(int).ravel()
         mask2 = (data2 == c).astype(int).ravel()
@@ -113,35 +121,11 @@ def hausdorff_distance(image1: sitk.Image, image2: sitk.Image, percentile: Optio
         float: The 95th percentile of the Hausdorff distances.
     """
 
-    # Load the NIfTI files
-    data1 = sitk.GetArrayFromImage(image1)
-    data2 = sitk.GetArrayFromImage(image2)
-
-    # round each value to nearest integer
-    data1 = np.round(data1).astype(np.uint8)
-    data2 = np.round(data1).astype(np.uint8)
-
-    # Ensure the shapes match
-    if data1.shape != data2.shape:
-        raise ValueError("The two NIfTI files must have the same shape.")
-
-    # Find unique classes in the images
-    classes1 = np.unique(data1)
-    classes2 = np.unique(data2)
-
-    assert np.array_equal(classes1,
-                          classes2), "Both images should have the same classes."
-
-    # find index of class 0
-    idx = np.where(classes1 == 0)
-
-    # remove class 0
-    classes1 = np.delete(classes1, idx)
-    classes2 = np.delete(classes2, idx)
+    classes, data1, data2 = preprocess_segmentations(image1, image2)
 
     scores = []
 
-    for c in classes1:
+    for c in classes:
         # Get the coordinates of the current class in both images
         coords1 = np.column_stack(np.where(data1 == c))
         coords2 = np.column_stack(np.where(data2 == c))
@@ -201,6 +185,17 @@ def tre(landmarks_fixed_path: Path,
     # Calculate the TRE
     all_errors = np.linalg.norm((mov_lms_warped - landmarks_fixed)
                                 * spacing_moving, axis=1)
+    # original TRE
+    ori_tre = np.linalg.norm(
+        (landmarks_moving - landmarks_fixed) * spacing_moving, axis=1).mean()
+
+    print("\n")
+    if all_errors.mean() < ori_tre:
+        print(
+            f"TRE is smaller than original TRE by % {100*(ori_tre - all_errors.mean())/ori_tre:2f}.\nFrom {ori_tre} to {all_errors.mean()}")
+    else:
+        print(
+            f"TRE is larger than original TRE by % {100*(all_errors.mean() - ori_tre)/ori_tre:2f}. \nFrom {ori_tre} to {all_errors.mean()}")
 
     if percentile is not None:
         result = np.percentile(all_errors, percentile)
