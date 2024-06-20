@@ -135,6 +135,9 @@ class BSplineFeature(RegistrationInterface):
         image_deformed = Image.fromarray(image_deformed.astype(np.uint8))
         image_deformed.save(self.result_transformed_image_path)
 
+        deformation = al_transformation.utils.unit_displacement_to_displacement(
+            deformation)
+
         itk_displacement = sitk.GetImageFromArray(
             deformation.detach().cpu().numpy(), isVector=True)
 
