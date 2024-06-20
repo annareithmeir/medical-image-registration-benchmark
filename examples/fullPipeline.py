@@ -8,6 +8,8 @@ import socket
 import os
 import time
 import time
+import warnings
+
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'
 os.environ['VXM_BACKEND'] = 'pytorch'
@@ -47,14 +49,17 @@ def main() -> None:
 
     machine_name = socket.gethostname()
     if machine_name == "fryderyk":
-        path_data = Path("/home/fryderyk/Documents/data/FIRE")
+        path_data = Path("/home/fryderyk/Documents/data/ACDC/")
     elif machine_name == "janus":
-        path_data = Path("/data/FIRE/")
+        path_data = Path("/data/ACDC/database/")
     else:
         path_data = Path("/home/anna/datasets/FIRE")
 
-    loader_data = data_loaders.FIREDataset(
-        path_data, return_type="path_dict")
+    loader_data = data_loaders.ACDCDataset(path_data,
+                                           return_mode="val_imgs4",
+                                           normalize_mode=True,
+                                           roi_only=True,
+                                           dim_mode='2d-middle')
 
     """
     idxs = np.arange(134)
@@ -81,6 +86,10 @@ if __name__ == "__main__":
     # Set the logging level for matplotlib to WARNING
     matplotlib.use('Agg')
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
+    warnings.filterwarnings('ignore', '.*NiftiImageIO.*',)
+    warnings.filterwarnings(
+        "ignore", message=".*NiftiImageIO.*unexpected scales in sform")
 
     start_time = time.time()
     main()
