@@ -84,12 +84,13 @@ def main() -> None:
 
     #ACDC retrun mode is "<2/4>_<train/val/test>". 2 only gives images, 4 also gives labels
     train_dataset = data_loaders.ACDCDataset(path_data, return_mode = "train_imgs4", normalize_mode=True, roi_only=True, dim_mode='2d-middle', idxs=[0])
+    val_dataset = data_loaders.ACDCDataset(path_data, return_mode = "val_imgs4", normalize_mode=True, roi_only=True, dim_mode='2d-middle', idxs=[0])
     train_dataset.plot_random_image()
 
     # train
-    # if method == "voxelmorph_feature":
-    #     vxm_registration = VoxelmorphFeatureTraining(train_dataset, path_config, val_dataset)
-    #     vxm_registration.train()
+    if method == "voxelmorph_feature":
+        vxm_registration = VoxelmorphFeatureTraining(train_dataset, path_config, val_dataset)
+        vxm_registration.train()
 
     # register
     # print("\nregister...")

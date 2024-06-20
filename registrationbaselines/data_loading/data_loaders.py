@@ -912,11 +912,11 @@ class ACDCDataset(Dataset):
                  roi_only: Optional[bool] = True, dim_mode: Optional[str] = '3d', idxs:list[int]=None) -> None:
 
         if roi_only:
-            self.imgshape = (128, 128, 128)
+            self.img_shape = (128, 128, 128)
         self.spacing = (1.8, 1.8, 1.8)  # as in Qin et al. 2023 MIA
         if dim_mode == '2d-random' or dim_mode == '2d-middle' or dim_mode == '2d-basal' and roi_only:
             self.spacing = (1.8, 1.8)
-            self.imgshape = (128, 128)
+            self.img_shape = (128, 128)
         assert dim_mode in ['2d-random', '2d-middle', '2d-basal', '3d']
         self.dim_mode = dim_mode
         self.data_path = data_path
@@ -996,19 +996,20 @@ class ACDCDataset(Dataset):
         elif "val" in self.return_mode:
             for i in range(101, 126):
                 file_str = "patient" + str(i).zfill(3)
-                file_str_full = self.data_path + "/testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz"
-                ids = sorted(glob.glob(file_str_full))
+                file_str_full = self.data_path / ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
                 y_ls.append(
-                    self.data_path + "/testing/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz")
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
                 masks_y_ls.append(
-                    self.data_path + "/testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz")
+                    self.data_path / ( "testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
                 x_ls.append(
-                    self.data_path + "/testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz")
+                    self.data_path / ( "testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
                 masks_x_ls.append(
-                    self.data_path + "/testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz")
-                with open(self.data_path + "/testing/" + file_str + "/Info.cfg", 'r') as file:
+                    self.data_path / ( "testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
+
+                with open(self.data_path / ( "testing/" + file_str + "/Info.cfg"), 'r') as file:
                     for i, line in enumerate(file):
                         if i == 2:
                             group = line.split(':')[1].strip()
@@ -1018,19 +1019,19 @@ class ACDCDataset(Dataset):
         else:
             for i in range(126, 151):
                 file_str = "patient" + str(i).zfill(3)
-                file_str_full = self.data_path + "/testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz"
-                ids = sorted(glob.glob(file_str_full))
+                file_str_full = self.data_path / ( "testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
                 y_ls.append(
-                    self.data_path + "/testing/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz")
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
                 masks_y_ls.append(
-                    self.data_path + "/testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz")
+                    self.data_path /( "testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
                 x_ls.append(
-                    self.data_path + "/testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz")
+                    self.data_path /( "testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
                 masks_x_ls.append(
-                    self.data_path + "/testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz")
-                with open(self.data_path + "/testing/" + file_str + "/Info.cfg", 'r') as file:
+                    self.data_path /( "testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
+                with open(self.data_path /( "testing/" + file_str + "/Info.cfg"), 'r') as file:
                     for i, line in enumerate(file):
                         if i == 2:
                             group = line.split(':')[1].strip()
