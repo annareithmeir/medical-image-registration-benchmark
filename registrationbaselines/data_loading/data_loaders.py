@@ -1,8 +1,10 @@
+import glob
 import random
 from pathlib import Path
 from typing import List, Union, Tuple
 import copy
 from PIL import Image
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,6 +12,7 @@ import torchio as tio
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from itertools import combinations
+
 """
     Dataloader for the Learn2Reg LnugCT dataset.
     Since the test annotations are not available, we only load the training data with the corresponding segmentations and keypoints.
@@ -894,12 +897,315 @@ class PathPairDataset():
         return self.path_pairs[idx]
 
 
+class ACDCDataset(Dataset):
+    """
+    source: https://humanheart-project.creatis.insa-lyon.fr/database/#collection/637218c173e9f0047faa00fb
+    Number of subjects: 150
+    modality: MR
+    anatomy: cardiac
+    m,f: fixed=ed/01, moving=es/1x
+
+    split the 50 test samples in 25 for val and 25 for testing
+    """
+
+    def __init__(self, data_path: Path, return_mode: str, normalize_mode: Optional[bool] = True,
+                 roi_only: Optional[bool] = True, dim_mode: Optional[str] = '3d', idxs: list[int] = None) -> None:
+
+        if roi_only:
+            self.img_shape = (128, 128, 128)
+        self.spacing = (1.8, 1.8, 1.8)  # as in Qin et al. 2023 MIA
+        if dim_mode == '2d-random' or dim_mode == '2d-middle' or dim_mode == '2d-basal' and roi_only:
+            self.spacing = (1.8, 1.8)
+            self.img_shape = (128, 128)
+        assert dim_mode in ['2d-random', '2d-middle', '2d-basal', '3d']
+        self.dim_mode = dim_mode
+        self.data_path = data_path
+        self.return_mode = return_mode
+        self.normalize_mode = normalize_mode
+        self.classes = {  # TODO check!
+            0: "background",
+            1: "RV",  # right ventricle
+            2: "LV-Myo",  # epicardium
+            3: "LV-BP"  # endocardium
+        }
+
+        self.group_map = {
+            "NOR": 0,
+            "MINF": 1,
+            "DCM": 2,
+            "HCM": 3,
+            "RV": 4
+        }
+
+        self.roi_only = roi_only
+
+        # if "test" in self.mode or "val" in self.mode:
+        #     if self.dim_mode == "2d-random":
+        #         print("Manually set self.dim_mode for test/validation from random to middle!!")
+        #         self.dim_mode = "2d-middle"
+
+        # if self.mode == "train" or self.mode == "val2":
+        #     self.return_mode = 2
+        # elif self.mode == "train4" or self.mode == "val4" or self.mode == "val" or self.mode == "test":
+        #     self.return_mode = 4
+        # elif self.mode == "train3" or self.mode == "val3" or self.mode == "test3":  # classification task
+        #     self.return_mode = 3
+        # else:
+        #     print("Wrong mode given")
+
+        self.images_pair, self.labels_pair, self.groups = self.read_filenames()
+
+        if idxs is not None:
+            self.images_pair = [self.images_pair[i] for i in idxs]
+            self.labels_pair = [self.labels_pair[i] for i in idxs]
+            self.groups = [self.groups[i] for i in idxs]
+
+    def read_filenames(self):
+        x_ls = list()
+        y_ls = list()
+        masks_x_ls = list()
+        masks_y_ls = list()
+        group_ls = list()
+
+        if "train" in self.return_mode:
+            # load train paths. 01=fixed, 1x=moving
+            for i in range(1, 101):
+                file_str = "patient" + str(i).zfill(3)
+                file_str_full = self.data_path / \
+                    ('training/' + file_str + "/" + file_str + '_frame*_gt.nii.gz')
+                ids = sorted(glob.glob(str(file_str_full)))
+                m_id = ids[1][-12:-10]
+                f_id = ids[0][-12:-10]
+                # print(m_id, f_id)
+                y_ls.append(
+                    self.data_path / ("training/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
+                masks_y_ls.append(
+                    self.data_path / ("training/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
+                x_ls.append(
+                    self.data_path / ("training/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
+                masks_x_ls.append(
+                    self.data_path / ("training/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
+
+                with open(self.data_path / ("training/" + file_str + "/Info.cfg"), 'r') as file:
+                    for i, line in enumerate(file):
+                        if i == 2:
+                            group = line.split(':')[1].strip()
+                            break
+
+                group_ls.append(self.group_map[group])
+
+        elif "val" in self.return_mode:
+            for i in range(101, 126):
+                file_str = "patient" + str(i).zfill(3)
+                file_str_full = self.data_path / \
+                    ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                ids = sorted(glob.glob(str(file_str_full)))
+                m_id = ids[1][-12:-10]
+                f_id = ids[0][-12:-10]
+                y_ls.append(
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
+                masks_y_ls.append(
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
+                x_ls.append(
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
+                masks_x_ls.append(
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
+
+                with open(self.data_path / ("testing/" + file_str + "/Info.cfg"), 'r') as file:
+                    for i, line in enumerate(file):
+                        if i == 2:
+                            group = line.split(':')[1].strip()
+                            break
+
+                group_ls.append(self.group_map[group])
+        else:
+            for i in range(126, 151):
+                file_str = "patient" + str(i).zfill(3)
+                file_str_full = self.data_path / \
+                    ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                ids = sorted(glob.glob(str(file_str_full)))
+                m_id = ids[1][-12:-10]
+                f_id = ids[0][-12:-10]
+                y_ls.append(
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
+                masks_y_ls.append(
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
+                x_ls.append(
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
+                masks_x_ls.append(
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
+                with open(self.data_path / ("testing/" + file_str + "/Info.cfg"), 'r') as file:
+                    for i, line in enumerate(file):
+                        if i == 2:
+                            group = line.split(':')[1].strip()
+                            break
+
+                group_ls.append(self.group_map[group])
+
+        return list(zip(x_ls, y_ls)), list(zip(masks_x_ls, masks_y_ls)), group_ls
+
+    def __len__(self) -> int:
+        """
+        Returns length of the dataset
+        @return:
+        """
+        return len(self.images_pair)
+
+    def __getitem__(self, idx: int) -> Tuple[np.array, ...]:
+        '''
+        @param idx: Index of the item to return
+        @return: numpy arrays
+
+        2d-random: returns random 2d slice of size (HxW)
+        '''
+
+        x_file, y_file = self.images_pair[idx]
+        group = self.groups[idx]
+
+        labels_x_file, labels_y_file = self.labels_pair[idx]
+
+        if "paths" in self.return_mode:
+            return Path(x_file), Path(y_file), Path(labels_x_file), Path(labels_y_file)
+        elif "path_dict" in self.return_mode:
+            return dict({"img_x": Path(x_file), "img_y": Path(y_file), "labels_x": Path(labels_x_file), "labels_y": Path(labels_y_file)})
+        else:
+            # print(labels_y_file, labels_x_file)
+            subject_dict = {
+                "image_x": tio.ScalarImage(x_file),
+                "labels_x": tio.LabelMap(labels_x_file),
+                "image_y": tio.ScalarImage(y_file),
+                "labels_y": tio.LabelMap(labels_y_file),
+                "group": group
+            }
+
+            subject = tio.Subject(subject_dict)
+
+            resample_uniform = tio.Resample(1.8)
+            subject = resample_uniform(subject)
+
+            if self.roi_only is True:
+                crop_roi = tio.CropOrPad((128, 128, 128), mask_name="labels_y")
+                subject = crop_roi(subject)
+
+            if self.dim_mode == '2d-random':
+                # not all slices have all three labels, thus find random slice with all labels present
+
+                while True:
+                    slice = np.random.randint(
+                        2, subject["image_x"].numpy().shape[-1] - 2)
+                    labels_x_tmp = subject["labels_x"].numpy(
+                    )[..., slice, np.newaxis]
+                    labels_y_tmp = subject["labels_y"].numpy(
+                    )[..., slice, np.newaxis]
+                    if len(np.unique(labels_x_tmp)) == 4 and len(np.unique(labels_y_tmp)) == 4:
+                        break
+                    # print("not all labels present in slice. sample again.")
+                subject["image_x"] = tio.ScalarImage(
+                    tensor=subject["image_x"].numpy()[..., slice, np.newaxis])
+                subject["image_y"] = tio.ScalarImage(
+                    tensor=subject["image_y"].numpy()[..., slice, np.newaxis])
+                subject["labels_x"] = tio.ScalarImage(tensor=labels_x_tmp)
+                subject["labels_y"] = tio.ScalarImage(tensor=labels_y_tmp)
+
+            if self.dim_mode == '2d-middle':
+                slice = subject["image_x"].numpy().shape[-1] // 2
+                labels_x_tmp = subject["labels_x"].numpy(
+                )[..., slice, np.newaxis]
+                labels_y_tmp = subject["labels_y"].numpy(
+                )[..., slice, np.newaxis]
+                if len(np.unique(labels_x_tmp)) < 4 or len(np.unique(labels_y_tmp)) < 4:
+                    print("not all labels present in slice.")
+
+                subject["image_x"] = tio.ScalarImage(
+                    tensor=subject["image_x"].numpy()[..., slice, np.newaxis])
+                subject["image_y"] = tio.ScalarImage(
+                    tensor=subject["image_y"].numpy()[..., slice, np.newaxis])
+                subject["labels_x"] = tio.ScalarImage(tensor=labels_x_tmp)
+                subject["labels_y"] = tio.ScalarImage(tensor=labels_y_tmp)
+
+            if self.normalize_mode is True:
+                rescale_x = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
+                    subject["image_x"].numpy().min(), subject["image_x"].numpy().max()))
+                rescale_y = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
+                    subject["image_y"].numpy().min(), subject["image_y"].numpy().max()))
+
+                subject["image_x"] = rescale_x(subject["image_x"])
+                subject["image_y"] = rescale_y(subject["image_y"])
+
+                # rescale = tio.RescaleIntensity(out_min_max=(0, 1))
+                # subject = rescale(subject)
+
+            # print(subject["image_x"].numpy().shape)
+            x = subject["image_x"].numpy().astype(float).squeeze()
+            y = subject["image_y"].numpy().astype(float).squeeze()
+            labels_x = subject["labels_x"].numpy().astype(float).squeeze()
+            labels_y = subject["labels_y"].numpy().astype(float).squeeze()
+
+            x = x[np.newaxis, ...]
+            labels_x = labels_x[np.newaxis, ...]
+            y = y[np.newaxis, ...]
+            labels_y = labels_y[np.newaxis, ...]
+
+            if "imgs_and_label" in self.return_mode:
+                return x, y, group
+            elif "imgs4" in self.return_mode:
+
+                return {
+                    "img_x": (Path(x_file), x),
+                    "img_y": (Path(y_file), y),
+                    "labels_x": (Path(labels_x_file), labels_x),
+                    "labels_y": (Path(labels_y_file), labels_y)
+
+                }
+
+                return x, y, labels_x, labels_y
+            else:
+                return x, y
+
+    def plot_random_image(self) -> None:
+        """
+        Plots a random image of the dataset including segmentations and keypoints
+        """
+
+        rand_idx = random.randint(0, len(self) - 1)
+        # tmp_type = self.return_type
+        tmp_mode = self.return_mode
+        self.return_mode = "imgs4"
+        img_f, img_m, label_f, label_m = self.__getitem__(rand_idx)
+        self.return_mode = tmp_mode
+        # self.return_type = tmp_type
+
+        fig = plt.figure(figsize=(20, 12))
+
+        # moving image
+        ax = fig.add_subplot(2, 1, 1)
+
+        plt.imshow(img_m.transpose(1, 2, 0), cmap='gray')
+        plt.imshow(label_m.transpose(1, 2, 0), alpha=0.2)
+        plt.colorbar()
+        plt.title("Moving")
+        # plt.gca().invert_yaxis()
+
+        # fixed image
+        ax = fig.add_subplot(2, 1, 2)
+        plt.imshow(img_f.transpose(1, 2, 0), cmap='gray')
+        plt.imshow(label_f.transpose(1, 2, 0), alpha=0.2)
+        plt.colorbar()
+
+        plt.title("Fixed")
+        # plt.gca().invert_yaxis()
+
+        plt.tight_layout()
+        plt.suptitle("idx: {}".format(rand_idx))
+        plt.show()
+
+
 class FIREDataset(Dataset):
     """
     134 retina image pairs and landmarks
     """
 
-    def __init__(self, imgs_path: Path, transforms: list[str] = list(), return_type: str = "path", idxs: list[int] = None):
+    def __init__(self, imgs_path: Path, return_type: str = "path", transforms: list[str] = None, idxs: list[int] = None):
         """
 
         @param imgs_path: Path to the original dataset
@@ -919,7 +1225,7 @@ class FIREDataset(Dataset):
         # self.target_transform = target_transform # todo: do we want torch.transforms too?
         self.ndim = 2
         self.spacing = (1, 1)
-        self.img_shape = (256, 256)
+        self.img_shape = (2912, 2912)
 
         assert return_type in ["path_dict", "np_array_dict",
                                "np_arrays", "np_arrays4", "np_arrays_and_rgb", "np_arrays_rgb", "np_arrays_rgb_kps"]
@@ -990,14 +1296,12 @@ class FIREDataset(Dataset):
             item = (img_f, img_m, kp_f, kp_m, img_f_rgb, img_m_rgb)
         elif self.return_type == "np_arrays_rgb":  # np_array bsxhxwxd
 
-            img_f_rgb, img_m_rgb = self._get_image_pair(
-                idx, self.transforms_without_greyscale)
+            img_f_rgb, img_m_rgb = self._get_image_pair(idx)
 
             item = (img_f_rgb, img_m_rgb)
         elif self.return_type == "np_arrays_rgb_kps":  # np_array bsxhxwxd
 
-            img_f_rgb, img_m_rgb = self._get_image_pair(
-                idx, self.transforms_without_greyscale)
+            img_f_rgb, img_m_rgb = self._get_image_pair(idx)
             kp_f, kp_m = self._get_keypoints_pair(idx)
 
             item = (img_f_rgb, img_m_rgb, kp_f, kp_m)
@@ -1051,20 +1355,20 @@ class FIREDataset(Dataset):
         data = np.loadtxt(file_path.as_posix())
         # Assuming the original dimensions are known, you can hardcode them or make them configurable
         # replace with actual dimensions if different
-        original_width, original_height = 2912, 2912
+        # original_width, original_height = 2912, 2912
         # Scaling factors
-        scale_x = 256 / original_width
-        scale_y = 256 / original_height
+        # scale_x = 256 / original_width
+        # scale_y = 256 / original_height
         coords_fixed = data[:, [0, 1]]
         coords_moving = data[:, [2, 3]]
-        # Scale the coordinates
-        coords_fixed[:, 0] *= scale_x
-        coords_fixed[:, 1] *= scale_y
-        coords_moving[:, 0] *= scale_x
-        coords_moving[:, 1] *= scale_y
+        # # Scale the coordinates
+        # coords_fixed[:, 0] *= scale_x
+        # coords_fixed[:, 1] *= scale_y
+        # coords_moving[:, 0] *= scale_x
+        # coords_moving[:, 1] *= scale_y
         return coords_fixed, coords_moving
 
-    def _get_image_pair(self, idx: int, transforms: list[str]) -> Tuple[np.ndarray, np.ndarray]:
+    def _get_image_pair(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
         """
         Returns normalized and reshaped images. if greyscale a 1 dim is added as third dim
         :param idx:
@@ -1073,23 +1377,25 @@ class FIREDataset(Dataset):
         path_fixed = self.imgs_list[idx][0]
         path_moving = self.imgs_list[idx][1]
         # load the images
-        image_fixed = Image.open(path_fixed).resize((256, 256))
-        image_moving = Image.open(path_moving).resize((256, 256))
-        if "greyscale" in transforms:
+        image_fixed = Image.open(path_fixed)
+        # image_fixed = Image.open(path_fixed).resize((256, 256))
+        image_moving = Image.open(path_moving)
+        # image_moving = Image.open(path_moving).resize((256, 256))
+        if "greyscale" in self.transforms:
             image_fixed = image_fixed.convert('L')
             image_moving = image_moving.convert('L')
 
         image_fixed = np.array(image_fixed)
         image_moving = np.array(image_moving)
 
-        if "greyscale" not in transforms:
+        if "greyscale" not in self.transforms:
             image_fixed = image_fixed.transpose(2, 0, 1)
             image_moving = image_moving.transpose(2, 0, 1)
         else:
             image_fixed = image_fixed[np.newaxis, ...]
             image_moving = image_moving[np.newaxis, ...]
 
-        if "normalize" in transforms:
+        if "normalize" in self.transforms:
             image_fixed = (image_fixed - np.min(image_fixed)) / \
                           (np.max(image_fixed) - np.min(image_fixed))
             image_moving = (image_moving - np.min(image_moving)) / \
@@ -1116,7 +1422,7 @@ class FIREDataset(Dataset):
         # moving image
         ax = fig.add_subplot(2, 1, 1)
 
-        plt.imshow(img_m, cmap='gray')
+        plt.imshow(img_m.transpose((1, 2, 0)), cmap='gray')
         plt.colorbar()
         plt.scatter(kp_m[:, 0], kp_m[:, 1], marker='x', c='red')
         plt.title("Moving")
@@ -1124,8 +1430,9 @@ class FIREDataset(Dataset):
 
         # fixed image
         ax = fig.add_subplot(2, 1, 2)
-        plt.imshow(img_f, cmap='gray')
+        plt.imshow(img_f.transpose((1, 2, 0)), cmap='gray')
         plt.colorbar()
+
         plt.scatter(kp_f[:, 0], kp_f[:, 1], marker='x', c='red')
         plt.title("Fixed")
         # plt.gca().invert_yaxis()
