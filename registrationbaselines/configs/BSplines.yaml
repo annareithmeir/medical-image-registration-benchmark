@@ -3,7 +3,7 @@ method_name:             BSplines
 result_path:             /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_paramsearch
 encoders:                [no_encoder]
 metrics:                 [MSE]
-lrs:                     [0.005]
-regularisation_weights:  [[2, 10, 100], [1, 5, 50]]
-iterationss:             [[100, 100, 100]]
-sigmas:                  [[[256, 256], [256, 256], [64, 64]], [[128, 128], [128, 128], [32, 32]]]
+lrs:                     [0.001, 0.0005, 0.0002]
+regularisation_weights:  [[1, 4, 16], [2, 8, 32], [4, 16, 64]]
+iterationss:             [[500, 500, 500]]
+sigmas:                  [[[4, 4], [4, 4], [4, 4]], [[4, 4], [8, 8], [16, 16]], [[8, 8], [4, 4], [2, 2]]]
