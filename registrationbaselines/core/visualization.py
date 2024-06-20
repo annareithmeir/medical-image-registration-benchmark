@@ -1,20 +1,19 @@
+from registrationbaselines.core import metrics
+import matplotlib.pyplot as plt
+import matplotlib
+import numpy as np
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+from scipy.ndimage import binary_erosion
+from matplotlib.colors import Normalize
+from matplotlib.colors import ListedColormap
+import pandas as pd
+import wandb
 from pathlib import Path
 from typing import Optional
 import os
-os.environ['NEURITE_BACKEND']="pytorch"
-import wandb
-import pandas as pd
+os.environ['NEURITE_BACKEND'] = "pytorch"
 # plt.switch_backend('agg')
-from matplotlib.colors import ListedColormap
-from matplotlib.colors import Normalize
-from scipy.ndimage import binary_erosion
-import matplotlib.colors as colors
-import matplotlib.cm as cm
-import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
-
-from registrationbaselines.core import metrics
 
 
 matplotlib.rcParams['text.usetex'] = True
@@ -265,7 +264,8 @@ def plot_all_registration_results(save_path: Path,
     """
     displacement = displacement.squeeze()
 
-    assert displacement.ndim in [3,4], "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
+    assert displacement.ndim in [
+        3, 4], "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
     assert displacement.shape[-1] == 3 or displacement.shape[-1] == 2
 
     if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
@@ -335,7 +335,7 @@ def plot_all_registration_results(save_path: Path,
             fieldAx = displacement[..., axes].take(half_slice_idx[d], axis=d)
             plot_quiverplot(fieldAx, ax=ax)
             plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(
-                half_slice_idx[d], axis=d), interval=5, color="white")
+                half_slice_idx[d], axis=d), interval=8, color="white")
             ax.set_frame_on(False)
             if toprow:
                 ax.title.set_text("deformation")
@@ -399,32 +399,35 @@ def plot_all_registration_results(save_path: Path,
                 ax.title.set_text("jac det")
             plt.axis('off')
             plt.colorbar(im1, ax=ax)
-    elif image_dim ==2:
+    elif image_dim == 2:
         toprow = True
 
         # moving image
         ax = fig.add_subplot(3, 9, 1)
-        ax.imshow(moving_image, cmap='gray')
+        ax.imshow(moving_image.squeeze(), cmap='gray')
         if moving_keypoints is not None:
-            ax.scatter(moving_keypoints[:, 0], moving_keypoints[:, 1], marker='.', c='red')
+            ax.scatter(
+                moving_keypoints[:, 0], moving_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("M")
         plt.axis('off')
 
         # fixed image
         ax = fig.add_subplot(3, 9, 2)
-        ax.imshow(fixed_image, cmap='gray')
+        ax.imshow(fixed_image.squeeze(), cmap='gray')
         if fixed_keypoints is not None:
-            ax.scatter(fixed_keypoints[:, 0], fixed_keypoints[:, 1], marker='.', c='red')
+            ax.scatter(fixed_keypoints[:, 0],
+                       fixed_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("F")
         plt.axis('off')
 
         # deformed image
         ax = fig.add_subplot(3, 9, 3)
-        ax.imshow(pred_image, cmap='gray')
+        ax.imshow(pred_image.squeeze(), cmap='gray')
         if pred_keypoints is not None:
-            ax.scatter(pred_keypoints[:, 0], pred_keypoints[:, 1], marker='.', c='red')
+            ax.scatter(pred_keypoints[:, 0],
+                       pred_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("warped M")
         plt.axis('off')
@@ -434,7 +437,8 @@ def plot_all_registration_results(save_path: Path,
         fieldAx = displacement
         # plot_quiverplot(fieldAx, ax=ax)
         # neurite.plot.flow([displacement], show=False)
-        plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image, interval=50, color="white")
+        plot_deformation_field(
+            ax, 1 * fieldAx.transpose(2, 0, 1), pred_image, interval=5, color="white")
         ax.set_frame_on(False)
         if toprow:
             ax.title.set_text("deformation")
@@ -443,7 +447,7 @@ def plot_all_registration_results(save_path: Path,
 
         # difference image before registration
         ax = fig.add_subplot(3, 9, 5)
-        diff_image = fixed_image - moving_image
+        diff_image = fixed_image.squeeze() - moving_image.squeeze()
         ax.imshow(diff_image, cmap='gray')
         ax.set_frame_on(False)
         if toprow:
@@ -453,7 +457,7 @@ def plot_all_registration_results(save_path: Path,
 
         # difference image after registration
         ax = fig.add_subplot(3, 9, 6)
-        diff_image = fixed_image - pred_image
+        diff_image = fixed_image.squeeze() - pred_image.squeeze()
         ax.imshow(diff_image, cmap='gray')
         ax.set_frame_on(False)
         if toprow:
@@ -526,10 +530,11 @@ def plot_all_registration_results_debugging_wandb(moving_image: np.ndarray,
 
     # log_file = log_dir + '/debugging_results_epoch_' + str(step) + '.pdf'
     fig = plot_all_registration_results(None, moving_image, fixed_image, pred_image, displacement,
-                                                  fixed_labels=fixed_labels, pred_labels=pred_labels,
-                                                  moving_keypoints=moving_keypoints, fixed_keypoints=fixed_keypoints,
-                                                  pred_keypoints=pred_keypoints, title=title)
+                                        fixed_labels=fixed_labels, pred_labels=pred_labels,
+                                        moving_keypoints=moving_keypoints, fixed_keypoints=fixed_keypoints,
+                                        pred_keypoints=pred_keypoints, title=title)
     return wandb.Image(fig)
+
 
 def plot_quantitative_results(df: pd.DataFrame, plot_path: Path):
     df = df.drop(["min", "max", "mean", "std"])
