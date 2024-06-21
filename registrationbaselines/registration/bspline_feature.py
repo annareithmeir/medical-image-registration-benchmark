@@ -8,6 +8,7 @@ from PIL import Image
 import SimpleITK as sitk
 from torch.utils.data import Dataset
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
@@ -69,14 +70,17 @@ class BSplineFeature(RegistrationInterface):
                                     f"_{encoder}_{metric}_lr{lr}_reg{regularisation_weight}_it{iterations}_sigma{sigma}"
                                 self._create_result_directories()
 
-                                print("\nregister...")
+                                print(f"\nregister with parameters: \n\
+                                      encoder: {encoder}\n\
+                                      metric: {metric}\n\
+                                      lr: {lr}\n\
+                                      regularisation_weight: {regularisation_weight}\n\
+                                      iterations: {iterations}\n\
+                                      sigma: {sigma}\n")
                                 for i in tqdm(range(len(dataloader))):
                                     item = dataloader[i]
                                     self.register(
                                         item["img_x"], item["img_y"])
-
-                                    if i == 4:
-                                        break
 
                                 # evaluate
                                 loader_transformations = data_loaders.BaselineTransformations(
@@ -90,7 +94,7 @@ class BSplineFeature(RegistrationInterface):
                                 print("\nplot...")
                                 evaluation.visualize(
                                     loader_transformations, dataloader)
-                                print("\ndone")
+                                print("\ndone\n\n")
 
     def register(self,
                  fixed_image: Tuple[Path, np.ndarray],
@@ -120,7 +124,7 @@ class BSplineFeature(RegistrationInterface):
         image_moving = al.utils.image_from_numpy(
             image_moving, [1, 1], [0, 0], dtype=dtype, device=device)
 
-        levels = len(self.regularisation_weights)
+        levels = len(self.regularisation_weights[0])
 
         pyramid_factors = [[2**i, 2**i] for i in range(levels-1, 0, -1)]
 
@@ -129,13 +133,15 @@ class BSplineFeature(RegistrationInterface):
         image_moving_pyramid = al.create_image_pyramid(image_moving,
                                                        pyramid_factors)
 
+        loss_lists = []
+
         for level, (image_fixed, image_moving) in enumerate(zip(image_fixed_pyramid, image_moving_pyramid)):
 
             regularisation_weight = self.configuration["regularisation_weight"][level]
             number_of_iterations = self.configuration["iterations"][level]
             sigma = self.configuration["sigma"][level]
 
-            registration = al.PairwiseRegistration(verbose=True)
+            registration = al.PairwiseRegistration(verbose=False)
 
             # define the transformation
             # transformation = al.transformation.pairwise.RigidTransformation(
@@ -184,7 +190,7 @@ class BSplineFeature(RegistrationInterface):
             # define the regulariser for the displacement
             regulariser = al_regulariser.displacement.DiffusionRegulariser(
                 image_moving.spacing)
-            regulariser.SetWeight(regularisation_weight)
+            regulariser.set_weight(regularisation_weight)
             registration.set_regulariser_displacement([regulariser])
 
             # define the optimizer
@@ -198,14 +204,16 @@ class BSplineFeature(RegistrationInterface):
 
             constant_flow = transformation.get_flow()
 
+            loss_lists.append(image_loss.loss_list)
+
         # create final result
         displacement = transformation.get_displacement()
         warped_image = al_transformation.utils.warp_image(
             image_moving, displacement)
 
-        self._save_results(warped_image, displacement)
+        self._save_results(warped_image, displacement, loss_lists)
 
-    def _save_results(self, deformed: al.Image, deformation: torch.Tensor):
+    def _save_results(self, deformed: al.Image, deformation: torch.Tensor, loss_lists: list):
         self.result_transformed_image_path, \
             self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
                                                                         self.moving_path.stem,
@@ -217,3 +225,23 @@ class BSplineFeature(RegistrationInterface):
 
         # SAVE DEFORMATION
         torch.save(deformation, self.result_transformation_path)
+
+        # SAVE LOSS LISTS
+        path_losses = self.result_transformation_path.parent.parent / "losses"
+        path_losses.mkdir(exist_ok=True)
+
+        for i, loss_list in enumerate(loss_lists):
+            loss_list_path = path_losses / \
+                (str(self.result_transformation_path.name).replace(
+                    ".pt", "") + f"_level{i}_loss.png")
+
+            # plot the loss
+            loss_list = np.array(loss_list)
+
+            plt.figure()
+            plt.plot(loss_list)
+            plt.xlabel("iteration")
+            plt.ylabel("loss")
+            plt.title(f"{self.configuration['metric']}")
+            plt.savefig(loss_list_path.with_suffix(".png"))
+            plt.ylim(bottom=-1.0)
