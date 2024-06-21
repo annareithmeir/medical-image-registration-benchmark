@@ -8,7 +8,7 @@ import socket
 import os
 import time
 import time
-import warnings
+import SimpleITK as sitk
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'
@@ -37,6 +37,7 @@ def main() -> None:
     method = "BSplines"
     # method = "voxelmorph_feature"
 
+    # path_config = base_dir / f"registrationbaselines/configs/BSplines_feat.yaml"
     path_config = base_dir / f"registrationbaselines/configs/{method}.yaml"
     config = utils.read_config(path_config)
 
@@ -87,11 +88,12 @@ if __name__ == "__main__":
     matplotlib.use('Agg')
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
-    warnings.filterwarnings('ignore', '.*NiftiImageIO.*',)
-    warnings.filterwarnings(
-        "ignore", message=".*NiftiImageIO.*unexpected scales in sform")
+    import warnings
+    warnings.filterwarnings('ignore')
+    warnings.filterwarnings("ignore", category=UserWarning)
 
     start_time = time.time()
+    sitk.ProcessObject_SetGlobalWarningDisplay(False)
     main()
     end_time = time.time()
 
