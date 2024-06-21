@@ -116,6 +116,7 @@ class Evaluation():
             fixed_image = torch.from_numpy(item["img_x"][1])
             moving_image = torch.from_numpy(item["img_y"][1])
             displacement = torch.load(path_displacement)
+
             deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
                                                                 moving_image_path.name,
                                                                 extension_overwrite=''.join(path_displacement.suffixes))
@@ -173,7 +174,7 @@ class Evaluation():
         displacement = torch.load(path_displacement)
 
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
-            sitk.GetImageFromArray(displacement.detach().cpu().numpy()))
+            displacement.detach().cpu().numpy())
 
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
@@ -216,6 +217,7 @@ class Evaluation():
 
         dice_scores = metrics.dice_score(
             segmentation_fixed.squeeze(), warped.squeeze())
+
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
         else:

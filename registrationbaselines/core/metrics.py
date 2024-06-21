@@ -28,15 +28,21 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
     return sitk.GetArrayFromImage(jacobian_determinant_image)
 
 
-def displacement_field_metrics(displacement: sitk.Image) -> Tuple[float, float]:
+def displacement_field_metrics(displacement: np.array) -> Tuple[float, float]:
     """
     Calculate the fraction of foldings and the standard deviation of the logarithm of the Jacobian determinant.
     """
 
     epsilon = 1e-6  # so we don't get log(0)
 
+    # convert displacement from unit
+    displacement[0, ...] = float(
+        displacement.shape[1] - 1) * displacement[0, ...] / 2.0
+    displacement[1, ...] = float(
+        displacement.shape[2] - 1) * displacement[1, ...] / 2.0
+
     jacobian_determinant = jacobian_determinant_from_displacement(
-        sitk.GetArrayFromImage(displacement))
+        displacement)
 
     # foldings are where the jacobian determinant is negative
     num_foldings = int((jacobian_determinant < 0).astype(float).sum())
