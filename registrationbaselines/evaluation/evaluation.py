@@ -105,10 +105,7 @@ class Evaluation():
         if idxs is None:
             idxs = range(len(dataset_transformations))
 
-        print(idxs)
-
         for i in tqdm(idxs):
-            print(i)
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
             fixed_image_path = item["img_x"][0]
