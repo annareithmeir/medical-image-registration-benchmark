@@ -77,6 +77,9 @@ def main(base_dir):
                         # 'mean_std_sdlogj': std_row[-1],
                         # 'mean_min_sdlogj': min_row[-1],
                         # 'mean_max_sdlogj': max_row[-1]
+
+                        # hausdorff_mean
+                        'mean_mean_hausdorff': mean_row[-2],
                     })
 
     # Convert results to DataFrame for analysis
@@ -101,6 +104,8 @@ best_hyperparameters_for_frac_foldings = results_df.loc[results_df['mean_frac_fo
 )]
 best_hyperparameters_for_sdlogj = results_df.loc[results_df['mean_mean_sdlogj'].idxmin(
 )]
+best_hyperparameters_for_hausdorff = results_df.loc[results_df['mean_mean_hausdorff'].idxmin(
+)]
 
 print("\n\n")
 print("\n\n")
@@ -112,6 +117,7 @@ print("mean:\t\t", best_hyperparameters_for_mean.loc['mean_mean_dice'])
 print("frac_foldings\t",
       best_hyperparameters_for_mean.loc['mean_frac_foldings'])
 print("sdlogj:\t\t", best_hyperparameters_for_mean.loc['mean_mean_sdlogj'])
+print("hausdorff:\t", best_hyperparameters_for_mean.loc['mean_mean_hausdorff'])
 print("\n\n")
 
 print("Best frac_foldings:")
@@ -122,6 +128,8 @@ print("frac_foldings\t",
       best_hyperparameters_for_frac_foldings.loc['mean_frac_foldings'])
 print("sdlogj:\t\t",
       best_hyperparameters_for_frac_foldings.loc['mean_mean_sdlogj'])
+print("hausdorff:\t",
+      best_hyperparameters_for_frac_foldings.loc['mean_mean_hausdorff'])
 print("\n\n")
 
 print("Best sdlogj:")
@@ -130,16 +138,37 @@ print("mean:\t\t", best_hyperparameters_for_sdlogj.loc['mean_mean_dice'])
 print("frac_foldings\t",
       best_hyperparameters_for_sdlogj.loc['mean_frac_foldings'])
 print("sdlogj:\t\t", best_hyperparameters_for_sdlogj.loc['mean_mean_sdlogj'])
+print("hausdorff:\t",
+      best_hyperparameters_for_sdlogj.loc['mean_mean_hausdorff'])
+print("\n\n")
+
+print("Best hausdorff:")
+print(best_hyperparameters_for_hausdorff.loc['folder'])
+print("mean:\t\t",
+      best_hyperparameters_for_hausdorff.loc['mean_mean_dice'])
+print("frac_foldings\t",
+      best_hyperparameters_for_hausdorff.loc['mean_frac_foldings'])
+print("sdlogj:\t\t",
+      best_hyperparameters_for_hausdorff.loc['mean_mean_sdlogj'])
+print("hausdorff:\t",
+      best_hyperparameters_for_hausdorff.loc['mean_mean_hausdorff'])
 
 # Scatter plot and correlation analysis
 
 
 def plot_and_corr(x, y, xlabel, ylabel):
     plt.figure(figsize=(10, 6))
-    sns.scatterplot(x=x, y=y)
+
+    sns.scatterplot(x=x, y=y)  # Modify x axis to be logarithmic
+
     plt.xlabel(xlabel, fontsize=12)
     plt.ylabel(ylabel, fontsize=12)
+
+    if "reg" in xlabel:
+        plt.xscale('log')  # Add scale to x-axis
+
     plt.title(f'Scatter Plot: {xlabel} vs {ylabel}', fontsize=14)
+
     plt.show()
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore')
@@ -151,27 +180,21 @@ def plot_and_corr(x, y, xlabel, ylabel):
             f'/u/home/koeglf/Documents/code/registrationbaselines/examples/analysos/{xlabel}_vs_{ylabel}.png')
 
 
-# Learning rate vs mean_mean_dice
 plot_and_corr(np.array([a[0][0] for a in results_df['sigma']]), results_df['mean_mean_dice'],
               'sigma', 'Mean Dice Score')
-
-# Learning rate vs mean_frac_foldings
 plot_and_corr(np.array([a[0][0] for a in results_df['sigma']]), results_df['mean_frac_foldings'],
               'sigma', 'Mean Frac Foldings')
-
-# Learning rate vs mean_mean_sdlogj
 plot_and_corr(np.array([a[0][0] for a in results_df['sigma']]), results_df['mean_mean_sdlogj'],
               'sigma', 'Mean SDLogJ')
+plot_and_corr(np.array([a[0][0] for a in results_df['sigma']]), results_df['mean_mean_hausdorff'],
+              'sigma', 'Mean hausdorff_mean')
 
 
-# Learning rate vs mean_mean_dice
 plot_and_corr(np.array([a[0] for a in results_df['reg']]), results_df['mean_mean_dice'],
               'regularisation', 'Mean Dice Score')
-
-# Learning rate vs mean_frac_foldings
 plot_and_corr(np.array([a[0] for a in results_df['reg']]), results_df['mean_frac_foldings'],
               'regularisation', 'Mean Frac Foldings')
-
-# Learning rate vs mean_mean_sdlogj
 plot_and_corr(np.array([a[0] for a in results_df['reg']]), results_df['mean_mean_sdlogj'],
               'regularisation', 'Mean SDLogJ')
+plot_and_corr(np.array([a[0] for a in results_df['reg']]), results_df['mean_mean_hausdorff'],
+              'regularisation', 'Mean hausdorff_mean')
