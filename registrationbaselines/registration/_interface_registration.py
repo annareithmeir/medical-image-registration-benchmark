@@ -103,9 +103,9 @@ class RegistrationInterface(ABC):
             f"{name_moving}_deformation_to_{name_fixed}"
 
         path_deformed = Path(
-            path_deformed.resolve().as_posix() + extension_image)
+            path_deformed.as_posix() + extension_image)
         path_deformation = Path(
-            path_deformation.resolve().as_posix() + extension_transformation)
+            path_deformation.as_posix() + extension_transformation)
 
         return Path(path_deformed), Path(path_deformation)
 

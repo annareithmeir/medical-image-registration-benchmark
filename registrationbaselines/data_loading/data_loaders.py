@@ -1155,7 +1155,6 @@ class ACDCDataset(Dataset):
                     "img_y": (Path(y_file), y),
                     "labels_x": (Path(labels_x_file), labels_x),
                     "labels_y": (Path(labels_y_file), labels_y)
-
                 }
 
                 return x, y, labels_x, labels_y

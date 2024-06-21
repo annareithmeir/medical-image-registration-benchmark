@@ -75,6 +75,9 @@ class BSplineFeature(RegistrationInterface):
                                     self.register(
                                         item["img_x"], item["img_y"])
 
+                                    if i == 4:
+                                        break
+
                                 # evaluate
                                 loader_transformations = data_loaders.BaselineTransformations(
                                     Path(self.configuration_all_params["result_path"]) / self.method)
@@ -117,10 +120,14 @@ class BSplineFeature(RegistrationInterface):
         image_moving = al.utils.image_from_numpy(
             image_moving, [1, 1], [0, 0], dtype=dtype, device=device)
 
+        levels = len(self.regularisation_weights)
+
+        pyramid_factors = [[2**i, 2**i] for i in range(levels-1, 0, -1)]
+
         image_fixed_pyramid = al.create_image_pyramid(image_fixed,
-                                                      [[4, 4], [2, 2]])
+                                                      pyramid_factors)
         image_moving_pyramid = al.create_image_pyramid(image_moving,
-                                                       [[4, 4], [2, 2]])
+                                                       pyramid_factors)
 
         for level, (image_fixed, image_moving) in enumerate(zip(image_fixed_pyramid, image_moving_pyramid)):
 
@@ -156,6 +163,9 @@ class BSplineFeature(RegistrationInterface):
                         image_fixed, image_moving, rgb=use_rgb)
                 elif self.configuration["metric"] == "NCC":
                     image_loss = al_loss.pairwise.NCC(
+                        image_fixed, image_moving, rgb=use_rgb)
+                elif self.configuration["metric"] == "MI":
+                    image_loss = al_loss.pairwise.MI(
                         image_fixed, image_moving, rgb=use_rgb)
                 else:
                     raise ValueError(
@@ -199,23 +209,11 @@ class BSplineFeature(RegistrationInterface):
         self.result_transformed_image_path, \
             self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
                                                                         self.moving_path.stem,
-                                                                        ".nii.gz",
-                                                                        ".nii.gz")
+                                                                        ".pt",
+                                                                        ".pt")
 
         # SAVE DEFORMED IMAGE
-        image_deformed = deformed.image.detach().cpu().numpy().squeeze()
-        image_deformed = sitk.GetImageFromArray(image_deformed)
-        image_deformed.SetSpacing(spacing=deformed.spacing)
-        image_deformed.SetOrigin(origin=deformed.origin)
-        sitk.WriteImage(image_deformed, self.result_transformed_image_path)
+        torch.save(deformed.image, self.result_transformed_image_path)
 
         # SAVE DEFORMATION
-        deformation = al_transformation.utils.unit_displacement_to_displacement(
-            deformation)
-        itk_displacement = sitk.GetImageFromArray(
-            deformation.detach().cpu().numpy(), isVector=True)
-        itk_displacement.SetSpacing(spacing=deformed.spacing)
-        itk_displacement.SetOrigin(origin=deformed.origin)
-        sitk.WriteImage(itk_displacement, self.result_transformation_path)
-
-        sitk.ImageReaderBase_GetImageIOFromFileName
+        torch.save(deformation, self.result_transformation_path)

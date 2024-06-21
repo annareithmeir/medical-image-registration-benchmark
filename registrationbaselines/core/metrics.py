@@ -6,6 +6,8 @@ from scipy.spatial.distance import dice, directed_hausdorff
 from scipy.spatial import KDTree
 import nibabel as nib
 import SimpleITK as sitk
+import torch
+
 from registrationbaselines.core import utils
 
 
@@ -49,38 +51,38 @@ def displacement_field_metrics(displacement: sitk.Image) -> Tuple[float, float]:
     return sd_log_det, fraction_foldings
 
 
-def preprocess_segmentations(image1: sitk.Image, image2: sitk.Image):
+def preprocess_segmentations(image1: torch.Tensor, image2: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Prepares egmentations for evaluation by ensuring the classes are the same and removing class 0.
     """
-    data1 = sitk.GetArrayFromImage(image1)
-    data2 = sitk.GetArrayFromImage(image2)
 
     # round each value to nearest integer
-    data1 = np.round(data1).astype(np.uint8)
-    data2 = np.round(data2).astype(np.uint8)
+    image1 = torch.round(image1).to(torch.uint8)
+    image2 = torch.round(image2).to(torch.uint8)
 
     # Ensure the shapes match
-    if data1.shape != data2.shape:
+    if image1.shape != image2.shape:
         raise ValueError("The two NIfTI files must have the same shape.")
 
     # Find unique classes in the images
-    classes1 = np.unique(data1)
-    classes2 = np.unique(data2)
+    classes1 = torch.unique(image1)
+    classes2 = torch.unique(image2)
 
-    assert np.array_equal(classes1,
-                          classes2), "Both images should have the same classes."
+    assert torch.equal(
+        classes1, classes2), "Both images should have the same classes."
 
     # find index of class 0
-    idx = np.where(classes1 == 0)
+    idx = torch.where(classes1 == 0)[0]
 
     # remove class 0
-    classes1 = np.delete(classes1, idx)
+    mask = torch.ones(len(classes1), dtype=bool, device=classes1.device)
+    mask[idx] = 0
+    classes1 = torch.masked_select(classes1, mask)
 
-    return classes1, data1, data2
+    return classes1, image1, image2
 
 
-def dice_score(image1: sitk.Image, image2: sitk.Image) -> List[float]:
+def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     """
     Calculate the Dice score between two NIfTI files using scipy's dice function. It is assumed that both
     images have only one class.
@@ -100,8 +102,8 @@ def dice_score(image1: sitk.Image, image2: sitk.Image) -> List[float]:
 
     for c in classes:
         # Create binary masks for the current class
-        mask1 = (data1 == c).astype(int).ravel()
-        mask2 = (data2 == c).astype(int).ravel()
+        mask1 = (data1 == c).to(torch.uint8).ravel().detach().cpu().numpy()
+        mask2 = (data2 == c).to(torch.uint8).ravel().detach().cpu().numpy()
 
         # Calculate the Dice score using scipy's dice function
         scores.append(1 - dice(mask1, mask2))
@@ -109,7 +111,7 @@ def dice_score(image1: sitk.Image, image2: sitk.Image) -> List[float]:
     return scores
 
 
-def hausdorff_distance(image1: sitk.Image, image2: sitk.Image, percentile: Optional[float] = None) -> List[float]:
+def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: Optional[float] = None) -> List[float]:
     """
     Calculate the 95th percentile of the Hausdorff distance between two NIfTI files for each class.
 
@@ -124,6 +126,10 @@ def hausdorff_distance(image1: sitk.Image, image2: sitk.Image, percentile: Optio
     classes, data1, data2 = preprocess_segmentations(image1, image2)
 
     scores = []
+
+    classes = classes.detach().cpu().numpy()
+    data1 = data1.detach().cpu().numpy()
+    data2 = data2.detach().cpu().numpy()
 
     for c in classes:
         # Get the coordinates of the current class in both images

@@ -12,6 +12,7 @@ import wandb
 from pathlib import Path
 from typing import Optional
 import os
+import SimpleITK as sitk
 os.environ['NEURITE_BACKEND'] = "pytorch"
 # plt.switch_backend('agg')
 
@@ -185,6 +186,10 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
     else:
         background = np.zeros(disp.shape[1:])
 
+    # convert displacement from unit
+    disp[0, ...] = float(disp.shape[1] - 1) * disp[0, ...] / 2.0
+    disp[1, ...] = float(disp.shape[2] - 1) * disp[1, ...] / 2.0
+
     id_grid_H, id_grid_W = np.meshgrid(range(0, background.shape[0] - 1, interval),
                                        range(
                                            0, background.shape[1] - 1, interval),
@@ -282,7 +287,7 @@ def plot_all_registration_results(save_path: Path,
     # print(image_dim)
 
     jacobian_determinant = metrics.jacobian_determinant_from_displacement(
-        displacement)
+        displacement.detach().cpu().numpy())
 
     if image_dim == 3:
         half_slice_idx = [int(s / 2) for s in image_size]
@@ -404,7 +409,7 @@ def plot_all_registration_results(save_path: Path,
 
         # moving image
         ax = fig.add_subplot(3, 9, 1)
-        ax.imshow(moving_image.squeeze(), cmap='gray')
+        ax.imshow(moving_image.squeeze().detach().cpu().numpy(), cmap='gray')
         if moving_keypoints is not None:
             ax.scatter(
                 moving_keypoints[:, 0], moving_keypoints[:, 1], marker='.', c='red')
@@ -414,7 +419,7 @@ def plot_all_registration_results(save_path: Path,
 
         # fixed image
         ax = fig.add_subplot(3, 9, 2)
-        ax.imshow(fixed_image.squeeze(), cmap='gray')
+        ax.imshow(fixed_image.squeeze().detach().cpu().numpy(), cmap='gray')
         if fixed_keypoints is not None:
             ax.scatter(fixed_keypoints[:, 0],
                        fixed_keypoints[:, 1], marker='.', c='red')
@@ -424,7 +429,7 @@ def plot_all_registration_results(save_path: Path,
 
         # deformed image
         ax = fig.add_subplot(3, 9, 3)
-        ax.imshow(pred_image.squeeze(), cmap='gray')
+        ax.imshow(pred_image.squeeze().detach().cpu().numpy(), cmap='gray')
         if pred_keypoints is not None:
             ax.scatter(pred_keypoints[:, 0],
                        pred_keypoints[:, 1], marker='.', c='red')
@@ -434,11 +439,11 @@ def plot_all_registration_results(save_path: Path,
 
         # displacement field
         ax = fig.add_subplot(3, 9, 4)
-        fieldAx = displacement
+        fieldAx = displacement.detach().cpu().numpy().squeeze()
         # plot_quiverplot(fieldAx, ax=ax)
         # neurite.plot.flow([displacement], show=False)
         plot_deformation_field(
-            ax, 1 * fieldAx.transpose(2, 0, 1), pred_image, interval=5, color="white")
+            ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.detach().cpu().numpy().squeeze(), interval=5, color="white")
         ax.set_frame_on(False)
         if toprow:
             ax.title.set_text("deformation")
@@ -448,7 +453,7 @@ def plot_all_registration_results(save_path: Path,
         # difference image before registration
         ax = fig.add_subplot(3, 9, 5)
         diff_image = fixed_image.squeeze() - moving_image.squeeze()
-        ax.imshow(diff_image, cmap='gray')
+        ax.imshow(diff_image.detach().cpu().numpy(), cmap='gray')
         ax.set_frame_on(False)
         if toprow:
             ax.title.set_text("diff image")
@@ -458,7 +463,7 @@ def plot_all_registration_results(save_path: Path,
         # difference image after registration
         ax = fig.add_subplot(3, 9, 6)
         diff_image = fixed_image.squeeze() - pred_image.squeeze()
-        ax.imshow(diff_image, cmap='gray')
+        ax.imshow(diff_image.detach().cpu().numpy(), cmap='gray')
         ax.set_frame_on(False)
         if toprow:
             ax.title.set_text("diff image after")
@@ -467,6 +472,9 @@ def plot_all_registration_results(save_path: Path,
         # boundaries
         ax = fig.add_subplot(3, 9,  7)
         if (fixed_labels is not None) and (pred_labels is not None):
+            fixed_labels = fixed_labels.squeeze().detach().cpu().numpy()
+            pred_labels = pred_labels.squeeze().detach().cpu().numpy()
+
             fixed_boundary = multilabel_to_boundary(fixed_labels)
             pred_boundary = multilabel_to_boundary(pred_labels)
             fixed_boundary = fixed_boundary.astype(np.int8)
