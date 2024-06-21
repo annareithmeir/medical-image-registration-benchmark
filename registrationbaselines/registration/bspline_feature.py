@@ -68,6 +68,10 @@ class BSplineFeature(RegistrationInterface):
 
                                 self.method = self.configuration_all_params["method_name"] + \
                                     f"_{encoder}_{metric}_lr{lr}_reg{regularisation_weight}_it{iterations}_sigma{sigma}"
+
+                                if self.configuration["encoder"] == "DINOv2":
+                                    self.method += f"_dino_upsample{self.configuration_all_params['dino_upsample_factor']}"
+
                                 self._create_result_directories()
 
                                 print(f"\nregister with parameters: \n\
@@ -181,7 +185,8 @@ class BSplineFeature(RegistrationInterface):
                                                                      image_moving,
                                                                      rgb=use_rgb,
                                                                      extractor=self.configuration["encoder"],
-                                                                     loss_type=self.configuration["metric"])
+                                                                     loss_type=self.configuration["metric"],
+                                                                     dino_upsample_factor=self.configuration_all_params["dino_upsample_factor"])
 
             registration.set_image_loss([image_loss])
             # registration.set_image_loss(
