@@ -15,6 +15,11 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
 
     displacement = displacement.squeeze()
 
+    # convert displacement from unit
+    if displacement.min() >= -1 or displacement.max() <= 1:
+        displacement[0, ...] = float(displacement.shape[0] - 1) * displacement[0, ...] / 2.0  # nopep8
+        displacement[1, ...] = float(displacement.shape[1] - 1) * displacement[1, ...] / 2.0  # nopep8
+
     assert displacement.ndim == 4 and displacement.shape[-1] == 3 or \
         displacement.ndim == 3 and displacement.shape[-1] == 2, \
         "Displacement field should have shape (h, w, d, 3) or (w, d, 2)"
@@ -34,12 +39,6 @@ def displacement_field_metrics(displacement: np.array) -> Tuple[float, float]:
     """
 
     epsilon = 1e-6  # so we don't get log(0)
-
-    # convert displacement from unit
-    displacement[0, ...] = float(
-        displacement.shape[1] - 1) * displacement[0, ...] / 2.0
-    displacement[1, ...] = float(
-        displacement.shape[2] - 1) * displacement[1, ...] / 2.0
 
     jacobian_determinant = jacobian_determinant_from_displacement(
         displacement)
