@@ -14,6 +14,15 @@ path_medsam = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/BSplines
 path_sam = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/BSplines_feat_val/BSplines_feat_SAM_COSINE_lr0.0005_reg[256]_it[1500]_sigma[[6, 6]]/results.csv'
 path_dinov2 = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/BSplines_feat_val/BSplines_feat_DINOv2_COSINE_lr0.0005_reg[256]_it[1500]_sigma[[6, 6]]_dino_upsample14/results.csv'
 
+metric_mean = 'hausdorff_mean'
+y_label = 'Hausdorff distance (px)'
+# metric_mean = 'dice_mean'
+# y_label = 'DICE score'
+# metric_mean = 'frac_foldings'
+# y_label = 'Fraction of foldings'
+metric_mean = 'sdlogj'
+y_label = 'Log Jacobian determinant (std)'
+
 # =============================================================================
 # =============================================================================
 # =============================================================================
@@ -27,14 +36,14 @@ df_sam = pd.read_csv(path_sam)[:-4]
 df_dinov2 = pd.read_csv(path_dinov2)[:-4]
 
 # Extract only dice_mean from each DataFrame
-df_zero_disp = df_zero_disp[['dice_mean']].rename(
-    columns={'dice_mean': 'Baseline'})
-df_mse = df_mse[['dice_mean']].rename(columns={'dice_mean': 'BSpline MSE'})
-df_medsam = df_medsam[['dice_mean']].rename(
-    columns={'dice_mean': 'BSpline MedSAM'})
-df_sam = df_sam[['dice_mean']].rename(columns={'dice_mean': 'BSpline SAM'})
-df_dinov2 = df_dinov2[['dice_mean']].rename(
-    columns={'dice_mean': 'BSpline DINOv2'})
+df_zero_disp = df_zero_disp[[metric_mean]].rename(
+    columns={metric_mean: 'Baseline'})
+df_mse = df_mse[[metric_mean]].rename(columns={metric_mean: 'BSpline MSE'})
+df_medsam = df_medsam[[metric_mean]].rename(
+    columns={metric_mean: 'BSpline MedSAM'})
+df_sam = df_sam[[metric_mean]].rename(columns={metric_mean: 'BSpline SAM'})
+df_dinov2 = df_dinov2[[metric_mean]].rename(
+    columns={metric_mean: 'BSpline DINOv2'})
 
 vxm1 = copy.deepcopy(df_dinov2).rename(columns={'BSpline DINOv2': 'Vxm MSE'})
 vxm2 = copy.deepcopy(df_dinov2).rename(
@@ -43,30 +52,47 @@ vxm3 = copy.deepcopy(df_dinov2).rename(columns={'BSpline DINOv2': 'Vxm SAM'})
 vxm4 = copy.deepcopy(df_dinov2).rename(
     columns={'BSpline DINOv2': 'Vxm MedSAM'})
 
-# Concatenate all DataFrames into a single DataFrame
-df = pd.concat([df_zero_disp, df_mse, df_dinov2, df_sam,
-               df_medsam, vxm1, vxm2, vxm3, vxm4], axis=1)
+if 'frac_foldings' in metric_mean or 'sdlogj' in metric_mean:
+    # Concatenate all DataFrames into a single DataFrame
+    df = pd.concat([df_mse, df_dinov2, df_sam,
+                    df_medsam, vxm1, vxm2, vxm3, vxm4], axis=1)
 
-# Melt the DataFrame to long format
-df_melted = df.melt(value_vars=['Baseline',
-                                'BSpline MSE',
-                                'BSpline DINOv2',
-                                'BSpline SAM',
-                                'BSpline MedSAM',
-                                'Vxm MSE',
-                                'Vxm DINOv2',
-                                'Vxm SAM',
-                                'Vxm MedSAM'],
-                    var_name='Metric', value_name='Value')
+    # Melt the DataFrame to long format
+    df_melted = df.melt(value_vars=['BSpline MSE',
+                                    'BSpline DINOv2',
+                                    'BSpline SAM',
+                                    'BSpline MedSAM',
+                                    'Vxm MSE',
+                                    'Vxm DINOv2',
+                                    'Vxm SAM',
+                                    'Vxm MedSAM'],
+                        var_name='Metric', value_name='Value')
+else:
+    # Concatenate all DataFrames into a single DataFrame
+    df = pd.concat([df_zero_disp, df_mse, df_dinov2, df_sam,
+                    df_medsam, vxm1, vxm2, vxm3, vxm4], axis=1)
+
+    # Melt the DataFrame to long format
+    df_melted = df.melt(value_vars=['Baseline',
+                                    'BSpline MSE',
+                                    'BSpline DINOv2',
+                                    'BSpline SAM',
+                                    'BSpline MedSAM',
+                                    'Vxm MSE',
+                                    'Vxm DINOv2',
+                                    'Vxm SAM',
+                                    'Vxm MedSAM'],
+                        var_name='Metric', value_name='Value')
 
 # =============================================================================
 # =============================================================================
 # =============================================================================
 
 # Define colors for each boxplot
-palette = ['#b0b0b0',
-           '#ffab2e', '#6e4fb0', '#2298ec', '#93cdf6',
+palette = ['#ffab2e', '#6e4fb0', '#2298ec', '#93cdf6',
            '#ffab2e', '#6e4fb0', '#2298ec', '#93cdf6']
+if 'frac_foldings' not in metric_mean and 'sdlogj' not in metric_mean:
+    palette = ['#b0b0b0'] + palette
 
 line_width = 1.7
 # Create the boxplot using seaborn
@@ -77,7 +103,8 @@ plt.rcParams['axes.linewidth'] = line_width
 
 ax = sns.boxplot(
     data=df_melted, x="Metric", y="Value",
-    notch=True, showcaps=True,
+    notch=True if 'frac_foldings' not in metric_mean and 'sdlogj' not in metric_mean else False,
+    showcaps=True,
     flierprops={"marker": "o"},
     palette=palette,
     width=0.3,  # Adjust the width of the boxes
@@ -133,7 +160,7 @@ plt.tick_params(axis='both', which='both', width=line_width)
 
 
 # Customize the plot to match the style
-plt.ylabel('DICE score', fontsize=18)
+plt.ylabel(y_label, fontsize=18)
 plt.xticks(fontsize=16, rotation=45, ha='right')
 plt.yticks(fontsize=14)
 plt.xlabel('')  # Remove the x-label
