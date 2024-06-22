@@ -1,0 +1,10 @@
+method_name:             BSplines_feat
+# result_path:            /home/anna/PycharmProjects/registrationbaselines/tmp/results
+result_path:             /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_test
+encoders:                [MedSAM, SAM, DINOv2]
+metrics:                 [COSINE]
+lrs:                     [0.0005]
+regularisation_weights:  [[256]]
+iterationss:             [[1500]]
+sigmas:                  [[[6, 6]]]
+dino_upsample_factor:    14
