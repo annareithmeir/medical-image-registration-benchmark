@@ -176,6 +176,51 @@ class Evaluation():
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
 
+    def dice_anna(self, image1: np.ndarray, image2: np.ndarray, img_mask: Optional[np.ndarray] = None) -> float:
+        """
+        Taken from github of conditional LapIRN by Tony Mok
+        :param image1: pred
+        :param image2:true
+        :return:
+        """
+        unique_class = np.unique(image2)
+        dice = 0
+        num_count = 0
+        if img_mask is not None:
+            image1[img_mask == 0] = 0
+            # image2[img_mask==0]=0
+        for i in unique_class:
+            if (i == 0) or ((image1 == i).sum() == 0) or ((image2 == i).sum() == 0):
+                continue
+            sub_dice = np.sum(image2[image1 == i] == i) * \
+                2.0 / (np.sum(image1 == i) + np.sum(image2 == i))
+            dice += sub_dice
+            num_count += 1
+        if num_count == 0:
+            return 0
+        else:
+            return dice / num_count
+
+    def dice_per_class_anna(self, image1: np.ndarray, image2: np.ndarray, classes: list[int], img_mask: np.ndarray = None) -> list[float]:
+        """
+        Computes dice scores per class labels. Based on Tony Mok LapIRN implementation
+        :param image1:
+        :param image2:
+        :param classes: list of labels to compute dice on
+        :return: list of dice scores
+        """
+        dice_ls = []
+        if img_mask is not None:
+            image1[img_mask == 0] = 0
+        for i in classes:
+            if (i == 0) or (np.sum(image1 == i) == 0) or (np.sum(image2 == i) == 0):
+                dice_ls.append(0)  # TODO check if correct
+                continue
+            sub_dice = np.sum(image2[image1 == i] == i) * \
+                2.0 / (np.sum(image1 == i) + np.sum(image2 == i))
+            dice_ls.append(sub_dice)
+        return dice_ls
+
     def _evaluate_segmentation(self,
                                path_displacement: Path,
                                segmentation_fixed: Tuple[Path, np.ndarray],
@@ -214,6 +259,10 @@ class Evaluation():
 
         dice_scores = metrics.dice_score(
             segmentation_fixed.squeeze(), warped.squeeze())
+
+        # dice_score_me = np.mean(np.array(dice_scores))
+        # dice_scores_anna = self.dice_per_class_anna(segmentation_fixed.squeeze(
+        # ).detach().cpu().numpy(), segmentation_moving.squeeze().detach().cpu().numpy(), [1, 2, 3])
 
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
