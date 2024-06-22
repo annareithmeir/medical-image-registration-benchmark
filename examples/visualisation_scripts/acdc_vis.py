@@ -67,4 +67,6 @@ plt.tight_layout()
 plt.show()
 
 plt.savefig(
-    '/u/home/koeglf/Documents/code/registrationbaselines/examples/visualisation_scripts/acdc_vis.png')
+    '/u/home/koeglf/Documents/code/registrationbaselines/examples/visualisation_scripts/acdc_vis.png',
+    bbox_inches='tight',
+    pad_inches=0)
