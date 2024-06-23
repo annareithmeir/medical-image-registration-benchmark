@@ -66,8 +66,11 @@ class BSplineFeature(RegistrationInterface):
                                 self.configuration["iterations"] = iterations
                                 self.configuration["sigma"] = sigma
 
+                                joined_metric = ''.join(
+                                    [f'{value}_{key}_' for key, value in metric.items()])
+
                                 self.method = self.configuration_all_params["method_name"] + \
-                                    f"_{encoder}_{metric}_lr{lr}_reg{regularisation_weight}_it{iterations}_sigma{sigma}"
+                                    f"_{encoder}_{joined_metric}_lr{lr}_reg{regularisation_weight}_it{iterations}_sigma{sigma}"
 
                                 if self.configuration["encoder"] == "DINOv2":
                                     self.method += f"_dino_upsample{self.configuration_all_params['dino_upsample_factor']}"
@@ -75,12 +78,12 @@ class BSplineFeature(RegistrationInterface):
                                 self._create_result_directories()
 
                                 print(f"\nregister with parameters: \n\
-                                      encoder: {encoder}\n\
-                                      metric: {metric}\n\
-                                      lr: {lr}\n\
-                                      regularisation_weight: {regularisation_weight}\n\
-                                      iterations: {iterations}\n\
-                                      sigma: {sigma}\n")
+                                    encoder: {encoder}\n\
+                                    metric: {joined_metric}\n\
+                                    lr: {lr}\n\
+                                    regularisation_weight: {regularisation_weight}\n\
+                                    iterations: {iterations}\n\
+                                    sigma: {sigma}\n")
                                 for i in tqdm(range(len(dataloader))):
                                     item = dataloader[i]
                                     self.register(
@@ -166,31 +169,38 @@ class BSplineFeature(RegistrationInterface):
 
             registration.set_transformation(transformation)
 
-            # this means we do it on the images
-            if self.configuration["encoder"] == "no_encoder":
-                if self.configuration["metric"] == "MSE":
-                    image_loss = al_loss.pairwise.MSE(
-                        image_fixed, image_moving, rgb=use_rgb)
-                elif self.configuration["metric"] == "NCC":
-                    image_loss = al_loss.pairwise.NCC(
-                        image_fixed, image_moving, rgb=use_rgb)
-                elif self.configuration["metric"] == "MI":
-                    image_loss = al_loss.pairwise.MI(
-                        image_fixed, image_moving, rgb=use_rgb)
-                else:
-                    raise ValueError(
-                        f'Metric {self.configuration["metric"]} not implemented')
-            else:
-                image_loss = al_loss.pairwise.LatentSpaceFeatureLoss(image_fixed,
-                                                                     image_moving,
-                                                                     rgb=use_rgb,
-                                                                     extractor=self.configuration["encoder"],
-                                                                     loss_type=self.configuration["metric"],
-                                                                     dino_upsample_factor=self.configuration_all_params["dino_upsample_factor"])
+            image_loss = []
+            image_loss_weights = []
+            # image losses
+            if "MSE" in self.configuration["metric"]:
+                image_loss.append(al_loss.pairwise.MSE(
+                    image_fixed, image_moving, rgb=use_rgb))
+                image_loss_weights.append(self.configuration["metric"]["MSE"])
 
-            registration.set_image_loss([image_loss])
-            # registration.set_image_loss(
-            #     [image_loss_image, image_loss_feature], [0.5, 2])
+            elif "NCC" in self.configuration["metric"]:
+                image_loss.append(al_loss.pairwise.NCC(
+                    image_fixed, image_moving, rgb=use_rgb))
+                image_loss_weights.append(self.configuration["metric"]["NCC"])
+
+            elif "MI" in self.configuration["metric"]:
+                image_loss.append(al_loss.pairwise.MI(
+                    image_fixed, image_moving, rgb=use_rgb))
+                image_loss_weights.append(self.configuration["metric"]["MI"])
+
+            # feature losses
+            if "COSINE" in self.configuration["metric"]:
+
+                image_loss.append(al_loss.pairwise.LatentSpaceFeatureLoss(image_fixed,
+                                                                          image_moving,
+                                                                          rgb=use_rgb,
+                                                                          extractor=self.configuration[
+                                                                              "encoder"],
+                                                                          loss_type="COSINE",
+                                                                          dino_upsample_factor=self.configuration_all_params["dino_upsample_factor"]))
+                image_loss_weights.append(
+                    self.configuration["metric"]["COSINE"])
+
+            registration.set_image_loss(image_loss, image_loss_weights)
 
             # define the regulariser for the displacement
             regulariser = al_regulariser.displacement.DiffusionRegulariser(
@@ -209,14 +219,12 @@ class BSplineFeature(RegistrationInterface):
 
             constant_flow = transformation.get_flow()
 
-            loss_lists.append(image_loss.loss_list)
-
         # create final result
         displacement = transformation.get_displacement()
         warped_image = al_transformation.utils.warp_image(
             image_moving, displacement)
 
-        self._save_results(warped_image, displacement, loss_lists)
+        self._save_results(warped_image, displacement, image_loss)
 
     def _save_results(self, deformed: al.Image, deformation: torch.Tensor, loss_lists: list):
         self.result_transformed_image_path, \
@@ -235,18 +243,21 @@ class BSplineFeature(RegistrationInterface):
         path_losses = self.result_transformation_path.parent.parent / "losses"
         path_losses.mkdir(exist_ok=True)
 
-        for i, loss_list in enumerate(loss_lists):
+        for loss in loss_lists:
+
+            name = loss._name
+
             loss_list_path = path_losses / \
                 (str(self.result_transformation_path.name).replace(
-                    ".pt", "") + f"_level{i}_loss.png")
+                    ".pt", "") + f"_{name}_loss.png")
 
             # plot the loss
-            loss_list = np.array(loss_list)
+            loss_list = np.array(loss.loss_list)
 
             plt.figure()
             plt.plot(loss_list)
             plt.xlabel("iteration")
             plt.ylabel("loss")
-            plt.title(f"{self.configuration['metric']}")
+            plt.title(name)
             plt.savefig(loss_list_path.with_suffix(".png"))
             plt.ylim(bottom=-1.0)
