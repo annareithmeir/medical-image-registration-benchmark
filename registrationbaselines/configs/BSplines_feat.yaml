@@ -2,7 +2,7 @@ method_name:             BSplines_feat
 # result_path:            /home/anna/PycharmProjects/registrationbaselines/tmp/results
 result_path:             /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_test
 encoders:                [MedSAM, SAM, DINOv2]
-metrics:                 [COSINE]
+metrics:                 [{COSINE: 0.5, MSE: 0.5}]
 lrs:                     [0.0005]
 regularisation_weights:  [[256]]
 iterationss:             [[1500]]
