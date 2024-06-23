@@ -22,7 +22,8 @@ def extract_hyperparameters(folder_name):
     sigma_match = re.search(r'sigma\[\[(.*?)\]\]', folder_name)
 
     lr = float(lr_match.group(1)) if lr_match else None
-    reg = list(map(int, reg_match.group(1).split(', '))) if reg_match else None
+    reg = list(map(float, reg_match.group(1).split(', '))
+               ) if reg_match else None
     sigma = ast.literal_eval(
         f'[[{sigma_match.group(1)}]]') if sigma_match else None
 
@@ -88,13 +89,15 @@ def main(base_dir):
 
 
 # Define the base directory
-base_directory = '/u/home/koeglf/Documents/code/registrationbaselines/tmp/results_paramsearch'
+base_directory = '/u/home/koeglf/Documents/code/registrationbaselines/tmp/results_paramsearch_val'
 
 # Run the main function and display the results
 results_df = main(base_directory)
 
 # Display the DataFrame
-print(results_df)
+with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+    os.environ['COLUMNS'] = '200'
+    print(results_df)
 
 # Analyze to find the best hyperparameters
 # Example: Find the best based on highest mean_dice

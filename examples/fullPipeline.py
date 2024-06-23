@@ -37,8 +37,8 @@ def main() -> None:
     method = "BSplines"
     # method = "voxelmorph_feature"
 
-    path_config = base_dir / f"registrationbaselines/configs/BSplines_feat.yaml"
-    # path_config = base_dir / f"registrationbaselines/configs/{method}.yaml"
+    # path_config = base_dir / f"registrationbaselines/configs/BSplines_feat.yaml"
+    path_config = base_dir / f"registrationbaselines/configs/{method}.yaml"
     config = utils.read_config(path_config)
 
     if method == "BSplines":
