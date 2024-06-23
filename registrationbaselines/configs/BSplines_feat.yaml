@@ -5,7 +5,7 @@ encoders:                [DINOv2, SAM, MedSAM]
 metrics:                 [{L1: 0.0, MSE: 0.0}]
 #metrics:                 [{COSINE: 0.5, MSE: 0.5}]
 lrs:                     [0.0005]
-regularisation_weights:  [[256]]
+regularisation_weights:  [[0.001, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0]]
 iterationss:             [[1500]]
 sigmas:                  [[[6, 6]]]
 dino_upsample_factor:    14
