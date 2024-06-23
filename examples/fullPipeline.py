@@ -54,7 +54,8 @@ def main() -> None:
     elif machine_name == "janus":
         path_data = Path("/data/ACDC/database/")
     else:
-        path_data = Path("/home/anna/datasets/FIRE")
+        path_data = Path("/home/anna/datasets/ACDC")
+        # path_data = Path("/home/anna/datasets/FIRE")
 
     loader_data = data_loaders.ACDCDataset(path_data,
                                            return_mode="test_imgs4",

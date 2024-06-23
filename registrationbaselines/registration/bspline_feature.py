@@ -148,7 +148,7 @@ class BSplineFeature(RegistrationInterface):
             number_of_iterations = self.configuration["iterations"][level]
             sigma = self.configuration["sigma"][level]
 
-            registration = al.PairwiseRegistration(verbose=False)
+            registration = al.PairwiseRegistration(verbose=True)
 
             # define the transformation
             # transformation = al.transformation.pairwise.RigidTransformation(
@@ -199,6 +199,17 @@ class BSplineFeature(RegistrationInterface):
                                                                           dino_upsample_factor=self.configuration_all_params["dino_upsample_factor"]))
                 image_loss_weights.append(
                     self.configuration["metric"]["COSINE"])
+            elif "L1" in self.configuration["metric"]:
+
+                image_loss.append(al_loss.pairwise.LatentSpaceFeatureLoss(image_fixed,
+                                                                          image_moving,
+                                                                          rgb=use_rgb,
+                                                                          extractor=self.configuration[
+                                                                              "encoder"],
+                                                                          loss_type="L1",
+                                                                          dino_upsample_factor=self.configuration_all_params["dino_upsample_factor"]))
+                image_loss_weights.append(
+                    self.configuration["metric"]["L1"])
 
             registration.set_image_loss(image_loss, image_loss_weights)
 
