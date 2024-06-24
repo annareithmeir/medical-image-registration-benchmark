@@ -17,6 +17,10 @@ def get_paths_and_labels():
         r'results_set2/BSplines_feat_MedSAM_1.0_COSINE__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
     path_medsam_l1 = base_dir + \
         r'results_set2/BSplines_feat_MedSAM_1.0_L1__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
+    path_medsam_l1_ncc = base_dir + \
+        r'results_set3/BSplines_feat_MedSAM_0.5_L1_0.5_NCC__lr0.0005_reg[120]_it[1500]_sigma[[6, 6]]/results.csv'
+    path_medsam_cosine_ncc = base_dir + \
+        r'results_set3/BSplines_feat_MedSAM_0.5_COSINE_0.5_NCC__lr0.0005_reg[120]_it[1500]_sigma[[6, 6]]/results.csv'
 
     path_sam_cosine = base_dir + \
         r'results_set2/BSplines_feat_SAM_1.0_COSINE__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
@@ -24,6 +28,8 @@ def get_paths_and_labels():
         r'results_set2/BSplines_feat_SAM_1.0_L1__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
     path_sam_l1_ncc = base_dir + \
         r'results_set3/BSplines_feat_SAM_0.5_L1_0.5_NCC__lr0.0005_reg[120]_it[1500]_sigma[[6, 6]]/results.csv'
+    path_sam_cosine_ncc = base_dir + \
+        r'results_set3/BSplines_feat_SAM_0.5_COSINE_0.5_NCC__lr0.0005_reg[120]_it[1500]_sigma[[6, 6]]/results.csv'
 
     path_dinov2_cosine = base_dir + \
         r'results_set2/BSplines_feat_DINOv2_1.0_COSINE__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]_dino_upsample14/results.csv'
@@ -31,27 +37,46 @@ def get_paths_and_labels():
         r'results_set2/BSplines_feat_DINOv2_1.0_L1__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]_dino_upsample14/results.csv'
     path_dinov2_l1_ncc = base_dir + \
         r'results_set3/BSplines_feat_DINOv2_0.5_L1_0.5_NCC__lr0.0005_reg[120]_it[1500]_sigma[[6, 6]]_dino_upsample14/results.csv'
+    path_dinov2_cosine_ncc = base_dir + \
+        r'results_set3/BSplines_feat_DINOv2_0.5_COSINE_0.5_NCC__lr0.0005_reg[120]_it[1500]_sigma[[6, 6]]_dino_upsample14/results.csv'
 
     #
     file_paths = [path_zero_disp,
+
                   path_ncc,
+
                   path_medsam_cosine,
                   path_medsam_l1,
+                  path_medsam_cosine_ncc,
+                  path_medsam_l1_ncc,
+
                   path_sam_cosine,
                   path_sam_l1,
+                  path_sam_cosine_ncc,
                   path_sam_l1_ncc,
+
                   path_dinov2_cosine,
                   path_dinov2_l1,
+                  path_dinov2_cosine_ncc,
                   path_dinov2_l1_ncc]
+
     names = ["Initial",
+
              "NCC(image)",
+
              "cosine(MedSAM)",
              "L1(MedSAM)",
+             "cosine(MedSAM) + NCC(image)",
+             "L1(MedSAM) + NCC(image)",
+
              "cosine(SAM)",
              "L1(SAM)",
+             "cosine(SAM) + NCC(image)",
              "L1(SAM) + NCC(image)",
+
              "cosine(DINOv2)",
              "L1(DINOv2)",
+             "cosine(DINOv2) + NCC(image)",
              "L1(DINOv2) + NCC(image)"]
 
     return file_paths, names
@@ -105,10 +130,10 @@ def plot_boxplots(file_paths, custom_labels, line_width=2, palette='Set3'):
     # Define a custom palette
     gray = ["#d1d1d1"]
     yellow = ["#fffd8a"]
-    blues = ["#aed6e5", "#6cb4d0", "#51a6c8"]
-    oranges = ["#ffc370", '#ffac38', '#e17e2d']
-    purples = ["#d9b8ff", "#c08aff", "#a04dff"]
-    custom_palette = gray + yellow + blues[:2] + oranges[:] + purples[:]
+    blues = ["#aed6e5", "#6cb4d0", "#51a6c8", "#378dae"]
+    oranges = ["#ffc370", '#ffac38', '#e17e2d', '#c96a1d']
+    purples = ["#d9b8ff", "#c08aff", "#a04dff", '#8214ff']
+    custom_palette = gray + yellow + blues + oranges + purples
 
     # Plotting function
     plt.figure(figsize=(figure_width, 6))
@@ -130,11 +155,15 @@ def plot_boxplots(file_paths, custom_labels, line_width=2, palette='Set3'):
                               "linewidth": line_width*box_line_fac},
                     medianprops={"color": "#b00202", "linestyle": "-",
                                  "linewidth": line_width*box_line_fac * 1.3})
-    g.legend.set_bbox_to_anchor((0.3, 0.24))
+    g.legend.set_bbox_to_anchor((0.31, 0.295))
     g.legend.set_title('')
     plt.setp(g._legend.get_texts(), fontsize=6)
+    legend = g._legend
+    legend.handletextpad = 0.5  # Space between legend handle and text
+    legend.labelspacing = 0.1  # Vertical space between legend entries
+    # legend._legend_box.align = "left"
 
-    plt.ylim(0.15, 1.0)
+    plt.ylim(0.0, 1.0)
 
     sns.despine(right=False,
                 left=False,
