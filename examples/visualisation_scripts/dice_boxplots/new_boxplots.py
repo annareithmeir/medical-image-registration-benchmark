@@ -122,9 +122,11 @@ def plot_boxplots(file_paths, custom_labels, line_width=2, palette='Set3'):
                               "linewidth": line_width*box_line_fac},
                     medianprops={"color": "#b00202", "linestyle": "-",
                                  "linewidth": line_width*box_line_fac * 1.3})
-    g.legend.set_bbox_to_anchor((0.36, 0.25))
+    g.legend.set_bbox_to_anchor((0.3, 0.24))
     g.legend.set_title('')
-    plt.ylim(0.0, 1.0)
+    plt.setp(g._legend.get_texts(), fontsize=6)
+
+    plt.ylim(0.15, 1.0)
 
     sns.despine(right=False,
                 left=False,
