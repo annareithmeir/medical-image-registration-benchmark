@@ -105,7 +105,7 @@ plt.axis('off')  # Turn off axis
 
 plt.subplot(152)
 plt.imshow(feature_dim1.numpy())
-plt.title('Feature')
+plt.title('Middle slice feature')
 plt.axis('off')  # Turn off axis
 
 plt.subplot(153)
