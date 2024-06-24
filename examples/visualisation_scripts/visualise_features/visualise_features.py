@@ -83,8 +83,9 @@ plt.tight_layout()
 plt.show()
 
 plt.savefig(
-    "registrationbaselines/examples/visualisation_scripts/visualise_acdc/acdc_vis.png",
+    "registrationbaselines/examples/visualisation_scripts/visualise_features/features.png",
     bbox_inches='tight',
-    pad_inches=0.0)
+    pad_inches=0.03,
+    dpi=300)
 
 x = 0

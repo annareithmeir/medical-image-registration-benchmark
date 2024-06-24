@@ -145,7 +145,7 @@ def plot_boxplots(file_paths, custom_labels, line_width=2, palette='Set3'):
     plt.savefig(
         'registrationbaselines/examples/visualisation_scripts/dice_boxplots/boxplots.png',
         dpi=300,
-        bbox_inches='tight', bbox_extra_artists=[g.legend], pad_inches=0.01)`
+        bbox_inches='tight', bbox_extra_artists=[g.legend], pad_inches=0.01)
 
     x = 0
 

@@ -67,4 +67,5 @@ plt.show()
 plt.savefig(
     'registrationbaselines/examples/visualisation_scripts/visualise_acdc/acdc_vis.png',
     bbox_inches='tight',
-    pad_inches=0)
+    pad_inches=0,
+    dpi=300)

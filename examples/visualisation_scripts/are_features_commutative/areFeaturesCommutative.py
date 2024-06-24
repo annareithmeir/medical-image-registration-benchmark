@@ -79,7 +79,7 @@ image_deformed = deform_image(th.float32, 'cpu', image, sigma=[300, 300])
 feature_dim1_deformed = deform_image(
     th.float32, 'cpu', feature_dim1, sigma=[300, 300])
 
-features_of_image_deformed = torch.load("/u/home/koeglf/Documents/code/registrationbaselines/examples/visualisation_scripts/are_features_symmetric/features_sam_deformed.pt",
+features_of_image_deformed = torch.load("/u/home/koeglf/Documents/code/registrationbaselines/examples/visualisation_scripts/are_features_commutative/features_sam_deformed.pt",
                                         map_location='cpu').detach().numpy().transpose(1, 0)
 features_of_image_deformed_dim = features_pca(
     features_of_image_deformed, 5).squeeze()[:, 2].reshape(64, 64)
@@ -132,6 +132,7 @@ plt.subplots_adjust(wspace=0.1)
 plt.show()
 
 plt.savefig(
-    "registrationbaselines/examples/visualisation_scripts/are_features_symmetric/symmetric_features.png",
+    "registrationbaselines/examples/visualisation_scripts/are_features_commutative/commutative_features.png",
     bbox_inches='tight',
-    pad_inches=0.0)
+    pad_inches=0.0,
+    dpi=300)
