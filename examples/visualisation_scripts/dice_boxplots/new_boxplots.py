@@ -144,7 +144,8 @@ def plot_boxplots(file_paths, custom_labels, line_width=2, palette='Set3'):
     plt.show()
     plt.savefig(
         'registrationbaselines/examples/visualisation_scripts/dice_boxplots/boxplots.png',
-        dpi=300)
+        dpi=300,
+        bbox_inches='tight')
 
     x = 0
 
