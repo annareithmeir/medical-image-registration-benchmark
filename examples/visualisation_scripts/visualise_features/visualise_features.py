@@ -11,10 +11,10 @@ def features_pca(features: np.ndarray, num_dims: int) -> np:
     return pca_features
 
 
-path_image = "/u/home/koeglf/Documents/code/registrationbaselines/tmp/visualise_features/image_dino.pt"
-path_features_dino = "/u/home/koeglf/Documents/code/registrationbaselines/tmp/visualise_features/features_dino.pt"
-path_features_sam = "/u/home/koeglf/Documents/code/registrationbaselines/tmp/visualise_features/features_sam.pt"
-path_features_medsam = "/u/home/koeglf/Documents/code/registrationbaselines/tmp/visualise_features/features_medsam.pt"
+path_image = "registrationbaselines/examples/visualisation_scripts/visualise_features/image_dino.pt"
+path_features_dino = "registrationbaselines/examples/visualisation_scripts/visualise_features/features_dino.pt"
+path_features_sam = "registrationbaselines/examples/visualisation_scripts/visualise_features/features_sam.pt"
+path_features_medsam = "registrationbaselines/examples/visualisation_scripts/visualise_features/features_medsam.pt"
 
 image = torch.load(path_image, map_location='cpu').detach(
 ).numpy().squeeze()[0, :, :]
@@ -83,16 +83,8 @@ plt.tight_layout()
 plt.show()
 
 plt.savefig(
-    "/u/home/koeglf/Documents/code/registrationbaselines/tmp/visualise_features/features.png")
-
-x = 0
-
-
-# Adjust layout and show the figure
-plt.tight_layout()
-plt.show()
-
-plt.savefig(
-    "/u/home/koeglf/Documents/code/registrationbaselines/tmp/visualise_features/features.png")
+    "registrationbaselines/examples/visualisation_scripts/visualise_features/features.png",
+    bbox_inches='tight',
+    pad_inches=0.0)
 
 x = 0
