@@ -8,11 +8,28 @@ from matplotlib.patches import PathPatch, Patch
 # =============================================================================
 # =============================================================================
 # Load the provided CSV file
-path_zero_disp = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/results_zero_displacement_test.csv'
-path_mse = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/results_test/BSplines_no_encoder_MSE_lr0.0005_reg[256]_it[1500]_sigma[[6, 6]]/results.csv'
-path_medsam = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/BSplines_feat_val/BSplines_feat_MedSAM_COSINE_lr0.0005_reg[256]_it[1500]_sigma[[6, 6]]/results.csv'
-path_sam = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/BSplines_feat_val/BSplines_feat_SAM_COSINE_lr0.0005_reg[256]_it[1500]_sigma[[6, 6]]/results.csv'
-path_dinov2 = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/BSplines_feat_val/BSplines_feat_DINOv2_COSINE_lr0.0005_reg[256]_it[1500]_sigma[[6, 6]]_dino_upsample14/results.csv'
+
+base_dir = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/'
+
+path_zero_disp = base_dir + r'results_zero_displacement_test.csv'
+
+path_ncc = base_dir + \
+    r'results_set2/BSplines_no_encoder_1.0_NCC__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
+
+path_medsam_cosine = base_dir + \
+    r'results_set2/BSplines_feat_MedSAM_1.0_COSINE__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
+path_medsam_l1 = base_dir + \
+    r'results_set2/BSplines_feat_MedSAM_1.0_L1__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
+
+path_sam_cosine = base_dir + \
+    r'results_set2/BSplines_feat_SAM_1.0_COSINE__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
+path_sam_l1 = base_dir + \
+    r'results_set2/BSplines_feat_SAM_1.0_L1__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
+
+path_dinov2_cosine = base_dir + \
+    r'results_set2/BSplines_feat_DINOv2_1.0_COSINE__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
+path_dinov2_l1 = base_dir + \
+    r'results_set2/BSplines_feat_DINOv2_1.0_L1__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
 
 metric_mean = 'hausdorff_mean'
 y_label = 'Hausdorff distance (px)'
@@ -30,7 +47,7 @@ y_label = 'Log Jacobian determinant (std)'
 # print all rows
 pd.set_option('display.max_rows', None)
 df_zero_disp = pd.read_csv(path_zero_disp)[:-4]
-df_mse = pd.read_csv(path_mse)[:-4]
+df_mse = pd.read_csv(path_ncc)[:-4]
 df_medsam = pd.read_csv(path_medsam)[:-4]
 df_sam = pd.read_csv(path_sam)[:-4]
 df_dinov2 = pd.read_csv(path_dinov2)[:-4]
@@ -119,37 +136,6 @@ ax = sns.boxplot(
     # Set the cap color to black
     capprops={"color": "black", "linewidth": line_width*0.7},
 )
-
-# =============================================================================
-# =============================================================================
-# =============================================================================
-"""
-x_lim = ax.get_xlim()
-start = x_lim[0]  # -0.5
-a = 0.5
-b = 4.5
-end = x_lim[1]  # 8.5
-
-color_left = '#dedede'
-color_middle = '#85d0ff'
-color_right = '#fdbdff'
-
-ax.axvspan(start, a, facecolor=color_left, alpha=0.3)  # Left
-ax.axvspan(a, b, facecolor=color_middle, alpha=0.3)  # middle
-ax.axvspan(b, end, facecolor=color_right, alpha=0.3)  # Right
-ax.set_xlim(x_lim)
-
-# Add legend for the face colors
-legend_handles = [
-    Patch(facecolor=color_left, edgecolor='none',
-          alpha=0.3, label='No registration'),
-    Patch(facecolor=color_middle, edgecolor='none',
-          alpha=0.3, label='B-Spline registration'),
-    Patch(facecolor=color_right, edgecolor='none',
-          alpha=0.3, label='VoxelMorph registration')
-]
-ax.legend(handles=legend_handles, loc='lower right', fontsize=12)
-"""
 
 # =============================================================================
 # =============================================================================
