@@ -6,9 +6,7 @@ from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 import numpy as np
 
-sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
-sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent.parent))  # nopep8
-sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent.parent / "latent_space_registration"))  # nopep8
+sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 
 from registrationbaselines.data_loading import data_loaders  # nopep8
 
@@ -67,6 +65,7 @@ plt.tight_layout()
 plt.show()
 
 plt.savefig(
-    '/u/home/koeglf/Documents/code/registrationbaselines/examples/visualisation_scripts/acdc_vis.png',
+    'registrationbaselines/examples/visualisation_scripts/visualise_acdc/acdc_vis.png',
     bbox_inches='tight',
-    pad_inches=0)
+    pad_inches=0,
+    dpi=300)
