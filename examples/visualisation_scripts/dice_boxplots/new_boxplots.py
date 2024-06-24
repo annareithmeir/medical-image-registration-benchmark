@@ -22,11 +22,15 @@ def get_paths_and_labels():
         r'results_set2/BSplines_feat_SAM_1.0_COSINE__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
     path_sam_l1 = base_dir + \
         r'results_set2/BSplines_feat_SAM_1.0_L1__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]/results.csv'
+    path_sam_l1_ncc = base_dir + \
+        r'results_set3/BSplines_feat_SAM_0.5_L1_0.5_NCC__lr0.0005_reg[120]_it[1500]_sigma[[6, 6]]/results.csv'
 
     path_dinov2_cosine = base_dir + \
         r'results_set2/BSplines_feat_DINOv2_1.0_COSINE__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]_dino_upsample14/results.csv'
     path_dinov2_l1 = base_dir + \
         r'results_set2/BSplines_feat_DINOv2_1.0_L1__lr0.0005_reg[120]_it[1000]_sigma[[6, 6]]_dino_upsample14/results.csv'
+    path_dinov2_l1_ncc = base_dir + \
+        r'results_set3/BSplines_feat_DINOv2_0.5_L1_0.5_NCC__lr0.0005_reg[120]_it[1500]_sigma[[6, 6]]_dino_upsample14/results.csv'
 
     #
     file_paths = [path_zero_disp,
@@ -35,16 +39,20 @@ def get_paths_and_labels():
                   path_medsam_l1,
                   path_sam_cosine,
                   path_sam_l1,
+                  path_sam_l1_ncc,
                   path_dinov2_cosine,
-                  path_dinov2_l1]
+                  path_dinov2_l1,
+                  path_dinov2_l1_ncc]
     names = ["Initial",
              "NCC(image)",
              "cosine(MedSAM)",
              "L1(MedSAM)",
              "cosine(SAM)",
              "L1(SAM)",
+             "L1(SAM) + NCC(image)",
              "cosine(DINOv2)",
-             "L1(DINOv2)"]
+             "L1(DINOv2)",
+             "L1(DINOv2) + NCC(image)"]
 
     return file_paths, names
 
@@ -100,7 +108,7 @@ def plot_boxplots(file_paths, custom_labels, line_width=2, palette='Set3'):
     blues = ["#aed6e5", "#6cb4d0", "#51a6c8"]
     oranges = ["#ffc370", '#ffac38', '#e17e2d']
     purples = ["#d9b8ff", "#c08aff", "#a04dff"]
-    custom_palette = gray + yellow + blues[:2] + oranges[:2] + purples[:2]
+    custom_palette = gray + yellow + blues[:2] + oranges[:] + purples[:]
 
     # Plotting function
     plt.figure(figsize=(figure_width, 6))
