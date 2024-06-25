@@ -2,6 +2,10 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib
+
+# plt.rc('text', usetex=True)
+# plt.rc('font', family='serif')
 
 
 def get_paths_and_labels():
@@ -44,17 +48,29 @@ def get_paths_and_labels():
                   # path_dinov2_09_cosine_01_ncc,
                   path_dinov2_10_cosine_00_ncc]
 
-    names = ["0.0*cosine(DINOv2) + 1.0*NCC(image)",
-             "0.1*cosine(DINOv2) + 0.9*NCC(image)",
-             "0.2*cosine(DINOv2) + 0.8*NCC(image)",
-             "0.3*cosine(DINOv2) + 0.7*NCC(image)",
-             # "0.4*cosine(DINOv2) + 0.6*NCC(image)",
-             "0.5*cosine(DINOv2) + 0.5*NCC(image)",
-             # "0.6*cosine(DINOv2) + 0.4*NCC(image)",
-             # "0.7*cosine(DINOv2) + 0.3*NCC(image)",
-             # "0.8*cosine(DINOv2) + 0.2*NCC(image)",
-             # "0.9*cosine(DINOv2) + 0.1*NCC(image)",
-             "1.0*cosine(DINOv2) + 0.0*NCC(image)"]
+    # names = ["0.0⋅cosine(DINOv2)\n+ 1.0⋅NCC(image)",
+    #          "0.1⋅cosine(DINOv2)\n+ 0.9⋅NCC(image)",
+    #          "0.2⋅cosine(DINOv2)\n+ 0.8⋅NCC(image)",
+    #          "0.3⋅cosine(DINOv2)\n+ 0.7⋅NCC(image)",
+    #          # "0.4⋅cosine(DINOv2)\n+ 0.6⋅NCC(image)",
+    #          "0.5⋅cosine(DINOv2)\n+ 0.5⋅NCC(image)",
+    #          # "0.6⋅cosine(DINOv2)\n+ 0.4⋅NCC(image)",
+    #          # "0.7⋅cosine(DINOv2)\n+ 0.3⋅NCC(image)",
+    #          # "0.8⋅cosine(DINOv2)\n+ 0.2⋅NCC(image)",
+    #          # "0.9⋅cosine(DINOv2)\n+ 0.1⋅NCC(image)",
+    #          "1.0⋅cosine(DINOv2)\n+ 0.0⋅NCC(image)"]
+
+    names = [0.0,
+             0.1,
+             0.2,
+             0.3,
+             # 0.4,
+             0.5,
+             # 0.6,
+             # 0.7,
+             # 0.8,
+             # 0.9,
+             1.0]
 
     return file_paths, names
 
@@ -76,54 +92,82 @@ def load_and_process_csv(file_path):
     return df_extracted
 
 
-def plot_boxplots(file_paths, custom_labels, line_width=2, palette='Set3'):
-    if len(file_paths) != len(custom_labels):
-        raise ValueError(
-            "The length of file_paths and custom_labels must be the same")
+# Plot the boxplots
+scaling_factor = 2
+line_width = 2 * scaling_factor
+palette = 'Set3'
+file_paths, names = get_paths_and_labels()
 
-    # Initialize an empty list to store dataframes
-    dataframes = []
+if len(file_paths) != len(names):
+    raise ValueError(
+        "The length of file_paths and custom_labels must be the same")
 
-    # Loop through each file path and process
-    for file_path, label in zip(file_paths, custom_labels):
-        df_extracted = load_and_process_csv(file_path)
-        df_extracted['Source'] = label  # Use custom label instead of file path
-        dataframes.append(df_extracted)
+# Initialize an empty list to store dataframes
+dataframes = []
 
-    # Concatenate all dataframes
-    df_concatenated = pd.concat(dataframes)
+# Loop through each file path and process
+for file_path, label in zip(file_paths, names):
+    df_extracted = load_and_process_csv(file_path)
+    df_extracted['Source'] = label  # Use custom label instead of file path
+    dataframes.append(df_extracted)
 
-    # Melt the concatenated dataframe
-    df_melted = df_concatenated.melt(
-        id_vars='Source', var_name='Metric', value_name='Value')
+# Concatenate all dataframes
+df_concatenated = pd.concat(dataframes)
 
-    # Determine the figure width based on the number of files
-    num_files = len(file_paths)
-    figure_width = 9 + 2 * (num_files - 1)
+# Melt the concatenated dataframe
+df_melted = df_concatenated.melt(
+    id_vars='Source', var_name='Metric', value_name='Value')
+df_melted = df_melted[df_melted['Metric'] == 'Mean']
 
-    # Plotting function
-plt.figure(figsize=(figure_width, 6))
+
+# Calculate the mean and standard deviation for each 'Source'
+df_stats = df_melted.groupby('Source')['Value'].agg(
+    ['mean', 'std']).reset_index()
+df_stats.columns = ['Source', 'Value', 'Std']
+
+# Determine the figure width based on the number of files
+num_files = len(file_paths)
+figure_width = 2 * (num_files - 1)
+
+plt.close()
+fig, ax = plt.subplots(figsize=(figure_width, 6))
+plt.grid(False)
+
 plt.rcParams['axes.linewidth'] = line_width*0.4
-sns.lineplot(data=df_melted[df_melted['Metric'] ==
-             'Mean'], x="Source", y="Value", ci='sd')
+
+
+plt.plot(df_stats['Source'], df_stats['Value'],
+         color='black', linestyle='-', marker='o', linewidth=line_width, markersize=10, alpha=0.7)
+
+# Adding error bars
+plt.errorbar(df_stats['Source'], df_stats['Value'], yerr=df_stats['Std'],
+             fmt='o', color='#a80000', capsize=12, alpha=0.7, linewidth=line_width, capthick=2*scaling_factor)
+
 sns.despine(right=False,
             left=False,
             top=False,
             bottom=False)
-plt.xlabel('')
-plt.ylabel('Mean Dice Score')
+ax.spines['top'].set_color('black')
+ax.spines['bottom'].set_color('black')
+ax.spines['left'].set_color('black')
+ax.spines['right'].set_color('black')
+ax.spines['top'].set_linewidth(line_width * 0.6)
+ax.spines['bottom'].set_linewidth(line_width * 0.6)
+ax.spines['left'].set_linewidth(line_width * 0.6)
+ax.spines['right'].set_linewidth(line_width * 0.6)
+
+# Turn off grid
+plt.xlabel('α', fontsize=16*scaling_factor)
+# plt.xlabel(r'$\alpha$', fontsize=14*scaling_factor)
+plt.ylabel('Mean DICE Score', fontsize=16*scaling_factor)
+plt.xticks(fontsize=12*scaling_factor)
+plt.yticks(fontsize=12*scaling_factor)
 
 plt.tight_layout()
 plt.show()
 plt.savefig(
-    'registrationbaselines/examples/visualisation_scripts/alpha_line_plot/line_plot.png',
+    'registrationbaselines/examples/visualisation_scripts/alpha_line_plot/feature_alpha.png',
     dpi=300,
     bbox_inches='tight', pad_inches=0.01)
 
 x = 0
-
-
-# Plot the boxplots
-lim = -1
-file_paths, names = get_paths_and_labels()
-plot_boxplots(file_paths, names)
