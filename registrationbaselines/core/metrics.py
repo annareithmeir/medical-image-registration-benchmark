@@ -15,17 +15,14 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
 
     displacement = displacement.squeeze()
 
-    # convert displacement from unit
-    if displacement.min() >= -1 or displacement.max() <= 1:
-        displacement[0, ...] = float(displacement.shape[0] - 1) * displacement[0, ...] / 2.0  # nopep8
-        displacement[1, ...] = float(displacement.shape[1] - 1) * displacement[1, ...] / 2.0  # nopep8
-
     assert displacement.ndim == 4 and displacement.shape[-1] == 3 or \
         displacement.ndim == 3 and displacement.shape[-1] == 2, \
         "Displacement field should have shape (h, w, d, 3) or (w, d, 2)"
 
-    if displacement.shape[-1] != 3 and displacement.shape[0] == 3:
-        displacement = displacement.transpose(1, 2, 3, 0)
+    if displacement.min() >= -1 or displacement.max() <= 1:
+        for dim in range(displacement.shape[-1]):
+            displacement[..., dim] = float(
+                displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
 
     displacement_image = sitk.GetImageFromArray(displacement, isVector=True)
     jacobian_determinant_image = sitk.DisplacementFieldJacobianDeterminant(
