@@ -78,7 +78,7 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
 
 
 def deform_image(image: torch.Tensor,
-                 displacement: torch.Tensor) -> torch.Tensor:
+                 displacement: torch.Tensor, mode) -> torch.Tensor:
     """
     Apply a deformation to an image using the provided deformation.
     @param image_fixed:
@@ -101,7 +101,7 @@ def deform_image(image: torch.Tensor,
         image = image.unsqueeze(1)
 
     # warp image
-    warped_image = F.grid_sample(image, - displacement + grid)
+    warped_image = F.grid_sample(image, - displacement + grid, mode=mode)
 
     return warped_image
 

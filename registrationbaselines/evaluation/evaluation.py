@@ -135,7 +135,7 @@ class Evaluation():
                 item["labels_y"][1]).to(displacement.device)
 
             deformed_segmentation = utils.deform_image(moving_segmentation,
-                                                       displacement)
+                                                       displacement, mode='nearest')
 
             fixed_image = fixed_image.to(displacement.device)
             moving_image = moving_image.to(displacement.device)
@@ -255,7 +255,7 @@ class Evaluation():
             segmentation_moving[1]).to(displacement.device)
 
         warped = utils.deform_image(segmentation_moving,
-                                    displacement)
+                                    displacement, mode='nearest')
 
         dice_scores = metrics.dice_score(
             segmentation_fixed.squeeze(), warped.squeeze())
