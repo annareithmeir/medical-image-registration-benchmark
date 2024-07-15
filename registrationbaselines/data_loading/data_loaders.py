@@ -909,7 +909,7 @@ class ACDCDataset(Dataset):
     """
 
     def __init__(self, data_path: Path, return_mode: str, normalize_mode: Optional[bool] = True,
-                 roi_only: Optional[bool] = True, dim_mode: Optional[str] = '3d', idxs:list[int]=None) -> None:
+                 roi_only: Optional[bool] = True, dim_mode: Optional[str] = '3d', idxs: list[int] = None) -> None:
 
         if roi_only:
             self.img_shape = (128, 128, 128)
@@ -971,21 +971,22 @@ class ACDCDataset(Dataset):
             # load train paths. 01=fixed, 1x=moving
             for i in range(1, 101):
                 file_str = "patient" + str(i).zfill(3)
-                file_str_full = self.data_path / ('training/' + file_str + "/" + file_str + '_frame*_gt.nii.gz')
+                file_str_full = self.data_path / \
+                    ('training/' + file_str + "/" + file_str + '_frame*_gt.nii.gz')
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
                 # print(m_id, f_id)
                 y_ls.append(
-                    self.data_path / ( "training/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
+                    self.data_path / ("training/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
                 masks_y_ls.append(
-                    self.data_path / ( "training/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
+                    self.data_path / ("training/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
                 x_ls.append(
-                    self.data_path / ( "training/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
+                    self.data_path / ("training/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
                 masks_x_ls.append(
-                    self.data_path / ( "training/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
+                    self.data_path / ("training/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
 
-                with open(self.data_path /( "training/" + file_str + "/Info.cfg"), 'r') as file:
+                with open(self.data_path / ("training/" + file_str + "/Info.cfg"), 'r') as file:
                     for i, line in enumerate(file):
                         if i == 2:
                             group = line.split(':')[1].strip()
@@ -996,20 +997,21 @@ class ACDCDataset(Dataset):
         elif "val" in self.return_mode:
             for i in range(101, 126):
                 file_str = "patient" + str(i).zfill(3)
-                file_str_full = self.data_path / ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                file_str_full = self.data_path / \
+                    ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
                 y_ls.append(
                     self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
                 masks_y_ls.append(
-                    self.data_path / ( "testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
                 x_ls.append(
-                    self.data_path / ( "testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
                 masks_x_ls.append(
-                    self.data_path / ( "testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
 
-                with open(self.data_path / ( "testing/" + file_str + "/Info.cfg"), 'r') as file:
+                with open(self.data_path / ("testing/" + file_str + "/Info.cfg"), 'r') as file:
                     for i, line in enumerate(file):
                         if i == 2:
                             group = line.split(':')[1].strip()
@@ -1019,19 +1021,20 @@ class ACDCDataset(Dataset):
         else:
             for i in range(126, 151):
                 file_str = "patient" + str(i).zfill(3)
-                file_str_full = self.data_path / ( "testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                file_str_full = self.data_path / \
+                    ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
                 y_ls.append(
                     self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + ".nii.gz"))
                 masks_y_ls.append(
-                    self.data_path /( "testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + f_id + "_gt.nii.gz"))
                 x_ls.append(
-                    self.data_path /( "testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + m_id + ".nii.gz"))
                 masks_x_ls.append(
-                    self.data_path /( "testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
-                with open(self.data_path /( "testing/" + file_str + "/Info.cfg"), 'r') as file:
+                    self.data_path / ("testing/" + file_str + "/" + file_str + "_frame" + m_id + "_gt.nii.gz"))
+                with open(self.data_path / ("testing/" + file_str + "/Info.cfg"), 'r') as file:
                     for i, line in enumerate(file):
                         if i == 2:
                             group = line.split(':')[1].strip()
@@ -1064,7 +1067,7 @@ class ACDCDataset(Dataset):
         if "paths" in self.return_mode:
             return Path(x_file), Path(y_file), Path(labels_x_file), Path(labels_y_file)
         elif "path_dict" in self.return_mode:
-            return dict({"img_x":Path(x_file), "img_y":Path(y_file), "labels_x":Path(labels_x_file), "labels_y":Path(labels_y_file)})
+            return dict({"img_x": Path(x_file), "img_y": Path(y_file), "labels_x": Path(labels_x_file), "labels_y": Path(labels_y_file)})
         else:
             # print(labels_y_file, labels_x_file)
             subject_dict = {
@@ -1088,26 +1091,35 @@ class ACDCDataset(Dataset):
                 # not all slices have all three labels, thus find random slice with all labels present
 
                 while True:
-                    slice = np.random.randint(2, subject["image_x"].numpy().shape[-1] - 2)
-                    labels_x_tmp = subject["labels_x"].numpy()[..., slice, np.newaxis]
-                    labels_y_tmp = subject["labels_y"].numpy()[..., slice, np.newaxis]
+                    slice = np.random.randint(
+                        2, subject["image_x"].numpy().shape[-1] - 2)
+                    labels_x_tmp = subject["labels_x"].numpy(
+                    )[..., slice, np.newaxis]
+                    labels_y_tmp = subject["labels_y"].numpy(
+                    )[..., slice, np.newaxis]
                     if len(np.unique(labels_x_tmp)) == 4 and len(np.unique(labels_y_tmp)) == 4:
                         break
                     # print("not all labels present in slice. sample again.")
-                subject["image_x"] = tio.ScalarImage(tensor=subject["image_x"].numpy()[..., slice, np.newaxis])
-                subject["image_y"] = tio.ScalarImage(tensor=subject["image_y"].numpy()[..., slice, np.newaxis])
+                subject["image_x"] = tio.ScalarImage(
+                    tensor=subject["image_x"].numpy()[..., slice, np.newaxis])
+                subject["image_y"] = tio.ScalarImage(
+                    tensor=subject["image_y"].numpy()[..., slice, np.newaxis])
                 subject["labels_x"] = tio.ScalarImage(tensor=labels_x_tmp)
                 subject["labels_y"] = tio.ScalarImage(tensor=labels_y_tmp)
 
             if self.dim_mode == '2d-middle':
                 slice = subject["image_x"].numpy().shape[-1] // 2
-                labels_x_tmp = subject["labels_x"].numpy()[..., slice, np.newaxis]
-                labels_y_tmp = subject["labels_y"].numpy()[..., slice, np.newaxis]
+                labels_x_tmp = subject["labels_x"].numpy(
+                )[..., slice, np.newaxis]
+                labels_y_tmp = subject["labels_y"].numpy(
+                )[..., slice, np.newaxis]
                 if len(np.unique(labels_x_tmp)) < 4 or len(np.unique(labels_y_tmp)) < 4:
                     print("not all labels present in slice.")
 
-                subject["image_x"] = tio.ScalarImage(tensor=subject["image_x"].numpy()[..., slice, np.newaxis])
-                subject["image_y"] = tio.ScalarImage(tensor=subject["image_y"].numpy()[..., slice, np.newaxis])
+                subject["image_x"] = tio.ScalarImage(
+                    tensor=subject["image_x"].numpy()[..., slice, np.newaxis])
+                subject["image_y"] = tio.ScalarImage(
+                    tensor=subject["image_y"].numpy()[..., slice, np.newaxis])
                 subject["labels_x"] = tio.ScalarImage(tensor=labels_x_tmp)
                 subject["labels_y"] = tio.ScalarImage(tensor=labels_y_tmp)
 
@@ -1123,20 +1135,29 @@ class ACDCDataset(Dataset):
                 # rescale = tio.RescaleIntensity(out_min_max=(0, 1))
                 # subject = rescale(subject)
 
-            ## print(subject["image_x"].numpy().shape)
+            # print(subject["image_x"].numpy().shape)
             x = subject["image_x"].numpy().astype(float).squeeze()
             y = subject["image_y"].numpy().astype(float).squeeze()
             labels_x = subject["labels_x"].numpy().astype(float).squeeze()
             labels_y = subject["labels_y"].numpy().astype(float).squeeze()
 
-            x=x[np.newaxis, ...]
-            labels_x=labels_x[np.newaxis, ...]
-            y=y[np.newaxis, ...]
-            labels_y=labels_y[np.newaxis, ...]
+            x = x[np.newaxis, ...]
+            labels_x = labels_x[np.newaxis, ...]
+            y = y[np.newaxis, ...]
+            labels_y = labels_y[np.newaxis, ...]
 
             if "imgs_and_label" in self.return_mode:
                 return x, y, group
             elif "imgs4" in self.return_mode:
+
+                return {
+                    "img_x": (Path(x_file), x),
+                    "img_y": (Path(y_file), y),
+                    "labels_x": (Path(labels_x_file), labels_x),
+                    "labels_y": (Path(labels_y_file), labels_y)
+
+                }
+
                 return x, y, labels_x, labels_y
             else:
                 return x, y
@@ -1159,16 +1180,16 @@ class ACDCDataset(Dataset):
         # moving image
         ax = fig.add_subplot(2, 1, 1)
 
-        plt.imshow(img_m.transpose(1,2,0), cmap='gray')
-        plt.imshow(label_m.transpose(1,2,0), alpha=0.2)
+        plt.imshow(img_m.transpose(1, 2, 0), cmap='gray')
+        plt.imshow(label_m.transpose(1, 2, 0), alpha=0.2)
         plt.colorbar()
         plt.title("Moving")
         # plt.gca().invert_yaxis()
 
         # fixed image
         ax = fig.add_subplot(2, 1, 2)
-        plt.imshow(img_f.transpose(1,2,0), cmap='gray')
-        plt.imshow(label_f.transpose(1,2,0), alpha=0.2)
+        plt.imshow(img_f.transpose(1, 2, 0), cmap='gray')
+        plt.imshow(label_f.transpose(1, 2, 0), alpha=0.2)
         plt.colorbar()
 
         plt.title("Fixed")
@@ -1184,7 +1205,7 @@ class FIREDataset(Dataset):
     134 retina image pairs and landmarks
     """
 
-    def __init__(self, imgs_path: Path, return_type: str = "path", transforms: list[str] = None,idxs: list[int] = None):
+    def __init__(self, imgs_path: Path, return_type: str = "path", transforms: list[str] = None, idxs: list[int] = None):
         """
 
         @param imgs_path: Path to the original dataset
@@ -1401,7 +1422,7 @@ class FIREDataset(Dataset):
         # moving image
         ax = fig.add_subplot(2, 1, 1)
 
-        plt.imshow(img_m.transpose((1,2,0)), cmap='gray')
+        plt.imshow(img_m.transpose((1, 2, 0)), cmap='gray')
         plt.colorbar()
         plt.scatter(kp_m[:, 0], kp_m[:, 1], marker='x', c='red')
         plt.title("Moving")
@@ -1409,7 +1430,7 @@ class FIREDataset(Dataset):
 
         # fixed image
         ax = fig.add_subplot(2, 1, 2)
-        plt.imshow(img_f.transpose((1,2,0)), cmap='gray')
+        plt.imshow(img_f.transpose((1, 2, 0)), cmap='gray')
         plt.colorbar()
 
         plt.scatter(kp_f[:, 0], kp_f[:, 1], marker='x', c='red')

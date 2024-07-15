@@ -5,6 +5,8 @@ from typing import Dict, Any
 
 import yaml
 
+from torch.utils.data import Dataset
+
 
 class RegistrationInterface(ABC):
     """
@@ -12,6 +14,7 @@ class RegistrationInterface(ABC):
     """
 
     configuration: Dict[str, Any]
+    configuration_all_params: Dict[str, Any]
 
     method: str
 
@@ -23,7 +26,7 @@ class RegistrationInterface(ABC):
     result_transformed_image_path: Path
 
     @abstractmethod
-    def __init__(self, configuration_path: Path):
+    def __init__(self, configuration: Dict[str, Any]):
         """
         Initialize the registration model.
         """
@@ -35,6 +38,12 @@ class RegistrationInterface(ABC):
                  print_progress: bool = False):
         """
         Register moving_image to fixed_image.
+        """
+
+    @abstractmethod
+    def register_all_parametr_sets(self, dataloader: Dataset):
+        """
+        Register all parameter sets.
         """
 
     def get_transformation_path(self):
@@ -60,7 +69,7 @@ class RegistrationInterface(ABC):
         Create the directories to save the results.
         """
 
-        self.path_results = Path(self.configuration["result_path"])
+        self.path_results = Path(self.configuration_all_params["result_path"])
 
         # create directory in base_dir called method
         method_dir = self.path_results / self.method

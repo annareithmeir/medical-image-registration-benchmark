@@ -1,7 +1,7 @@
 from pathlib import Path
 import shutil
 import warnings
-from typing import Optional
+from typing import Optional, Tuple
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
@@ -22,23 +22,15 @@ class Evaluation():
     It requires a precomputed transformation.
     """
 
-    def __init__(self, configuration_path: Path):
+    def __init__(self, result_path: Path, method: str) -> None:
         """
-        Initialize the registration model.
+        Initialize the evaluatin model.
         """
-
-        self.configuration_path = configuration_path
-        self.configuration = utils.read_config(configuration_path)
-
-        method = self.configuration['method_name']
 
         # create the csv file and all its parents if doesn't exist
-        self.path_results = Path(
-            self.configuration['result_path']) / method / 'results.csv'
-        self.path_results_plots = Path(
-            self.configuration['result_path']) / method / 'results.pdf'
-        self.path_plots = Path(
-            self.configuration['result_path']) / method / 'plots'
+        self.path_results = result_path / method / 'results.csv'
+        self.path_results_plots = result_path / method / 'results.pdf'
+        self.path_plots = result_path / method / 'plots'
         self.path_results.parent.mkdir(parents=True, exist_ok=True)
         self.path_plots.mkdir(parents=True, exist_ok=True)
         self.path_results.touch()
@@ -60,19 +52,19 @@ class Evaluation():
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
 
-            fixed_name = str(item["images"][0].stem).split('.')[0]
+            fixed_name = str(item["img_x"][0].stem).split('.')[0]
 
             self._evaluate_displacement(path_displacement, fixed_name)
 
-            if "segmentations" in item:
-                path_fixed = item["segmentations"][0]
-                path_moving = item["segmentations"][1]
+            path_fixed = item["labels_x"]
+            path_moving = item["labels_y"]
 
-                self._evaluate_segmentation(path_displacement,
-                                            path_fixed,
-                                            path_moving,
-                                            fixed_name)
+            self._evaluate_segmentation(path_displacement,
+                                        path_fixed,
+                                        path_moving,
+                                        fixed_name)
 
+            """
             if "landmarks" in item:
                 # is2d = sitk.GetArrayFromImage(sitk.ReadImage(
                 #     path_displacement, sitk.sitkVectorFloat64)).shape[-1] == 2
@@ -88,6 +80,7 @@ class Evaluation():
                                          path_fixed_landmarks,
                                          path_moving_landmarks,
                                          fixed_name)
+            """
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -117,10 +110,10 @@ class Evaluation():
             print(i)
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
-            fixed_image_path = item["images"][0]
-            moving_image_path = item["images"][1]
-            fixed_image = sitk.ReadImage(fixed_image_path)
-            moving_image = sitk.ReadImage(moving_image_path)
+            fixed_image_path = item["img_x"][0]
+            moving_image_path = item["img_y"][0]
+            fixed_image = sitk.GetImageFromArray(item["img_x"][1])
+            moving_image = sitk.GetImageFromArray(item["img_y"][1])
             # displacement = sitk.ReadImage(
             #     path_displacement.as_posix(), sitk.sitkVectorFloat64)
             displacement = nib.load(
@@ -138,13 +131,22 @@ class Evaluation():
             fixed_segmentation = None
             deformed_segmentation = None
 
-            if "segmentations" in item:
-                fixed_segmentation = sitk.GetArrayFromImage(sitk.ReadImage(
-                    item["segmentations"][0]))
-                # moving_segmentation = sitk.GetArrayFromImage(sitk.ReadImage(
-                #     item["segmentations"][1]))
-                # deformed_segmentation = utils_metrics.deform_segmentations(moving_segmentation, displacement)
-                deformed_segmentation = None  # TODO implement function above
+            fixed_segmentation = sitk.GetImageFromArray(
+                item["labels_x"][1].squeeze())
+            moving_segmentation = sitk.GetImageFromArray(
+                item["labels_y"][1].squeeze())
+            displacement_seg = sitk.ReadImage(
+                path_displacement, sitk.sitkVectorFloat64)
+            deformed_segmentation = utils.deform_image(fixed_segmentation,
+                                                       moving_segmentation,
+                                                       displacement_seg,
+                                                       sitk.sitkNearestNeighbor)
+
+            fixed_segmentation = sitk.GetArrayFromImage(fixed_segmentation)
+            moving_segmentation = sitk.GetArrayFromImage(moving_segmentation)
+            deformed_segmentation = sitk.GetArrayFromImage(
+                deformed_segmentation)
+
             if "landmarks" in item:
 
                 if dataset_data.ndim == 2:
@@ -169,7 +171,7 @@ class Evaluation():
                 #     moving_landmarks, displacement)
             visualization.plot_all_registration_results(plots_path, sitk.GetArrayFromImage(moving_image), sitk.GetArrayFromImage(fixed_image), sitk.GetArrayFromImage(deformed_image),
                                                         displacement, fixed_labels=fixed_segmentation, pred_labels=deformed_segmentation,
-                                                        fixed_keypoints=landmarks_fixed, moving_keypoints=landmarks_moving, pred_keypoints=deformed_landmarks)
+                                                        fixed_keypoints=None, moving_keypoints=None, pred_keypoints=None)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
@@ -184,8 +186,8 @@ class Evaluation():
 
     def _evaluate_segmentation(self,
                                path_displacement: Path,
-                               path_segmentation_fixed: Path,
-                               path_segmentation_moving: Path,
+                               segmentation_fixed: Tuple[Path, np.ndarray],
+                               segmentation_moving: Tuple[Path, np.ndarray],
                                name: str) -> None:
         """
         Evaluate segmentations.
@@ -211,8 +213,10 @@ class Evaluation():
 
         displacement = sitk.ReadImage(
             path_displacement, sitk.sitkVectorFloat64)
-        segmentation_fixed = sitk.ReadImage(path_segmentation_fixed)
-        segmentation_moving = sitk.ReadImage(path_segmentation_moving)
+        segmentation_fixed = sitk.GetImageFromArray(
+            segmentation_fixed[1].squeeze())
+        segmentation_moving = sitk.GetImageFromArray(
+            segmentation_moving[1].squeeze())
 
         warped = utils.deform_image(segmentation_fixed,
                                     segmentation_moving,
