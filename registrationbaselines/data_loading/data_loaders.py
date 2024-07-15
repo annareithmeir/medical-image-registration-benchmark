@@ -1,61 +1,171 @@
+import copy
 import glob
 import random
+from itertools import combinations
 from pathlib import Path
 from typing import List, Union, Tuple
-import copy
-from PIL import Image
 from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torchio as tio
+from PIL import Image
 from torch.utils.data import Dataset
+from torchvision import datasets, transforms
 from tqdm import tqdm
-from itertools import combinations
 
-"""
-    Dataloader for the Learn2Reg LnugCT dataset.
-    Since the test annotations are not available, we only load the training data with the corresponding segmentations and keypoints.
-    The dataset has n=20 image pairs.
-"""
+import utils
 
 # global clipping [min,max] values
 # todo verify clipping parameters
 WINDOW_BONES = [-400, 1600]
 WINDOW_SOFT_TISSUE = [-150, 250]
 
+"""
+Parent class datasets
+"""
 
-class CAMUSDataset(Dataset):
-    """
-    Dataloader for the CAMUS dataset.
-    """
 
-    def __init__(self, path_root: Path) -> None:
-        """
-        Initialize the CAMUS dataset.
-        """
+class GenericDataset(Dataset):
 
-        self.path_root = path_root
-        self.images_and_segs_list = self.__load_images_and_segs_list()
+    def __init__(self, return_type: str = None, **kwargs):
+        super().__init__()
+
+        self.imgs_path = None
+        self.imgs_path_preprocessed = None
+        self.ndim = None
+        self.spacing = None
+        self.img_shape = None
+        if return_type == None:
+            return_type = "torch_tensor"
+        self.return_type = return_type
+        self.imgs_list = list()
+
+        assert self.return_type in ["torch_tensor", "path"]
 
     def __len__(self):
+        return len(self.imgs_list)
+
+    def _get_image_pair_as_tensors(self, idx):
+        raise NotImplementedError("Must be implemented in subclass")
+
+    def _get_image_pair_as_paths(self, idx):
+        return (self.imgs_path / self.imgs_list[idx][0], self.imgs_path / self.imgs_list[idx][1])
+
+    def __getitem__(self, idx):
+        if self.return_type == "path":
+            item = self._get_image_pair_as_paths(idx)
+        elif self.return_type == "torch_tensor":  # np_array bsxhxw
+            img_f, img_m = self._get_image_pair_as_tensors(idx)
+            item = (img_f, img_m)
+        return item
+
+    def plot_random_image(self) -> None:
         """
-            Return the number of transformations.
+        Plots a random image of the dataset including segmentations and keypoints
         """
 
-        return len(self.images_and_segs_list)
+        rand_idx = random.randint(0, len(self) - 1)
 
-    def __getitem__(self, idx: int):
+        img_f, img_m = self._get_image_pair_as_tensors(rand_idx)
+        img_f = img_f.numpy().squeeze()
+        img_m = img_m.numpy().squeeze()
+
+        fig = plt.figure(figsize=(20, 12))
+
+        # moving image
+        ax = fig.add_subplot(1, 2, 1)
+        plt.imshow(img_m, cmap='gray')
+        plt.colorbar()
+        plt.title("Moving")
+
+        # fixed image
+        ax = fig.add_subplot(1, 2, 2)
+        plt.imshow(img_f, cmap='gray')
+        plt.colorbar()
+        plt.title("Fixed")
+
+        plt.tight_layout()
+        plt.suptitle("idx: {}".format(rand_idx))
+        plt.show()
+
+
+"""
+Toy datasets
+"""
+
+
+class MNISTDataset(GenericDataset):
+    """
+    Returns image pairs of the same digit of the MNSIt dataset.
+    The images are of shape (1,32,32) and normalized to [0,1]
+    """
+
+    def __init__(self, num_pairs: int, return_type: str = None):
         """
-            Return the path to the transformation at index idx.
+
+        @param num_pairs: Amount of image pairs to use from the overall dataset
+        @param return_type: in what data format the images should be returned in __getitem__()
         """
 
-        return self.images_and_segs_list[idx]
+        super().__init__(return_type)
 
-    def __load_images_and_segs_list(self):
-        
-        all_patient_folders = list(self.path_root.glob("*.*"))
-        all_patient_folders.sort()
+        assert return_type == "torch_tensor"  # path is not applicable for MNIST dataset
+
+        self.ndim = 2
+        self.spacing = (1, 1)
+        self.img_shape = (32, 32)  # vmx needs 2N, N=number of layers
+        self.num_pairs = num_pairs
+
+        # Define transformations for the dataset including the custom transform
+        self.transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((32, 32))
+        ])
+
+        # Download and load the training dataset
+        self.dataset = datasets.MNIST(root='./data', train=False, download=True)
+
+        # Create a dictionary to store indices of each digit
+        self.digit_indices = {i: [] for i in range(10)}
+        for idx, (image, label) in enumerate(self.dataset):
+            self.digit_indices[label].append(idx)
+
+        self._read_image_idx_pairs()
+
+    def _read_image_idx_pairs(self) -> None:
+        """
+        Extracts image pairs of similar indices from the data
+        @return:
+        """
+        for idx in range(self.num_pairs):
+            image1, label = self.dataset[idx]
+            # Randomly select another image with the same label
+            image2_idx = random.choice(self.digit_indices[label])
+            self.imgs_list.append([idx, image2_idx])
+
+    def _get_image_pair_as_tensors(self, idx: int):
+        """
+        Returns the image pair at index idx. We normalize and reshape the images here.
+        @param idx: Index of desired image pair
+        @return: fixed image, moving image of shape (1,32,32)
+        """
+
+        img_f, _ = self.dataset[self.imgs_list[idx][0]]
+        img_m, _ = self.dataset[self.imgs_list[idx][1]]
+
+        img_f = self.transforms(img_f)
+        img_m = self.transforms(img_m)
+
+        img_m = utils.normalize_tensor_to_0_1(img_m)
+        img_f = utils.normalize_tensor_to_0_1(img_f)
+
+        return img_f, img_m
+
+
+"""
+Medical ddatasets
+"""
 
 
 class L2RLungCTDataset(Dataset):
@@ -715,7 +825,8 @@ class L2RAbdominalCTCTDataset(Dataset):
         (save_path / "imagesTr").mkdir(parents=True, exist_ok=True)
         (save_path / "labelsTr").mkdir(parents=True, exist_ok=True)
 
-        for idx in tqdm(range(len(files_images)), desc="Preprocessing (" + str(self.transforms) + ")", unit="iteration"):
+        for idx in tqdm(range(len(files_images)), desc="Preprocessing (" + str(self.transforms) + ")",
+                        unit="iteration"):
             file_img_m = files_images[idx]
             file_seg_m = files_segmentations[idx]
 
@@ -847,89 +958,6 @@ class L2RAbdominalCTCTDataset(Dataset):
         plt.show()
 
 
-class BaselineTransformations(Dataset):
-    """
-    Dataloader for transformations generated by the baseline registration methods.
-    """
-
-    def __init__(self, path_transformations: Union[Path, List[Path]], idx: list[int] = None):
-        """
-            Initialize the Dataloader.
-
-            When initilaizing with a path to results from baselines, it should be the path
-            to the 'method' folder (in which 'deformations' and 'deformed' are stored).
-
-            When initializing with a list of paths, each path should be the path to a transformation.
-
-            The only criteria for transformation file names is that they have a '.' in them.
-        """
-
-        self.list_of_transformations = []
-
-        if isinstance(path_transformations, Path):
-            self.list_of_transformations = self.__load_transformations(
-                path_transformations)
-        elif isinstance(path_transformations, list) and all(isinstance(path, Path) for path in path_transformations):
-            self.list_of_transformations = path_transformations
-        else:
-            raise TypeError(
-                "path_transformations must be a Path or a list of Paths.")
-
-        if len(self.list_of_transformations) == 0:
-            raise ValueError("No transformations found.")
-
-        # creae subset of transformations
-        if idx is not None:
-            self.list_of_transformations = [
-                self.list_of_transformations[i] for i in idx]
-
-    def __len__(self):
-        """
-            Return the number of transformations.
-        """
-
-        return len(self.list_of_transformations)
-
-    def __getitem__(self, idx: int):
-        """
-            Return the path to the transformation at index idx.
-        """
-
-        return self.list_of_transformations[idx]
-
-    def __load_transformations(self, path_result: Path) -> List[Path]:
-        """
-            Load the list of transformations.
-        """
-
-        list_of_transformations = None
-
-        # get all deformations from path_result/deformations
-        path_deformations = path_result / "deformations"
-
-        list_of_transformations = list(path_deformations.glob("*.*"))
-
-        # sort the list alphabetically
-        list_of_transformations.sort()
-
-        return list_of_transformations
-
-
-class PathPairDataset():
-    """
-    A generic dataset for pairs of paths.
-    """
-
-    def __init__(self, path_pairs: List[tuple[Path, Path]]) -> None:
-        self.path_pairs = path_pairs
-
-    def __len__(self):
-        return len(self.path_pairs)
-
-    def __getitem__(self, idx: int) -> tuple[Path, Path]:
-        return self.path_pairs[idx]
-
-
 class ACDCDataset(Dataset):
     """
     source: https://humanheart-project.creatis.insa-lyon.fr/database/#collection/637218c173e9f0047faa00fb
@@ -1005,7 +1033,7 @@ class ACDCDataset(Dataset):
             for i in range(1, 101):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.data_path / \
-                    ('training/' + file_str + "/" + file_str + '_frame*_gt.nii.gz')
+                                ('training/' + file_str + "/" + file_str + '_frame*_gt.nii.gz')
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -1031,7 +1059,7 @@ class ACDCDataset(Dataset):
             for i in range(101, 126):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.data_path / \
-                    ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                                ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -1055,7 +1083,7 @@ class ACDCDataset(Dataset):
             for i in range(126, 151):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.data_path / \
-                    ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                                ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -1100,7 +1128,8 @@ class ACDCDataset(Dataset):
         if "paths" in self.return_mode:
             return Path(x_file), Path(y_file), Path(labels_x_file), Path(labels_y_file)
         elif "path_dict" in self.return_mode:
-            return dict({"img_x": Path(x_file), "img_y": Path(y_file), "labels_x": Path(labels_x_file), "labels_y": Path(labels_y_file)})
+            return dict({"img_x": Path(x_file), "img_y": Path(y_file), "labels_x": Path(labels_x_file),
+                         "labels_y": Path(labels_y_file)})
         else:
             # print(labels_y_file, labels_x_file)
             subject_dict = {
@@ -1237,7 +1266,8 @@ class FIREDataset(Dataset):
     134 retina image pairs and landmarks
     """
 
-    def __init__(self, imgs_path: Path, return_type: str = "path", transforms: list[str] = None, idxs: list[int] = None):
+    def __init__(self, imgs_path: Path, return_type: str = "path", transforms: list[str] = None,
+                 idxs: list[int] = None):
         """
 
         @param imgs_path: Path to the original dataset
@@ -1472,3 +1502,91 @@ class FIREDataset(Dataset):
         plt.tight_layout()
         plt.suptitle("idx: {}".format(rand_idx))
         plt.show()
+
+
+"""
+Internal Datset structures for displacement fields and path pairs
+"""
+
+
+class BaselineTransformations(Dataset):
+    """
+    Dataloader for transformations generated by the baseline registration methods.
+    """
+
+    def __init__(self, path_transformations: Union[Path, List[Path]], idx: list[int] = None):
+        """
+            Initialize the Dataloader.
+
+            When initilaizing with a path to results from baselines, it should be the path
+            to the 'method' folder (in which 'deformations' and 'deformed' are stored).
+
+            When initializing with a list of paths, each path should be the path to a transformation.
+
+            The only criteria for transformation file names is that they have a '.' in them.
+        """
+
+        self.list_of_transformations = []
+
+        if isinstance(path_transformations, Path):
+            self.list_of_transformations = self.__load_transformations(
+                path_transformations)
+        elif isinstance(path_transformations, list) and all(isinstance(path, Path) for path in path_transformations):
+            self.list_of_transformations = path_transformations
+        else:
+            raise TypeError(
+                "path_transformations must be a Path or a list of Paths.")
+
+        if len(self.list_of_transformations) == 0:
+            raise ValueError("No transformations found.")
+
+        # creae subset of transformations
+        if idx is not None:
+            self.list_of_transformations = [
+                self.list_of_transformations[i] for i in idx]
+
+    def __len__(self):
+        """
+            Return the number of transformations.
+        """
+
+        return len(self.list_of_transformations)
+
+    def __getitem__(self, idx: int):
+        """
+            Return the path to the transformation at index idx.
+        """
+
+        return self.list_of_transformations[idx]
+
+    def __load_transformations(self, path_result: Path) -> List[Path]:
+        """
+            Load the list of transformations.
+        """
+
+        list_of_transformations = None
+
+        # get all deformations from path_result/deformations
+        path_deformations = path_result / "deformations"
+
+        list_of_transformations = list(path_deformations.glob("*.*"))
+
+        # sort the list alphabetically
+        list_of_transformations.sort()
+
+        return list_of_transformations
+
+
+class PathPairDataset():
+    """
+    A generic dataset for pairs of paths.
+    """
+
+    def __init__(self, path_pairs: List[tuple[Path, Path]]) -> None:
+        self.path_pairs = path_pairs
+
+    def __len__(self):
+        return len(self.path_pairs)
+
+    def __getitem__(self, idx: int) -> tuple[Path, Path]:
+        return self.path_pairs[idx]
