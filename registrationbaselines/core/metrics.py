@@ -6,7 +6,7 @@ from scipy.spatial.distance import dice, directed_hausdorff
 from scipy.spatial import KDTree
 import nibabel as nib
 import SimpleITK as sitk
-from registrationbaselines.core import utils_metrics
+from registrationbaselines.core import utils
 
 
 def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarray:
@@ -195,7 +195,7 @@ def tre(landmarks_fixed_path: Path,
     assert landmarks_moving.shape == landmarks_fixed.shape
     assert landmarks_fixed.shape[-1] == 3 or landmarks_fixed.shape[-1] == 2
 
-    mov_lms_warped = utils_metrics.deform_landmarks(
+    mov_lms_warped = utils.deform_landmarks(
         landmarks_moving, displacement)
 
     # Calculate the TRE

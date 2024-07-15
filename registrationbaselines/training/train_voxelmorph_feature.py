@@ -1,3 +1,5 @@
+import gc
+
 from pathlib import Path
 import sys
 import os
@@ -11,6 +13,8 @@ import SimpleITK as sitk
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.core import utils
+import math
+import torch.nn.functional as F
 
 os.environ['NEURITE_BACKEND'] = 'pytorch'
 os.environ['VXM_BACKEND'] = 'pytorch'
@@ -20,14 +24,12 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
 
-from latent_space_registration.FeatureExtractor import FeatureExtractor
-import latent_space_registration.custom_losses as custom_losses
-import latent_space_registration.utils_metrics as utils_metrics
+from registrationbaselines.core.training_interface import TrainingInterface  # nopep8
+import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm  # nopep8
+import latent_space_registration.utils_metrics as utils_metrics  # nopep8
+import latent_space_registration.custom_losses as custom_losses  # nopep8
+from latent_space_registration.FeatureExtractor import FeatureExtractor  # nopep8
 
-import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
-from registrationbaselines.core.training_interface import TrainingInterface
-
-import gc
 gc.collect()
 torch.cuda.empty_cache()
 
@@ -120,7 +122,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
                 invols = [x, y]
                 outvols = [y, zeros]
-                kps = [kps_y, kps_x]
+                kps = [kps_x, kps_y]
                 yield (invols, outvols, kps)
             elif dataset.return_type == "np_arrays4":
                 # y, x, kp_y, kp_x = next(iter(dataloader))
@@ -159,7 +161,8 @@ class VoxelmorphFeatureTraining(TrainingInterface):
         if type == 0:
             # as in original voxelmorph, no features used here at all
             if self.config['sim_loss'] == 'ncc':
-                image_loss_func = vxm.losses.NCC().loss
+                image_loss_func = custom_losses.NCC().loss
+                # image_loss_func = vxm.losses.NCC().loss
             elif self.config['sim_loss'] == 'mse':
                 image_loss_func = vxm.losses.MSE().loss
             else:
@@ -176,14 +179,19 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
             # prepare deformation loss
             losses += [custom_losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
+                                          loss_mult=self.config['int_downsize']).loss]
             weights += [self.config['reg_weight']]
         elif type == 1:
             # image loss is based on MI of features
-            if self.config["feature_metric"]=="MI":
-                image_loss_func = custom_losses.FeatureSpaceMI(self.feature_extractor).loss
-            elif self.config["feature_metric"]=="MSE":
-                image_loss_func = custom_losses.FeatureSpaceMSE(self.feature_extractor).loss
+            if self.config["feature_metric"] == "MI":
+                image_loss_func = custom_losses.FeatureSpaceMI(
+                    self.feature_extractor).loss
+            elif self.config["feature_metric"] == "MSE":
+                image_loss_func = custom_losses.FeatureSpaceMSE(
+                    self.feature_extractor).loss
+            elif self.config["feature_metric"] == "COSINE":
+                image_loss_func = custom_losses.FeatureSpaceCosine(
+                    self.feature_extractor).loss
 
             # need two image loss functions if bidirectional
             if self.config['bidir']:
@@ -195,18 +203,19 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
             # prepare deformation loss
             losses += [custom_losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
+                                          loss_mult=self.config['int_downsize']).loss]
             weights += [self.config['reg_weight']]
 
         elif type == 2:
             # feature MSE used in additional regularization term
             if self.config['sim_loss'] == 'ncc':
-                image_loss_func = vxm.losses.NCC().loss
+                image_loss_func = custom_losses.NCC().loss
+                # image_loss_func = vxm.losses.NCC().loss
             elif self.config['sim_loss'] == 'mse':
                 image_loss_func = vxm.losses.MSE().loss
             else:
                 raise ValueError(
-                    'Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
+                    'Image loss should be "mse", "ncc" or "COSINE", but found "%s"' % self.config['image_loss'])
 
             # need two image loss functions if bidirectional
             if self.config['bidir']:
@@ -218,12 +227,16 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
             # prepare deformation loss
             losses += [custom_losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
+                                          loss_mult=self.config['int_downsize']).loss]
             weights += [self.config['reg_weight']]
 
             # prepare feature regularization loss
-            if self.config["feature_metric"]=="MI":
-                losses += [custom_losses.FeatureSpaceMI(self.feature_extractor).loss]
+            if self.config["feature_metric"] == "MI":
+                losses += [custom_losses.FeatureSpaceMI(
+                    self.feature_extractor).loss]
+            elif self.config["feature_metric"] == "COSINE":
+                image_loss_func = custom_losses.FeatureSpaceCosine(
+                    self.feature_extractor).loss
             weights += [self.config['feature_reg_weight']]
 
         else:
@@ -309,28 +322,6 @@ class VoxelmorphFeatureTraining(TrainingInterface):
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config['lr'])
         self._prepare_training_loss(self.loss_function_option)
 
-        # prepare image loss
-        if self.config['sim_loss'] == 'ncc':
-            image_loss_func = vxm.losses.NCC().loss
-        elif self.config['sim_loss'] == 'mse':
-            image_loss_func = vxm.losses.MSE().loss
-        else:
-            raise ValueError(
-                'Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
-
-        # need two image loss functions if bidirectional
-        if self.config['bidir']:
-            losses = [image_loss_func, image_loss_func]
-            weights = [0.5, 0.5]
-        else:
-            losses = [image_loss_func]
-            weights = [1]
-
-        # prepare deformation loss
-        losses += [vxm.losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
-        weights += [self.config['reg_weight']]
-
         # training loops
         for epoch in range(self.config['initial_epoch'], self.config['epochs']):
 
@@ -356,9 +347,9 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                 # inputs = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in inputs]
                 # y_true = [torch.from_numpy(d).to(device).float().permute(0, 4, 1, 2, 3) for d in y_true]
 
-                if self.loss_function_option == 2:
-                    imgs_rgb = inputs[-2:]
-                    inputs = inputs[:-2]
+                # if self.loss_function_option == 2:
+                #     imgs_rgb = inputs[-2:]
+                #     inputs = inputs[:-2]
                 inputs = [d.to(device).float() for d in inputs]
                 y_true = [d.to(device).float() for d in y_true]
 
@@ -367,15 +358,15 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
                 if self.loss_function_option == 2:
                     # here, the third loss term depends on y_true[0],y_pred[0]
-                    y_true += imgs_rgb[1],
+                    y_true += y_true[0],
                     warped_rgb_m = torch.from_numpy(utils_metrics.apply_displacement_to_rgb_images_batch(
-                        imgs_rgb[0].cpu().numpy().squeeze(), -y_pred[1].detach().cpu().numpy().squeeze()))
+                        inputs[0].cpu().numpy().squeeze(), -y_pred[1].detach().cpu().numpy().squeeze()))
                     y_pred += warped_rgb_m,
 
                 # calculate total loss
                 loss = 0
                 loss_list = []
-                for n, loss_function in enumerate(losses):
+                for n, loss_function in enumerate(self.losses):
                     if self.loss_function_option == 1 and n == 0:
                         f_pred = y_pred[n].to("cuda")
                         f_true = y_true[n].to("cuda")
@@ -391,9 +382,11 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                         # # f_pred = f_pred.to(device)
                         # f_true = f_true.to(device)
                         print(f_pred.device, f_true.device)
-                        curr_loss = loss_function(f_true, f_pred) * self.weights[n]
+                        curr_loss = loss_function(
+                            f_true, f_pred) * self.weights[n]
                     else:
-                        curr_loss = loss_function(y_true[n], y_pred[n]) * self.weights[n]
+                        curr_loss = loss_function(
+                            y_true[n], y_pred[n]) * self.weights[n]
                     loss_list.append(curr_loss.item())
                     loss += curr_loss
 
@@ -417,9 +410,9 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                     # print("beginning val")
                     # utils.explore_memory()
                     for i in range(len(self.val_dataset)):
-                        val_inputs, val_y_true = next(val_generator)
-                        val_kps = None
-                        # val_inputs, val_y_true, val_kps = next(val_generator)
+                        # val_inputs, val_y_true = next(val_generator)
+                        # val_kps = None
+                        val_inputs, val_y_true, val_kps = next(val_generator)
                         val_inputs = [d.to(device).float() for d in val_inputs]
                         val_y_true = [d.to(device).float() for d in val_y_true]
 
@@ -429,16 +422,19 @@ class VoxelmorphFeatureTraining(TrainingInterface):
 
                         if self.loss_function_option == 2:
                             # here, the third loss term depends on y_true[0],y_pred[0]
-                            val_y_true.append(val_y_true[0])  # repreat moving image for third loss
-                            val_warped_rgb_m = utils_metrics.apply_displacement_to_rgb_images_batch(val_inputs[0], -val_y_pred[1])
-                            val_y_pred = (val_y_pred[0], val_y_pred[1], val_warped_rgb_m)  # append warped moving rgb image to y_pred
+                            # repreat moving image for third loss
+                            val_y_true.append(val_y_true[0])
+                            val_warped_rgb_m = utils_metrics.apply_displacement_to_rgb_images_batch(
+                                val_inputs[0], -val_y_pred[1])
+                            # append warped moving rgb image to y_pred
+                            val_y_pred = (
+                                val_y_pred[0], val_y_pred[1], val_warped_rgb_m)
 
                         val_loss = 0
-
-                        # for n, loss_function in enumerate(self.losses):
-                        #     val_curr_loss = loss_function(
-                        #         val_y_true[n], val_y_pred[n]) * self.weights[n]
-                        #     val_loss += val_curr_loss
+                        for n, loss_function in enumerate(self.losses):
+                            val_curr_loss = loss_function(
+                                val_y_true[n], val_y_pred[n]) * self.weights[n]
+                            val_loss += val_curr_loss
                         # val_loss_list.append(0)
                         val_loss_list.append(val_loss.item())
 
@@ -458,7 +454,8 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                         else:
                             # placeholder DICE for MNSIT
                             # print(torch.unique(val_inputs[0]), val_inputs[0].min(), val_inputs[0].max(), val_inputs[0].mean())
-                            dsc = metrics.dice_score(sitk.GetImageFromArray((val_inputs[1] > 0.5).cpu().numpy().astype(np.int8).squeeze()), sitk.GetImageFromArray((val_y_pred[0] > 0.5).cpu().numpy().astype(np.int8).squeeze()))
+                            dsc = metrics.dice_score(sitk.GetImageFromArray((val_inputs[1] > 0.5).cpu().numpy().astype(
+                                np.int8).squeeze()), sitk.GetImageFromArray((val_y_pred[0] > 0.5).cpu().numpy().astype(np.int8).squeeze()))
                             val_tre_list.append(dsc)
 
                         if i == 0 and self.config["use_wandb"]:
@@ -468,7 +465,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
                             disp = disp.transpose(1, 2, 0)
                             if val_kps is not None:
                                 fig = visualization.plot_all_registration_results_debugging_wandb(
-                                    moving_img, fixed_image, pred_image, disp, moving_keypoints=kp_x, fixed_keypoints=kp_y, pred_keypoints=kp_warped)
+                                    utils.rgb_to_grayscale(moving_img), utils.rgb_to_grayscale(fixed_image), utils.rgb_to_grayscale(pred_image), disp, moving_keypoints=kp_x, fixed_keypoints=kp_y, pred_keypoints=kp_warped)
                             else:
                                 fig = visualization.plot_all_registration_results_debugging_wandb(utils.rgb_to_grayscale(
                                     moving_img), utils.rgb_to_grayscale(fixed_image), utils.rgb_to_grayscale(pred_image), disp)
@@ -477,6 +474,7 @@ class VoxelmorphFeatureTraining(TrainingInterface):
             epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config['epochs'])
             time_info = '%.4f sec/step' % np.mean(epoch_step_time)
             mean_loss = np.mean(epoch_loss, axis=0)
+            tre_info = '%.4f TRE' % np.mean(val_tre_list)
             losses_info = ', '.join(['%.4e' % f for f in mean_loss])
             if self.val_dataset is not None:
                 loss_info = 'loss: %.4e  (%s), validation loss: %.4e' % (
@@ -484,16 +482,20 @@ class VoxelmorphFeatureTraining(TrainingInterface):
             else:
                 loss_info = 'loss: %.4e  (%s)' % (
                     np.mean(epoch_total_loss), losses_info)
-            print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
+            print(' - '.join((epoch_info, time_info, loss_info, tre_info)), flush=True)
 
             # wandb logging
             if self.config['use_wandb']:
+                feature_space_loss = mean_loss[2] if len(
+                    mean_loss) == 3 else 0.0
                 if self.val_dataset is not None:
-                    wandb.log({"loss": np.mean(
-                        epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1], "val-loss": np.mean(val_loss_list)})
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1],
+                               "feature-space-loss": feature_space_loss,
+                               "val-loss": np.mean(val_loss_list), "TRE": np.mean(val_tre_list), "plot": fig})
                 else:
-                    wandb.log({"loss": np.mean(epoch_total_loss),
-                              "sim-loss": mean_loss[0], "grad-loss": mean_loss[1]})
+                    wandb.log({"loss": np.mean(epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1],
+                               "feature-space-loss": feature_space_loss, "TRE": np.mean(val_tre_list),
+                               "plot": fig})
 
         # final model save
         model.save(os.path.join(model_dir, '%04d_final.pt' %

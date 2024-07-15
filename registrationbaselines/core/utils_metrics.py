@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from typing import Tuple
-from scipy.ndimage import map_coordinates
 import numpy as np
 import nibabel as nib
 
@@ -115,28 +114,3 @@ def deform_segmentations(moving_segmentation: np.ndarray, displacement: np.ndarr
     @return:
     """
     # TODO
-
-
-def deform_landmarks(moving_landmarks: np.ndarray, displacement: np.ndarray) -> np.ndarray:
-    # Map the moving landmarks to the fixed landmarks using the displacement field
-
-    if moving_landmarks.shape[-1] == 3:
-        mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 0], moving_landmarks.transpose())
-        mov_lms_disp_y = map_coordinates(
-            displacement[:, :, :, 1], moving_landmarks.transpose())
-        mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 2], moving_landmarks.transpose())
-        mov_lms_disp = np.array(
-            (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
-    elif moving_landmarks.shape[-1] == 2:
-        mov_lms_disp_x = map_coordinates(
-            displacement[:, :, 0], moving_landmarks.transpose())
-        mov_lms_disp_y = map_coordinates(
-            displacement[:, :, 1], moving_landmarks.transpose())
-        mov_lms_disp = np.array((mov_lms_disp_x, mov_lms_disp_y)).transpose()
-    else:
-        raise ValueError(
-            "The landmark shape is not supported. It should be either 2 or 3.")
-
-    return moving_landmarks + mov_lms_disp

@@ -66,54 +66,70 @@ class BSplineFeature(RegistrationInterface):
         image_moving = al.utils.image_from_numpy(
             image_moving, [1, 1], [0, 0], dtype=dtype, device=device)
 
-        regularisation_weight = self.configuration["regularisation_weight"]
-        number_of_iterations = self.configuration["iterations"]
+        image_fixed_pyramid = al.create_image_pyramid(image_fixed,
+                                                      [[4, 4], [2, 2]],
+                                                      rgb=True)
+        image_moving_pyramid = al.create_image_pyramid(image_moving,
+                                                       [[4, 4], [2, 2]],
+                                                       rgb=True)
 
-        sigma = self.configuration["sigma"]
+        for level, (image_fixed, image_moving) in enumerate(zip(image_fixed_pyramid, image_moving_pyramid)):
 
-        registration = al.PairwiseRegistration(verbose=True)
+            regularisation_weight = self.configuration["regularisation_weight"][level]
+            number_of_iterations = self.configuration["iterations"][level]
+            sigma = self.configuration["sigma"][level]
 
-        # define the transformation
-        # transformation = al.transformation.pairwise.RigidTransformation(
-        #     image_moving)
-        transformation = al_transformation.pairwise.BsplineTransformation(image_moving.size,
-                                                                          sigma=sigma,
-                                                                          rgb=True,
-                                                                          order=1,
-                                                                          dtype=dtype,
-                                                                          device=device,
-                                                                          diffeomorphic=True)
+            registration = al.PairwiseRegistration(verbose=True)
 
-        registration.set_transformation(transformation)
+            # define the transformation
+            # transformation = al.transformation.pairwise.RigidTransformation(
+            #     image_moving)
+            transformation = al_transformation.pairwise.BsplineTransformation(image_moving.size,
+                                                                              sigma=sigma,
+                                                                              rgb=True,
+                                                                              order=1,
+                                                                              dtype=dtype,
+                                                                              device=device,
+                                                                              diffeomorphic=True)
 
-        # choose the Mean Squared Error as image loss
-        # image_loss_image = al_loss.pairwise.MSE(
-        #     image_fixed, image_moving, rgb=True)
-        image_loss_feature = al_loss.pairwise.LatentSpaceFeatureLoss(image_fixed,
-                                                                     image_moving,
-                                                                     rgb=True,
-                                                                     extractor=self.configuration["encoder"],
-                                                                     loss_type=self.configuration["featureMetric"])
+            if level > 0:
+                constant_flow = al.transformation.utils.upsample_displacement(constant_flow,
+                                                                              image_moving.size,
+                                                                              interpolation="linear")
+                transformation.set_constant_flow(constant_flow)
 
-        # registration.set_image_loss([image_loss_image])
-        registration.set_image_loss([image_loss_feature])
-        # registration.set_image_loss(
-        #     [image_loss_image, image_loss_feature], [0.5, 2])
+            registration.set_transformation(transformation)
 
-        # define the regulariser for the displacement
-        regulariser = al_regulariser.displacement.DiffusionRegulariser(
-            image_moving.spacing)
-        regulariser.SetWeight(regularisation_weight)
-        registration.set_regulariser_displacement([regulariser])
+            # choose the Mean Squared Error as image loss
+            # image_loss_image = al_loss.pairwise.MSE(
+            #     image_fixed, image_moving, rgb=True)
+            image_loss_feature = al_loss.pairwise.LatentSpaceFeatureLoss(image_fixed,
+                                                                         image_moving,
+                                                                         rgb=True,
+                                                                         extractor=self.configuration["encoder"],
+                                                                         loss_type=self.configuration["featureMetric"])
 
-        # define the optimizer
-        optimizer = torch.optim.Adam(
-            transformation.parameters(), lr=self.configuration["lr"])
+            # registration.set_image_loss([image_loss_image])
+            registration.set_image_loss([image_loss_feature])
+            # registration.set_image_loss(
+            #     [image_loss_image, image_loss_feature], [0.5, 2])
 
-        registration.set_optimizer(optimizer)
-        registration.set_number_of_iterations(number_of_iterations)
+            # define the regulariser for the displacement
+            regulariser = al_regulariser.displacement.DiffusionRegulariser(
+                image_moving.spacing)
+            regulariser.SetWeight(regularisation_weight)
+            registration.set_regulariser_displacement([regulariser])
 
-        registration.start()
+            # define the optimizer
+            optimizer = torch.optim.Adam(
+                transformation.parameters(), lr=self.configuration["lr"])
+
+            registration.set_optimizer(optimizer)
+            registration.set_number_of_iterations(number_of_iterations)
+
+            registration.start()
+
+            constant_flow = transformation.get_flow()
 
         # create final result
         displacement = transformation.get_displacement()
@@ -134,6 +150,9 @@ class BSplineFeature(RegistrationInterface):
         image_deformed = deformed.image.detach().cpu().numpy().squeeze()
         image_deformed = Image.fromarray(image_deformed.astype(np.uint8))
         image_deformed.save(self.result_transformed_image_path)
+
+        deformation = al_transformation.utils.unit_displacement_to_displacement(
+            deformation)
 
         itk_displacement = sitk.GetImageFromArray(
             deformation.detach().cpu().numpy(), isVector=True)

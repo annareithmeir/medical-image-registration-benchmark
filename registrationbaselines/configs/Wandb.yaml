@@ -1,7 +1,7 @@
 # Weights and Biases Configuration for training run
 
 
-project:      LapIRN #Voxelmorph
+project:      vxm-feature-space-reg #Voxelmorph
 group:        null
-name:         test_new
+name:         test_2
 config_dict:  null

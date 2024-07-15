@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional
 import os
 os.environ['NEURITE_BACKEND']="pytorch"
-import neurite
+import wandb
 import pandas as pd
 # plt.switch_backend('agg')
 from matplotlib.colors import ListedColormap
@@ -245,7 +245,7 @@ def plot_all_registration_results(save_path: Path,
                                   moving_keypoints: Optional[np.array] = None,
                                   fixed_keypoints: Optional[np.array] = None,
                                   pred_keypoints: Optional[np.ndarray] = None,
-                                  title: Optional[str] = None) -> None:
+                                  title: Optional[str] = None) -> plt.Figure:
     """
     plots a figure with 9x3 subplots. Half-slices used for plots in each dimension.
     rows: dims
@@ -406,7 +406,7 @@ def plot_all_registration_results(save_path: Path,
         ax = fig.add_subplot(3, 9, 1)
         ax.imshow(moving_image, cmap='gray')
         if moving_keypoints is not None:
-            ax.scatter(moving_keypoints[:, 1], moving_keypoints[:, 0], marker='x', c='red')
+            ax.scatter(moving_keypoints[:, 0], moving_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("M")
         plt.axis('off')
@@ -415,7 +415,7 @@ def plot_all_registration_results(save_path: Path,
         ax = fig.add_subplot(3, 9, 2)
         ax.imshow(fixed_image, cmap='gray')
         if fixed_keypoints is not None:
-            ax.scatter(fixed_keypoints[:, 1], fixed_keypoints[:, 0], marker='x', c='red')
+            ax.scatter(fixed_keypoints[:, 0], fixed_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("F")
         plt.axis('off')
@@ -424,7 +424,7 @@ def plot_all_registration_results(save_path: Path,
         ax = fig.add_subplot(3, 9, 3)
         ax.imshow(pred_image, cmap='gray')
         if pred_keypoints is not None:
-            ax.scatter(pred_keypoints[:, 1], pred_keypoints[:, 0], marker='x', c='red')
+            ax.scatter(pred_keypoints[:, 0], pred_keypoints[:, 1], marker='.', c='red')
         if toprow:
             ax.title.set_text("warped M")
         plt.axis('off')
@@ -502,31 +502,34 @@ def plot_all_registration_results(save_path: Path,
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.01, hspace=0.01)
 
-    fig.show()
-    fig.savefig(save_path)
-    plt.close(fig)
+    # fig.show()
+    if save_path is not None:
+        fig.savefig(save_path)
+        plt.close(fig)
+    return fig
 
-# def plot_all_registration_results_debugging_wandb(step: int, log_dir: str, moving_image: np.ndarray,
-#                                                   fixed_image: np.ndarray, pred_image: np.ndarray,
-#                                                   displacement: np.ndarray, fixed_labels: Optional[np.array] = None,
-#                                                   pred_labels: Optional[np.array] = None,
-#                                                   moving_keypoints: Optional[np.array] = None,
-#                                                   fixed_keypoints: Optional[np.array] = None,
-#                                                   pred_keypoints: Optional[np.array] = None,
-#                                                   title: Optional[str] = None):
-#     # 9x3 subplots, warp in shape (x,y,z,3)
-#     # rows: dims
-#     # cols: M,F, diff_before, warpedM,phi_grid, phi_quiver, diffimg,jacdet, jacdet_violin,maxshear
-#
-#     assert displacement.shape[-1] == 3 or displacement.shape[-1] == 2
-#
-#     log_file = log_dir + '/debugging_results_epoch_' + str(step) + '.pdf'
-#     fig = plot_all_registration_results(moving_image, fixed_image, pred_image, displacement,
-#                                                   fixed_labels=fixed_labels, pred_labels=pred_labels,
-#                                                   moving_keypoints=moving_keypoints, fixed_keypoints=fixed_keypoints,
-#                                                   pred_keypoints=pred_keypoints, show_plot=False, title=title,
-#                                                   show_maxshear=False, pfile=log_file)
-#     return wandb.Image(fig)
+
+def plot_all_registration_results_debugging_wandb(moving_image: np.ndarray,
+                                                  fixed_image: np.ndarray,
+                                                  pred_image: np.ndarray,
+                                                  displacement: np.ndarray,
+                                                  fixed_labels: Optional[np.array] = None,
+                                                  pred_labels: Optional[np.array] = None,
+                                                  moving_keypoints: Optional[np.array] = None,
+                                                  fixed_keypoints: Optional[np.array] = None,
+                                                  pred_keypoints: Optional[np.array] = None,
+                                                  title: Optional[str] = None):
+    # 9x3 subplots, warp in shape (x,y,z,3)
+    # rows: dims
+    # cols: M,F, diff_before, warpedM,phi_grid, phi_quiver, diffimg,jacdet, jacdet_violin,maxshear
+    assert displacement.shape[-1] == 3 or displacement.shape[-1] == 2
+
+    # log_file = log_dir + '/debugging_results_epoch_' + str(step) + '.pdf'
+    fig = plot_all_registration_results(None, moving_image, fixed_image, pred_image, displacement,
+                                                  fixed_labels=fixed_labels, pred_labels=pred_labels,
+                                                  moving_keypoints=moving_keypoints, fixed_keypoints=fixed_keypoints,
+                                                  pred_keypoints=pred_keypoints, title=title)
+    return wandb.Image(fig)
 
 def plot_quantitative_results(df: pd.DataFrame, plot_path: Path):
     df = df.drop(["min", "max", "mean", "std"])
