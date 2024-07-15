@@ -94,45 +94,49 @@ features_of_image_deformed_dim = F.interpolate(torch.Tensor(features_of_image_de
 #                                                             dtype=th.float32,
 #                                                             device='cpu')
 
-# plot the results
-plt.close()
-plt.figure(figsize=(20, 4))
 
-plt.subplot(151)
-plt.imshow(image.numpy(), cmap='gray')
-plt.title('Middle slice')
-plt.axis('off')  # Turn off axis
+# save the images
+base_path = r'/u/home/koeglf/Documents/code/registrationbaselines/tmp/copy'
 
-plt.subplot(152)
-plt.imshow(feature_dim1.numpy())
-plt.title('Middle slice feature')
-plt.axis('off')  # Turn off axis
+image_middle = image.numpy().squeeze()
+image_middle_feature = feature_dim1.numpy()
+image_encode_then_deform = feature_dim1_deformed.numpy()
+image_deform_then_encode = features_of_image_deformed_dim.numpy()
 
-plt.subplot(153)
-plt.imshow(feature_dim1_deformed.numpy())
-plt.title('Encode image then deform')
-plt.axis('off')  # Turn off axis
 
-plt.subplot(154)
-plt.imshow(features_of_image_deformed_dim.numpy())
-plt.title('Deform image then encode')
-plt.axis('off')  # Turn off axis
+def min_max_normalisation(image: np.ndarray):
+    return (image - np.min(image)) / (np.max(image) - np.min(image))
 
-plt.subplot(155)
-plt.imshow(feature_dim1_deformed.numpy() -
-           features_of_image_deformed_dim.numpy(), cmap='gray')
-plt.title('Difference image')
-plt.axis('off')  # Turn off axis
 
-plt.subplots_adjust(wspace=0.1)
+image_middle = min_max_normalisation(image_middle)
+image_middle_feature = min_max_normalisation(image_middle_feature)
+image_encode_then_deform = min_max_normalisation(image_encode_then_deform)
+image_deform_then_encode = min_max_normalisation(image_deform_then_encode)
+image_difference = min_max_normalisation(
+    image_encode_then_deform - image_deform_then_encode)
 
-# Increase horizontal distance between subplots
-# plt.subplots_adjust(wspace=0.5)
 
-plt.show()
+plt.imshow(image_middle, cmap='gray')
+plt.axis('off')
+plt.savefig(os.path.join(base_path, 'middle.png'),
+            bbox_inches='tight', pad_inches=0.0, dpi=300)
 
-plt.savefig(
-    "registrationbaselines/examples/visualisation_scripts/are_features_commutative/commutative_features.png",
-    bbox_inches='tight',
-    pad_inches=0.0,
-    dpi=300)
+plt.imshow(image_middle_feature)
+plt.axis('off')
+plt.savefig(os.path.join(base_path, 'middle_feature.png'),
+            bbox_inches='tight', pad_inches=0.0, dpi=300)
+
+plt.imshow(image_encode_then_deform)
+plt.axis('off')
+plt.savefig(os.path.join(base_path, 'encode_then_deform.png'),
+            bbox_inches='tight', pad_inches=0.0, dpi=300)
+
+plt.imshow(image_deform_then_encode)
+plt.axis('off')
+plt.savefig(os.path.join(base_path, 'deform_then_encode.png'),
+            bbox_inches='tight', pad_inches=0.0, dpi=300)
+
+plt.imshow(image_difference, cmap='gray')
+plt.axis('off')
+plt.savefig(os.path.join(base_path, 'difference.png'),
+            bbox_inches='tight', pad_inches=0.0, dpi=300)
