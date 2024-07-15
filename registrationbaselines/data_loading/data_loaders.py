@@ -25,6 +25,39 @@ WINDOW_BONES = [-400, 1600]
 WINDOW_SOFT_TISSUE = [-150, 250]
 
 
+class CAMUSDataset(Dataset):
+    """
+    Dataloader for the CAMUS dataset.
+    """
+
+    def __init__(self, path_root: Path) -> None:
+        """
+        Initialize the CAMUS dataset.
+        """
+
+        self.path_root = path_root
+        self.images_and_segs_list = self.__load_images_and_segs_list()
+
+    def __len__(self):
+        """
+            Return the number of transformations.
+        """
+
+        return len(self.images_and_segs_list)
+
+    def __getitem__(self, idx: int):
+        """
+            Return the path to the transformation at index idx.
+        """
+
+        return self.images_and_segs_list[idx]
+
+    def __load_images_and_segs_list(self):
+        
+        all_patient_folders = list(self.path_root.glob("*.*"))
+        all_patient_folders.sort()
+
+
 class L2RLungCTDataset(Dataset):
     """
     Learn2Reg Lung CT dataset (available at https://learn2reg.grand-challenge.org/Datasets/)
@@ -1155,7 +1188,6 @@ class ACDCDataset(Dataset):
                     "img_y": (Path(y_file), y),
                     "labels_x": (Path(labels_x_file), labels_x),
                     "labels_y": (Path(labels_y_file), labels_y)
-
                 }
 
                 return x, y, labels_x, labels_y

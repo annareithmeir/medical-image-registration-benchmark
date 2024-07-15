@@ -4,6 +4,9 @@ import yaml
 import numpy as np
 import SimpleITK as sitk
 import torch
+import torch.nn.functional as F
+
+from registrationbaselines.core import utils_metrics
 
 
 def read_config(file_path: Path) -> dict:
@@ -74,45 +77,33 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
     sitk.WriteImage(image, str(filename))
 
 
-def deform_image(image_fixed: np.ndarray | sitk.Image,
-                 image_moving: np.ndarray | sitk.Image,
-                 displacement_field: np.ndarray | sitk.Image,
-                 sitk_interpolator: int) -> np.ndarray | sitk.Image:
+def deform_image(image: torch.Tensor,
+                 displacement: torch.Tensor, mode) -> torch.Tensor:
     """
     Apply a deformation to an image using the provided deformation.
     @param image_fixed:
     @param image_moving:
     @param displacement_field:
-    @param sitk_interpolator:
     @return:
     """
 
-    return_type = sitk.Image
+    image_size = image.shape[-2:]
 
-    if isinstance(image_fixed, np.ndarray) and isinstance(image_moving, np.ndarray) and isinstance(displacement_field, np.ndarray):
-        image_fixed = sitk.GetImageFromArray(image_fixed)
-        image_moving = sitk.GetImageFromArray(image_moving)
-        displacement_field = sitk.GetImageFromArray(
-            displacement_field, isVector=True)
+    grid = utils_metrics.compute_grid(
+        image_size, dtype=image.dtype, device=image.device)
 
-        return_type = np.ndarray
+    if displacement.shape[0] != 1:
+        displacement = displacement.unsqueeze(0)
 
-    # Create the transform using the displacement field
-    displacement_field_transform = sitk.DisplacementFieldTransform(
-        displacement_field)
+    if image.shape[0] != 1:
+        image = image.unsqueeze(0)
+    if image.shape[1] != 1:
+        image = image.unsqueeze(1)
 
-    # Apply the transform to the input image
-    resampler = sitk.ResampleImageFilter()
-    resampler.SetReferenceImage(image_fixed)
-    resampler.SetInterpolator(sitk_interpolator)
-    resampler.SetTransform(displacement_field_transform)
+    # warp image
+    warped_image = F.grid_sample(image, - displacement + grid, mode=mode)
 
-    deformed_image = resampler.Execute(image_moving)
-
-    if return_type == np.ndarray:
-        return sitk.GetArrayFromImage(deformed_image)
-    else:
-        return deformed_image
+    return warped_image
 
 
 def explore_memory():

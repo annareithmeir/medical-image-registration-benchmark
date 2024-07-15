@@ -7,6 +7,7 @@ from tqdm import tqdm
 from torch.utils.data import Dataset
 import nibabel as nib
 import numpy as np
+import torch
 import SimpleITK as sitk
 
 from registrationbaselines.core import utils, result_csv, general_deformation
@@ -104,26 +105,23 @@ class Evaluation():
         if idxs is None:
             idxs = range(len(dataset_transformations))
 
-        print(idxs)
-
         for i in tqdm(idxs):
-            print(i)
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
             fixed_image_path = item["img_x"][0]
             moving_image_path = item["img_y"][0]
-            fixed_image = sitk.GetImageFromArray(item["img_x"][1])
-            moving_image = sitk.GetImageFromArray(item["img_y"][1])
-            # displacement = sitk.ReadImage(
-            #     path_displacement.as_posix(), sitk.sitkVectorFloat64)
-            displacement = nib.load(
-                path_displacement.as_posix()).get_fdata().squeeze()
-            deformed_image_path = self._get_deformed_image_path(
-                fixed_image_path.name, moving_image_path.name)
-            deformed_image = sitk.ReadImage(deformed_image_path)
+            fixed_image = torch.from_numpy(item["img_x"][1])
+            moving_image = torch.from_numpy(item["img_y"][1])
+            displacement = torch.load(path_displacement)
 
-            plots_path = self._create_plots_paths(
-                fixed_image_path.name, moving_image_path.name)
+            deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
+                                                                moving_image_path.name,
+                                                                extension_overwrite=''.join(path_displacement.suffixes))
+            deformed_image = torch.load(deformed_image_path)
+
+            plots_path = self._create_plots_paths(fixed_image_path.name,
+                                                  moving_image_path.name,
+                                                  extension_overwrite=''.join(path_displacement.suffixes))
 
             fixed_landmarks = None
             moving_landmarks = None
@@ -131,21 +129,16 @@ class Evaluation():
             fixed_segmentation = None
             deformed_segmentation = None
 
-            fixed_segmentation = sitk.GetImageFromArray(
-                item["labels_x"][1].squeeze())
-            moving_segmentation = sitk.GetImageFromArray(
-                item["labels_y"][1].squeeze())
-            displacement_seg = sitk.ReadImage(
-                path_displacement, sitk.sitkVectorFloat64)
-            deformed_segmentation = utils.deform_image(fixed_segmentation,
-                                                       moving_segmentation,
-                                                       displacement_seg,
-                                                       sitk.sitkNearestNeighbor)
+            fixed_segmentation = torch.from_numpy(
+                item["labels_x"][1]).to(displacement.device)
+            moving_segmentation = torch.from_numpy(
+                item["labels_y"][1]).to(displacement.device)
 
-            fixed_segmentation = sitk.GetArrayFromImage(fixed_segmentation)
-            moving_segmentation = sitk.GetArrayFromImage(moving_segmentation)
-            deformed_segmentation = sitk.GetArrayFromImage(
-                deformed_segmentation)
+            deformed_segmentation = utils.deform_image(moving_segmentation,
+                                                       displacement, mode='nearest')
+
+            fixed_image = fixed_image.to(displacement.device)
+            moving_image = moving_image.to(displacement.device)
 
             if "landmarks" in item:
 
@@ -169,20 +162,64 @@ class Evaluation():
                     landmarks_moving, displacement)
                 # deformed_landmarks = utils_metrics.deform_landmarks(
                 #     moving_landmarks, displacement)
-            visualization.plot_all_registration_results(plots_path, sitk.GetArrayFromImage(moving_image), sitk.GetArrayFromImage(fixed_image), sitk.GetArrayFromImage(deformed_image),
+            visualization.plot_all_registration_results(plots_path, moving_image, fixed_image, deformed_image,
                                                         displacement, fixed_labels=fixed_segmentation, pred_labels=deformed_segmentation,
                                                         fixed_keypoints=None, moving_keypoints=None, pred_keypoints=None)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
 
-        displacement = sitk.ReadImage(
-            path_displacement, sitk.sitkVectorFloat64)
+        displacement = torch.load(path_displacement)
 
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
-            displacement)
+            displacement.detach().cpu().numpy())
 
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
+
+    def dice_anna(self, image1: np.ndarray, image2: np.ndarray, img_mask: Optional[np.ndarray] = None) -> float:
+        """
+        Taken from github of conditional LapIRN by Tony Mok
+        :param image1: pred
+        :param image2:true
+        :return:
+        """
+        unique_class = np.unique(image2)
+        dice = 0
+        num_count = 0
+        if img_mask is not None:
+            image1[img_mask == 0] = 0
+            # image2[img_mask==0]=0
+        for i in unique_class:
+            if (i == 0) or ((image1 == i).sum() == 0) or ((image2 == i).sum() == 0):
+                continue
+            sub_dice = np.sum(image2[image1 == i] == i) * \
+                2.0 / (np.sum(image1 == i) + np.sum(image2 == i))
+            dice += sub_dice
+            num_count += 1
+        if num_count == 0:
+            return 0
+        else:
+            return dice / num_count
+
+    def dice_per_class_anna(self, image1: np.ndarray, image2: np.ndarray, classes: list[int], img_mask: np.ndarray = None) -> list[float]:
+        """
+        Computes dice scores per class labels. Based on Tony Mok LapIRN implementation
+        :param image1:
+        :param image2:
+        :param classes: list of labels to compute dice on
+        :return: list of dice scores
+        """
+        dice_ls = []
+        if img_mask is not None:
+            image1[img_mask == 0] = 0
+        for i in classes:
+            if (i == 0) or (np.sum(image1 == i) == 0) or (np.sum(image2 == i) == 0):
+                dice_ls.append(0)  # TODO check if correct
+                continue
+            sub_dice = np.sum(image2[image1 == i] == i) * \
+                2.0 / (np.sum(image1 == i) + np.sum(image2 == i))
+            dice_ls.append(sub_dice)
+        return dice_ls
 
     def _evaluate_segmentation(self,
                                path_displacement: Path,
@@ -211,19 +248,22 @@ class Evaluation():
         hausdorff_mean = 0
         hausdorff95_mean = 0
 
-        displacement = sitk.ReadImage(
-            path_displacement, sitk.sitkVectorFloat64)
-        segmentation_fixed = sitk.GetImageFromArray(
-            segmentation_fixed[1].squeeze())
-        segmentation_moving = sitk.GetImageFromArray(
-            segmentation_moving[1].squeeze())
+        displacement = torch.load(path_displacement)
+        segmentation_fixed = torch.from_numpy(
+            segmentation_fixed[1]).to(displacement.device)
+        segmentation_moving = torch.from_numpy(
+            segmentation_moving[1]).to(displacement.device)
 
-        warped = utils.deform_image(segmentation_fixed,
-                                    segmentation_moving,
-                                    displacement,
-                                    sitk.sitkNearestNeighbor)
+        warped = utils.deform_image(segmentation_moving,
+                                    displacement, mode='nearest')
 
-        dice_scores = metrics.dice_score(segmentation_fixed, warped)
+        dice_scores = metrics.dice_score(
+            segmentation_fixed.squeeze(), warped.squeeze())
+
+        # dice_score_me = np.mean(np.array(dice_scores))
+        # dice_scores_anna = self.dice_per_class_anna(segmentation_fixed.squeeze(
+        # ).detach().cpu().numpy(), segmentation_moving.squeeze().detach().cpu().numpy(), [1, 2, 3])
+
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
         else:
@@ -234,10 +274,10 @@ class Evaluation():
             dice_mean /= len(dice_scores)
             self.results.add_value("dice_mean", dice_mean, name)
 
-        hausdorff_scores = metrics.hausdorff_distance(segmentation_fixed,
-                                                      warped)
-        hausdorff95_scores = metrics.hausdorff_distance(segmentation_fixed,
-                                                        warped,
+        hausdorff_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
+                                                      warped.squeeze())
+        hausdorff95_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
+                                                        warped.squeeze(),
                                                         percentile=95)
 
         assert len(hausdorff_scores) == len(
@@ -277,7 +317,7 @@ class Evaluation():
         self.results.add_value("tre", tre, name)
         self.results.add_value("tre30", tre30, name)
 
-    def _create_plots_paths(self, name_fixed: str, name_moving: str):
+    def _create_plots_paths(self, name_fixed: str, name_moving: str, extension_overwrite=None):
         """
         Create the paths for the plots.
         """
@@ -285,19 +325,22 @@ class Evaluation():
         if name_fixed.endswith(".nii") or name_fixed.endswith(".nii.gz"):
             name_fixed = name_fixed.replace(".nii", "")
             name_moving = name_moving.replace(".nii", "")
-
             name_fixed = name_fixed.replace(".gz", "")
             name_moving = name_moving.replace(".gz", "")
+
         elif name_fixed.endswith(".jpg"):
             name_fixed = name_fixed.replace(".jpg", "")
             name_moving = name_moving.replace(".jpg", "")
+        elif name_fixed.endswith(".pt"):
+            name_fixed = name_fixed.replace(".pt", "")
+            name_moving = name_moving.replace(".pt", "")
+
         path_plots = self.path_plots / \
             f"{name_moving}_deformed_to_{name_fixed}.pdf"
-        path_plots = path_plots.resolve().as_posix()
 
-        return Path(path_plots)
+        return path_plots
 
-    def _get_deformed_image_path(self, name_fixed: str, name_moving: str):
+    def _get_deformed_image_path(self, name_fixed: str, name_moving: str, extension_overwrite=None):
         """
         Get the corresponding deformed image path.
         """
@@ -307,14 +350,23 @@ class Evaluation():
             name_moving = name_moving.replace(".nii", "")
             name_fixed = name_fixed.replace(".gz", "")
             name_moving = name_moving.replace(".gz", "")
-            path_plots = self.path_results.parent / \
-                f"deformed/{name_moving}_deformed_to_{name_fixed}.nii.gz"
+            extension = ".nii.gz"
+
         elif name_fixed.endswith(".jpg"):
             name_fixed = name_fixed.replace(".jpg", "")
             name_moving = name_moving.replace(".jpg", "")
 
-            path_plots = self.path_results.parent / \
-                f"deformed/{name_moving}_deformed_to_{name_fixed}.jpg"
-        path_plots = path_plots.resolve().as_posix()
+            extension = ".jpg"
 
-        return Path(path_plots)
+        elif name_fixed.endswith(".pt"):
+            name_fixed = name_fixed.replace(".pt", "")
+            name_moving = name_moving.replace(".pt", "")
+            extension = ".pt"
+
+        if extension_overwrite != extension:
+            extension = extension_overwrite
+
+        path_plots = self.path_results.parent / \
+            f"deformed/{name_moving}_deformed_to_{name_fixed}{extension}"
+
+        return path_plots

@@ -8,6 +8,7 @@ from PIL import Image
 import SimpleITK as sitk
 from torch.utils.data import Dataset
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
@@ -65,11 +66,24 @@ class BSplineFeature(RegistrationInterface):
                                 self.configuration["iterations"] = iterations
                                 self.configuration["sigma"] = sigma
 
+                                joined_metric = ''.join(
+                                    [f'{value}_{key}_' for key, value in metric.items()])
+
                                 self.method = self.configuration_all_params["method_name"] + \
-                                    f"_{encoder}_{metric}_lr{lr}_reg{regularisation_weight}_it{iterations}_sigma{sigma}"
+                                    f"_{encoder}_{joined_metric}_lr{lr}_reg{regularisation_weight}_it{iterations}_sigma{sigma}"
+
+                                if self.configuration["encoder"] == "DINOv2":
+                                    self.method += f"_dino_upsample{self.configuration_all_params['dino_upsample_factor']}"
+
                                 self._create_result_directories()
 
-                                print("\nregister...")
+                                print(f"\nregister with parameters: \n\
+                                    encoder: {encoder}\n\
+                                    metric: {joined_metric}\n\
+                                    lr: {lr}\n\
+                                    regularisation_weight: {regularisation_weight}\n\
+                                    iterations: {iterations}\n\
+                                    sigma: {sigma}\n")
                                 for i in tqdm(range(len(dataloader))):
                                     item = dataloader[i]
                                     self.register(
@@ -87,7 +101,7 @@ class BSplineFeature(RegistrationInterface):
                                 print("\nplot...")
                                 evaluation.visualize(
                                     loader_transformations, dataloader)
-                                print("\ndone")
+                                print("\ndone\n\n")
 
     def register(self,
                  fixed_image: Tuple[Path, np.ndarray],
@@ -117,10 +131,16 @@ class BSplineFeature(RegistrationInterface):
         image_moving = al.utils.image_from_numpy(
             image_moving, [1, 1], [0, 0], dtype=dtype, device=device)
 
+        levels = len(self.regularisation_weights[0])
+
+        pyramid_factors = [[2**i, 2**i] for i in range(levels-1, 0, -1)]
+
         image_fixed_pyramid = al.create_image_pyramid(image_fixed,
-                                                      [[4, 4], [2, 2]])
+                                                      pyramid_factors)
         image_moving_pyramid = al.create_image_pyramid(image_moving,
-                                                       [[4, 4], [2, 2]])
+                                                       pyramid_factors)
+
+        loss_lists = []
 
         for level, (image_fixed, image_moving) in enumerate(zip(image_fixed_pyramid, image_moving_pyramid)):
 
@@ -149,32 +169,54 @@ class BSplineFeature(RegistrationInterface):
 
             registration.set_transformation(transformation)
 
-            # this means we do it on the images
-            if self.configuration["encoder"] == "no_encoder":
-                if self.configuration["metric"] == "MSE":
-                    image_loss = al_loss.pairwise.MSE(
-                        image_fixed, image_moving, rgb=use_rgb)
-                elif self.configuration["metric"] == "NCC":
-                    image_loss = al_loss.pairwise.NCC(
-                        image_fixed, image_moving, rgb=use_rgb)
-                else:
-                    raise ValueError(
-                        f'Metric {self.configuration["metric"]} not implemented')
-            else:
-                image_loss = al_loss.pairwise.LatentSpaceFeatureLoss(image_fixed,
-                                                                     image_moving,
-                                                                     rgb=use_rgb,
-                                                                     extractor=self.configuration["encoder"],
-                                                                     loss_type=self.configuration["metric"])
+            image_loss = []
+            image_loss_weights = []
+            # image losses
+            if "MSE" in self.configuration["metric"]:
+                image_loss.append(al_loss.pairwise.MSE(
+                    image_fixed, image_moving, rgb=use_rgb))
+                image_loss_weights.append(self.configuration["metric"]["MSE"])
 
-            registration.set_image_loss([image_loss])
-            # registration.set_image_loss(
-            #     [image_loss_image, image_loss_feature], [0.5, 2])
+            elif "NCC" in self.configuration["metric"]:
+                image_loss.append(al_loss.pairwise.NCC(
+                    image_fixed, image_moving, rgb=use_rgb))
+                image_loss_weights.append(self.configuration["metric"]["NCC"])
+
+            elif "MI" in self.configuration["metric"]:
+                image_loss.append(al_loss.pairwise.MI(
+                    image_fixed, image_moving, rgb=use_rgb))
+                image_loss_weights.append(self.configuration["metric"]["MI"])
+
+            # feature losses
+            if "COSINE" in self.configuration["metric"]:
+
+                image_loss.append(al_loss.pairwise.LatentSpaceFeatureLoss(image_fixed,
+                                                                          image_moving,
+                                                                          rgb=use_rgb,
+                                                                          extractor=self.configuration[
+                                                                              "encoder"],
+                                                                          loss_type="COSINE",
+                                                                          dino_upsample_factor=self.configuration_all_params["dino_upsample_factor"]))
+                image_loss_weights.append(
+                    self.configuration["metric"]["COSINE"])
+            elif "L1" in self.configuration["metric"]:
+
+                image_loss.append(al_loss.pairwise.LatentSpaceFeatureLoss(image_fixed,
+                                                                          image_moving,
+                                                                          rgb=use_rgb,
+                                                                          extractor=self.configuration[
+                                                                              "encoder"],
+                                                                          loss_type="L1",
+                                                                          dino_upsample_factor=self.configuration_all_params["dino_upsample_factor"]))
+                image_loss_weights.append(
+                    self.configuration["metric"]["L1"])
+
+            registration.set_image_loss(image_loss, image_loss_weights)
 
             # define the regulariser for the displacement
             regulariser = al_regulariser.displacement.DiffusionRegulariser(
                 image_moving.spacing)
-            regulariser.SetWeight(regularisation_weight)
+            regulariser.set_weight(regularisation_weight)
             registration.set_regulariser_displacement([regulariser])
 
             # define the optimizer
@@ -193,29 +235,40 @@ class BSplineFeature(RegistrationInterface):
         warped_image = al_transformation.utils.warp_image(
             image_moving, displacement)
 
-        self._save_results(warped_image, displacement)
+        self._save_results(warped_image, displacement, image_loss)
 
-    def _save_results(self, deformed: al.Image, deformation: torch.Tensor):
+    def _save_results(self, deformed: al.Image, deformation: torch.Tensor, loss_lists: list):
         self.result_transformed_image_path, \
             self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
                                                                         self.moving_path.stem,
-                                                                        ".nii.gz",
-                                                                        ".nii.gz")
+                                                                        ".pt",
+                                                                        ".pt")
 
         # SAVE DEFORMED IMAGE
-        image_deformed = deformed.image.detach().cpu().numpy().squeeze()
-        image_deformed = sitk.GetImageFromArray(image_deformed)
-        image_deformed.SetSpacing(spacing=deformed.spacing)
-        image_deformed.SetOrigin(origin=deformed.origin)
-        sitk.WriteImage(image_deformed, self.result_transformed_image_path)
+        torch.save(deformed.image, self.result_transformed_image_path)
 
         # SAVE DEFORMATION
-        deformation = al_transformation.utils.unit_displacement_to_displacement(
-            deformation)
-        itk_displacement = sitk.GetImageFromArray(
-            deformation.detach().cpu().numpy(), isVector=True)
-        itk_displacement.SetSpacing(spacing=deformed.spacing)
-        itk_displacement.SetOrigin(origin=deformed.origin)
-        sitk.WriteImage(itk_displacement, self.result_transformation_path)
+        torch.save(deformation, self.result_transformation_path)
 
-        sitk.ImageReaderBase_GetImageIOFromFileName
+        # SAVE LOSS LISTS
+        path_losses = self.result_transformation_path.parent.parent / "losses"
+        path_losses.mkdir(exist_ok=True)
+
+        for loss in loss_lists:
+
+            name = loss._name
+
+            loss_list_path = path_losses / \
+                (str(self.result_transformation_path.name).replace(
+                    ".pt", "") + f"_{name}_loss.png")
+
+            # plot the loss
+            loss_list = np.array(loss.loss_list)
+
+            plt.figure()
+            plt.plot(loss_list)
+            plt.xlabel("iteration")
+            plt.ylabel("loss")
+            plt.title(name)
+            plt.savefig(loss_list_path.with_suffix(".png"))
+            plt.ylim(bottom=-1.0)

@@ -1,9 +1,9 @@
 method_name:             BSplines
-# result_path:            /home/anna/PycharmProjects/registrationbaselines/tmp/results
-result_path:             /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_paramsearch
+# result_path:             /home/anna/PycharmProjects/registrationbaselines/tmp/zero_def
+result_path:             /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_regulariser
 encoders:                [no_encoder]
-metrics:                 [MSE]
-lrs:                     [0.001, 0.0005, 0.0002]
-regularisation_weights:  [[1, 4, 16], [2, 8, 32], [4, 16, 64]]
-iterationss:             [[500, 500, 500]]
-sigmas:                  [[[4, 4], [4, 4], [4, 4]], [[4, 4], [8, 8], [16, 16]], [[8, 8], [4, 4], [2, 2]]]
+metrics:                 [{MSE: 1.0}]
+lrs:                     [0.0005]
+regularisation_weights:  [[0.001], [0.01], [0.1], [0.5], [1], [10], [100], [1000]]
+iterationss:             [[500]]
+sigmas:                  [[[2, 2]], [[4, 4]], [[6, 6]], [[8, 8]] [[10, 10]]]
