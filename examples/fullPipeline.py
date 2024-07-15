@@ -63,12 +63,35 @@ def main() -> None:
                                            roi_only=True,
                                            dim_mode='2d-middle')
 
+    """
+    idxs = np.arange(134)
+    # np.random.shuffle(idxs)
+    train_idx, val_idx = idxs[:124], idxs[124:]
+    train_dataset = data_loaders.FIREDataset(
+        path_data, return_type="np_arrays_rgb", idxs=[0])
+    val_dataset = data_loaders.FIREDataset(
+        path_data, return_type="np_arrays_rgb_kps", idxs=[0])
+    # train_dataset = MNISTDataset(train=True, subset_range=100, return_type="np_arrays_rgb")
+    # val_dataset = MNISTDataset(train=False, subset_range=1, return_type="np_arrays_rgb")
+    # loader_data = MNISTDataset(train=False, subset_range=1, return_type="path_dict")
+
+    #ACDC retrun mode is "<2/4>_<train/val/test>". 2 only gives images, 4 also gives labels
+    train_dataset = data_loaders.ACDCDataset(path_data, return_mode = "train_imgs4", normalize_mode=True, roi_only=True, dim_mode='2d-middle', idxs=[0])
+    val_dataset = data_loaders.ACDCDataset(path_data, return_mode = "val_imgs4", normalize_mode=True, roi_only=True, dim_mode='2d-middle', idxs=[0])
+    train_dataset.plot_random_image()
+
+    # train
+    # if method == "voxelmorph_feature":
+    #     vxm_registration = VoxelmorphFeatureTraining(train_dataset, path_config, val_dataset)
+    #     vxm_registration.train()
+    """
+
     registration.register_all_parametr_sets(loader_data)
 
 
 if __name__ == "__main__":
     # Set the logging level for matplotlib to WARNING
-    matplotlib.use('Agg')
+    # matplotlib.use('Agg')
     logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
     import warnings

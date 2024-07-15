@@ -3,6 +3,7 @@ registration/__pycache__/
 .vscode/settings.json
 
 tmp
+wandb/
 tests/wandb
 tests/_trial_temp
 
