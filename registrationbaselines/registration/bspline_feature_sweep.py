@@ -74,6 +74,8 @@ class BSplineFeature(RegistrationInterface):
             iterations: {wandb.config.iterations}\n\
             sigma: {wandb.config.sigma}\n")
 
+        wandb.config.update({"metric_val": joined_metric})
+
         # assign wandb.config for register()
         self.configuration_register = wandb.config
 
