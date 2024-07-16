@@ -5,7 +5,6 @@ from typing import Optional, Tuple
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
-import nibabel as nib
 import numpy as np
 import torch
 import SimpleITK as sitk

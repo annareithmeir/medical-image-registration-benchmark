@@ -1,8 +1,9 @@
 from pathlib import Path
 
-from typing import Tuple
+from typing import Tuple, Any
+
 import numpy as np
-import nibabel as nib
+import SimpleITK as sitk
 import torch
 
 
@@ -47,32 +48,34 @@ def compute_grid(image_size, dtype=torch.float32, device='cpu'):
         print("Error " + dim + "is not a valid grid type")
 
 
-def extract_class(segmentation: np.ndarray, class_value: int) -> np.ndarray:
+def extract_class(segmentation: np.ndarray[Any, Any], class_value: int):
     """
     Extract a specific class from the segmentation.
 
-    Args:
-    segmentation (np.ndarray): The segmentation data.
-    class_value (int): The class value to extract.
+    @param segmentation: The segmentation data.
+    @type  segmentation: C{np.ndarray}
+    @param class_value: The class value to extract.
+    @type  class_value: C{int}
 
-    Returns:
-    np.ndarray: A binary mask where the class value is set to 1 and others to 0.
+    @return: A binary mask where the class value is set to 1 and others to 0.
+    @rtype:  C{np.ndarray}
     """
+
     assert isinstance(
         segmentation, np.ndarray), "Segmentation must be a numpy array."
-    assert isinstance(class_value, np.uint8), "Class value must be an integer."
+    assert isinstance(class_value, int), "Class value must be an integer."
 
     return (segmentation == class_value).astype(np.uint8)
 
 
-def save_class_nifti(original_img: nib.Nifti1Image,
+def save_class_nifti(original_img: sitk.Image,
                      class_mask: np.ndarray,
                      output_path: str) -> None:
     """
     Save a binary mask as a NIfTI file.
 
     Args:
-    original_img (nib.Nifti1Image): The original NIfTI image.
+    original_img (sitk.Image): The original NIfTI image.
     class_mask (np.ndarray): The mask for the class.
     output_path (str): The output file path.
 
@@ -83,11 +86,12 @@ def save_class_nifti(original_img: nib.Nifti1Image,
     # change to binary mask
     class_mask[class_mask > 0] = 1
 
-    class_img = nib.Nifti1Image(class_mask,
-                                original_img.affine,
-                                original_img.header)
+    class_img = sitk.GetImageFromArray(class_mask)
+    class_img.SetOrigin(original_img.GetOrigin())
+    class_img.SetSpacing(original_img.GetSpacing())
+    class_img.SetDirection(original_img.GetDirection())
 
-    nib.save(class_img, output_path)
+    sitk.WriteImage(class_img, output_path)
 
 
 def get_segmentation_classes(nifti_path: Path) -> np.ndarray:
@@ -99,7 +103,7 @@ def get_segmentation_classes(nifti_path: Path) -> np.ndarray:
     """
 
     # Load the NIfTI file
-    nifti = nib.load(nifti_path.as_posix()).get_fdata()
+    nifti = sitk.GetArrayFromImage(sitk.ReadImage(nifti_path.as_posix()))
 
     # Find unique classes in the image
     classes = np.unique(nifti)
@@ -110,7 +114,7 @@ def get_segmentation_classes(nifti_path: Path) -> np.ndarray:
     return classes
 
 
-def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path) -> Tuple[nib.Nifti1Image, nib.Nifti1Image, np.ndarray]:
+def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path) -> Tuple[sitk.Image, sitk.Image, np.ndarray]:
     """
     Load two NIfTI files and return them and unique classes - class 0 is removed.
 
@@ -121,12 +125,12 @@ def get_maks_and_classes(nifti1_path: Path, nifti2_path: Path) -> Tuple[nib.Nift
     """
 
     # Load the NIfTI files
-    nifti1 = nib.load(nifti1_path.as_posix())
-    nifti2 = nib.load(nifti2_path.as_posix())
+    nifti1 = sitk.ReadImage(nifti1_path.as_posix())
+    nifti2 = sitk.ReadImage(nifti2_path.as_posix())
 
     # round each value to nearest integer
-    data1 = np.round(nifti1.get_fdata()).astype(np.uint8)
-    data2 = np.round(nifti2.get_fdata()).astype(np.uint8)
+    data1 = np.round(sitk.GetArrayFromImage(nifti1)).astype(np.uint8)
+    data2 = np.round(sitk.GetArrayFromImage(nifti2)).astype(np.uint8)
 
     # Ensure the shapes match
     if data1.shape != data2.shape:

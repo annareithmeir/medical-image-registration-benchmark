@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from scipy.ndimage import map_coordinates
 import yaml
 import numpy as np
@@ -7,6 +8,31 @@ import torch
 import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
+
+from registrationbaselines.core.types import floatArray2D
+
+
+def get_affine_from_image(image: sitk.Image) -> floatArray2D:
+    """
+    Get the affine matrix from a SimpleITK image.
+
+    @param image: The SimpleITK image.
+    @type image: sitk.Image
+
+    @return: The affine matrix.
+    @rtype: np.ndarray[Tuple[int, int, int], np.dtype[np.float64]]
+    """
+
+    direction = np.array(image.GetDirection(), np.float64).reshape(3, 3)
+    spacing = np.array(image.GetSpacing(), np.float64)
+    origin = np.array(image.GetOrigin(), np.float64)
+
+    # Construct the affine matrix
+    affine = np.eye(4, dtype=np.float64)
+    affine[:3, :3] = direction * spacing[:, None]
+    affine[:3, 3] = origin
+
+    return affine
 
 
 def read_config(file_path: Path) -> dict:

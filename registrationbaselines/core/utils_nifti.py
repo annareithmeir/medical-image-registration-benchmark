@@ -1,10 +1,13 @@
 from pathlib import Path
-import os
+
+from typing import Union, Tuple, Any
 
 import numpy as np
-import nibabel as nib
 from scipy.ndimage import zoom
 import ants.utils as utils_ants
+import SimpleITK as sitk
+
+from registrationbaselines.core.types import floatArray2Dor3D
 
 # intent codes for nifti files - at the moment we only need NIFTI_INTENT_DISPVECT for setting the displacement field
 INTENT_CODES = ['NIFTI_INTENT_CORREL', 'NIFTI_INTENT_TTEST', 'NIFTI_INTENT_FTEST',
@@ -22,15 +25,33 @@ INTENT_CODES = ['NIFTI_INTENT_CORREL', 'NIFTI_INTENT_TTEST', 'NIFTI_INTENT_FTEST
 
 
 def transform_nifti_image_with_matrix(path_image: Path,
-                                      affine_matrix: np.ndarray,
+                                      affine_matrix: floatArray2Dor3D,
                                       just_replace_existing_affine: bool = False
-                                      ) -> nib.Nifti1Image:
+                                      ) -> sitk.Image:
     """
     Apply a transformation to a NIfTI image using a 4x4 matrix.
+
+    @param path_image: Path to the NIfTI image file.
+    @type path_image: Path
+
+    @param affine_matrix: 4x4 affine transformation matrix.
+    @type affine_matrix: np.ndarray
+
+    @param just_replace_existing_affine: Flag indicating whether to replace the existing affine matrix 
+                                         or to combine it with the new matrix.
+    @type just_replace_existing_affine: bool
+
+    @return: Transformed NIfTI image.
+    @rtype: sitk.Image
+
+    @raise AssertionError: If the affine matrix is not 4x4 or the last row is not [0, 0, 0, 1].
+    @raise AssertionError: If the image file does not exist or is not a NIfTI file.
     """
 
+    Warning("Haven't tested this functoin after the sitk rewrite")
+
     assert affine_matrix.shape == (
-        4, 4), "The rotation matrix must be a 4x4 matrix."
+        4, 4), "The affine matrix must be a 4x4 matrix."
     assert np.allclose(affine_matrix[3], [
                        0, 0, 0, 1]), "The last row of the affine matrix must be [0, 0, 0, 1]."
     assert path_image.exists(), f"The image file {path_image} does not exist."
@@ -38,74 +59,99 @@ def transform_nifti_image_with_matrix(path_image: Path,
         ".nii", ".gz"], "The image file must be a NIfTI file."
 
     # Load the image
-    image = nib.load(path_image)
-    data = image.get_fdata()
+    image = sitk.ReadImage(str(path_image))
+
+    # Get the current affine transform
+    current_affine = np.array(image.GetDirection(),
+                              dtype=np.float64).reshape((3, 3))
+    current_affine = np.hstack(
+        (current_affine, np.array(image.GetOrigin(), dtype=np.float64).reshape((3, 1))))
+    current_affine = np.vstack((current_affine, [0, 0, 0, 1]))
 
     # Apply the transformation by updating or replacing the affine matrix
     if just_replace_existing_affine:
         new_affine = affine_matrix
     else:
-        new_affine = np.dot(image.affine, affine_matrix)
+        new_affine = np.dot(current_affine, affine_matrix)
 
-    # Create a new NIfTI image with the updated affine matrix
-    new_image = nib.Nifti1Image(data, affine=new_affine)
+    # Set the new affine transform
+    new_direction = new_affine[:3, :3].flatten()
+    new_origin = new_affine[:3, 3]
+    image.SetDirection(new_direction)  # type: ignore
+    image.SetOrigin(new_origin)  # type: ignore
 
-    return new_image
+    return image
 
 
 def resample_nifti_image_isotropically(path_image: Path,
-                                       which_dimension: str) -> nib.Nifti1Image:
+                                       which_dimension: str) -> sitk.Image:
     """
-    Resample an image isotropically. If same_as_first_dimension is True,
-    the new voxel size will be the same as the first, else it will be 1x1x1.
+    Resample a NIfTI image isotropically based on the specified dimension.
+
+    @param path_image: Path to the NIfTI image file.
+    @type path_image: Path
+
+    @param which_dimension: Specifies the dimension to use for isotropic resampling. 
+                            Options are 'first', 'second', 'third', 'smallest', 'largest', or 'one'.
+    @type which_dimension: str
+
+    @return: Resampled NIfTI image.
+    @rtype: sitk.Image
+
+    @raise ValueError: If which_dimension is not one of the allowed values.
     """
 
-    image = nib.load(path_image)
-    affine = image.affine
-    data = image.get_fdata()
-    voxel_size = image.header.get_zooms()
+    Warning("Haven't tested this functoin after the sitk rewrite")
 
+    assert path_image.exists(), f"The image file {path_image} does not exist."
+    assert path_image.suffix == ".nii" or path_image.suffixes == [
+        ".nii", ".gz"], "The image file must be a NIfTI file."
+
+    # Load the image
+    image = sitk.ReadImage(str(path_image))
+
+    # Get the current spacing
+    spacing = image.GetSpacing()  # type: ignore
+    assert isinstance(spacing, tuple), "spacing must be a tuple"
+    spacing: Tuple[float, ...] = tuple(float(x) for x in spacing)
+
+    # Determine new voxel size
     if which_dimension == "first":
-        new_voxel_size = (voxel_size[0], voxel_size[0], voxel_size[0])
+        new_spacing = (spacing[0], spacing[0], spacing[0])
     elif which_dimension == "second":
-        new_voxel_size = (voxel_size[1], voxel_size[1], voxel_size[1])
+        new_spacing = (spacing[1], spacing[1], spacing[1])
     elif which_dimension == "third":
-        new_voxel_size = (voxel_size[2], voxel_size[2], voxel_size[2])
+        new_spacing = (spacing[2], spacing[2], spacing[2])
     elif which_dimension == "smallest":
-        new_voxel_size = (min(voxel_size), min(voxel_size), min(voxel_size))
+        min_spacing = min(spacing)
+        new_spacing = (min_spacing, min_spacing, min_spacing)
     elif which_dimension == "largest":
-        new_voxel_size = (max(voxel_size), max(voxel_size), max(voxel_size))
+        max_spacing = max(spacing)
+        new_spacing = (max_spacing, max_spacing, max_spacing)
     elif which_dimension == "one":
-        new_voxel_size = (1, 1, 1)
+        new_spacing = (1.0, 1.0, 1.0)
     else:
         raise ValueError(
             "which_dimension must be 'first', 'second', 'third', 'smallest', 'largest', or 'one'.")
 
-    # Calculate dimensions of the new volume
-    # Get the voxel dimensions from the original affine
-    voxel_dims = np.sqrt((affine * affine).sum(axis=0))[:-1]
-    zoom_factors = voxel_dims / new_voxel_size
+    # Define the resampling filter
+    resampler = sitk.ResampleImageFilter()
+    resampler.SetInterpolator(sitk.sitkLinear)
+    resampler.SetOutputSpacing(new_spacing)
 
-    # Calculate new data dimensions
-    new_data_shape = (data.shape * zoom_factors).round().astype(int)
+    original_size = np.array(image.GetSize(), dtype=int)
+    new_size = (original_size * np.array(spacing) /
+                np.array(new_spacing)).astype(int).tolist()
+    resampler.SetSize(new_size)
 
-    # Resample the data
-    resampled_data = zoom(data, zoom_factors, order=3)  # Cubic interpolation
+    resampler.SetOutputDirection(image.GetDirection())
+    resampler.SetOutputOrigin(image.GetOrigin())
+    resampler.SetDefaultPixelValue(image.GetPixelIDValue())
 
-    # Correct size discrepancy if necessary (due to rounding during zoom)
-    resampled_data = np.pad(resampled_data,
-                            [(0, max(0, new_data_shape[i] - resampled_data.shape[i]))
-                             for i in range(3)],
-                            mode='constant',
-                            constant_values=0)
+    # Execute the resampling
+    resampled_image: sitk.Image = resampler.Execute(image)
 
-    # Create an identity affine
-    identity_affine = np.eye(4)
-
-    # Create a new NIfTI image with identity affine
-    new_image = nib.Nifti1Image(resampled_data, identity_affine)
-
-    return new_image
+    return resampled_image
 
 
 def set_intent_code(path: Path, intent_code: str) -> None:
@@ -121,6 +167,8 @@ def set_intent_code(path: Path, intent_code: str) -> None:
     intent_code : str
         The intent code to set.
     """
+    import nibabel as nib
+    from nibabel.nifti1 import Nifti1Image
 
     assert path.exists(), f"File {path} does not exist."
     assert path.suffixes == ['.nii'] or path.suffixes == ['.nii', '.gz'], \
@@ -128,11 +176,11 @@ def set_intent_code(path: Path, intent_code: str) -> None:
     assert intent_code in INTENT_CODES, \
         f"Intent code {intent_code} is not valid."
 
-    image = nib.load(path)
+    image: Nifti1Image = nib.load(path)  # type: ignore
 
     # we have to construct a new image with the new intent code, otherwise we cannot overwrite
     header = image.header
-    data = image.get_fdata()
+    data: np.ndarray[Any, Any] = image.get_fdata()  # type: ignore
 
     # set the code
     header.set_intent(nib.nifti1.intent_codes[intent_code])

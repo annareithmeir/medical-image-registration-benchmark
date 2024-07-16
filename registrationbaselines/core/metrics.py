@@ -1,10 +1,9 @@
 from pathlib import Path
-from typing import Dict, Tuple, Optional, List
+from typing import Tuple, Optional, List
 
 import numpy as np
-from scipy.spatial.distance import dice, directed_hausdorff
+from scipy.spatial.distance import dice
 from scipy.spatial import KDTree
-import nibabel as nib
 import SimpleITK as sitk
 import torch
 
@@ -180,7 +179,8 @@ def tre(landmarks_fixed_path: Path,
         float: The mean TRE.
     """
 
-    displacement = nib.load(displacement_path.as_posix()).get_fdata().squeeze()
+    displacement = sitk.GetArrayFromImage(
+        sitk.ReadImage(displacement_path.as_posix())).squeeze()
     landmarks_fixed, landmarks_moving = read_lanmdarks(
         landmarks_fixed_path, landmarks_moving_path)
 
