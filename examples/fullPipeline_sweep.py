@@ -5,7 +5,6 @@ import sys
 import logging
 import os
 import time
-import time
 import SimpleITK as sitk
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
