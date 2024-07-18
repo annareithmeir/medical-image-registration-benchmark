@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from typing import Any
+
 from scipy.ndimage import map_coordinates
 import yaml
 import numpy as np
@@ -9,7 +11,66 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D
+from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floatArray2Dor3Dor4D
+
+
+def load_image(image_path: Path) -> floatArray2Dor3Dor4D:
+    """
+    Load a nifti image from a file and return it as a numpy array.
+
+    The file should be in .nii or .nii.gz format.
+    The voxel size should be isotropic.
+    The direction should be identity.
+    The image should be 2D, 3D or 4D.
+
+    @param image_path: The path to the image file.
+    @type image_path: Path
+
+    @return: The image.
+    @rtype: floatArray2Dor3Dor4D
+    """
+
+    # check that file is .nii or .nii.gz
+    if not image_path.suffix == '.nii' and not image_path.suffix == '.nii.gz':
+        raise TypeError(
+            "The image file should be in .nii or .nii.gz format.")
+
+    image: sitk.Image = sitk.ReadImage(image_path)
+
+    # check that it is 2D, 3D or 4D
+    dimension = int(image.GetDimension())
+    if dimension not in [2, 3, 4]:
+        raise ValueError(
+            f"Dimension of {image_path} is not 2D, 3D or 4D: {dimension}"
+        )
+
+    # check that spacing is isotropic
+    spacing = np.array(image.GetSpacing(), np.float64)
+    if not np.allclose(spacing, spacing[0]):
+        raise ValueError(
+            f"Voxel size of {image_path} is not isotropic: {tuple(spacing)}"
+        )
+
+    # check that direction is identity
+    direction = np.array(image.GetDirection(), np.float64)
+
+    identity: np.ndarray[Any, np.dtype[np.float64]]
+    match dimension:
+        case 2:
+            identity = np.eye(2)
+        case 3:
+            identity = np.eye(3)
+        case _:
+            identity = np.eye(4)
+
+    if not np.allclose(direction, identity.flatten()):
+        raise ValueError(
+            f"Direction of {image_path} is not identity: {tuple(direction)}"
+        )
+
+    image_array = sitk.GetArrayFromImage(image)
+
+    return image_array
 
 
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:
