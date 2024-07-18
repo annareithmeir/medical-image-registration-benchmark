@@ -32,7 +32,7 @@ def load_image(image_path: Path) -> floatArray2Dor3Dor4D:
 
     # check that file is .nii or .nii.gz
     if not image_path.suffix == '.nii' and not image_path.suffix == '.nii.gz':
-        raise TypeError(
+        raise ValueError(
             "The image file should be in .nii or .nii.gz format.")
 
     image: sitk.Image = sitk.ReadImage(image_path)
