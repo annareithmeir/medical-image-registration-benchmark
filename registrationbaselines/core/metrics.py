@@ -31,7 +31,7 @@ def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> fl
     return sitk.GetArrayFromImage(jacobian_determinant_image)
 
 
-def displacement_field_metrics(displacement: floatArray3Dor4D) -> Tuple[float, float]:
+def displacement_field_metrics(displacement: torch.Tensor) -> Tuple[float, float]:
     """
     Calculate the fraction of foldings and the standard deviation of the logarithm of the Jacobian determinant.
     """
@@ -39,7 +39,7 @@ def displacement_field_metrics(displacement: floatArray3Dor4D) -> Tuple[float, f
     epsilon = 1e-6  # so we don't get log(0)
 
     jacobian_determinant = jacobian_determinant_from_displacement(
-        displacement)
+        displacement.detach().cpu().numpy())
 
     # foldings are where the jacobian determinant is negative
     num_foldings = int((jacobian_determinant < 0).astype(float).sum())

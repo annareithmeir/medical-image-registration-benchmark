@@ -11,10 +11,10 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floatArray2Dor3Dor4D, intArray2Dor3Dor4D
+from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D
 
 
-def load_image(image_path: Path) -> Union[floatArray2Dor3Dor4D, intArray2Dor3Dor4D]:
+def load_image(image_path: Path) -> torch.Tensor:
     """
     Load a nifti image from a file and return it as a numpy array.
 
@@ -76,7 +76,7 @@ def load_image(image_path: Path) -> Union[floatArray2Dor3Dor4D, intArray2Dor3Dor
 
     image_array = sitk.GetArrayFromImage(image)
 
-    return image_array
+    return torch.Tensor(image_array).squeeze()
 
 
 def save_image(image: torch.Tensor, image_path: Path) -> None:
@@ -202,7 +202,8 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
 
 
 def deform_image(image: torch.Tensor,
-                 displacement: torch.Tensor, mode) -> torch.Tensor:
+                 displacement: torch.Tensor,
+                 mode: str) -> torch.Tensor:
     """
     Apply a deformation to an image using the provided deformation.
     @param image_fixed:
@@ -227,7 +228,7 @@ def deform_image(image: torch.Tensor,
     # warp image
     warped_image = F.grid_sample(image, - displacement + grid, mode=mode)
 
-    return warped_image
+    return warped_image.squeeze()
 
 
 def explore_memory():

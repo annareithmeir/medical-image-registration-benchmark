@@ -1,11 +1,10 @@
 from pathlib import Path
 import warnings
 
-from typing import Optional, Tuple, Any
+from typing import Optional, Any
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
-import numpy as np
 import torch
 import wandb
 
@@ -13,7 +12,6 @@ from registrationbaselines.core import utils, result_csv
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations
-from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
 
 
 class Evaluation():
@@ -179,17 +177,12 @@ class Evaluation():
                 f"File {path_displacement} does not exist.")
 
         suffixes = path_displacement.suffixes
-        if not suffixes == [".pt"] and \
-            not suffixes == [".nii"] and \
+        if not suffixes == [".nii"] and \
                 not suffixes == [".nii", ".gz"]:
             raise ValueError(
-                f"Displacement file should have suffixes '.pt', '.nii' or '.nii.gz' but has {suffixes}.")
+                f"Displacement file should have suffixes  '.nii' or '.nii.gz' but has {suffixes}.")
 
-        if suffixes == [".pt"]:
-            displacement = torch.load(
-                path_displacement).detach().cpu().numpy().squeeze()
-        else:
-            displacement = utils.load_image(path_displacement).squeeze()
+        displacement = utils.load_image(path_displacement)
 
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
             displacement)
@@ -197,55 +190,10 @@ class Evaluation():
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
 
-    def dice_anna(self, image1: np.ndarray, image2: np.ndarray, img_mask: Optional[np.ndarray] = None) -> float:
-        """
-        Taken from github of conditional LapIRN by Tony Mok
-        :param image1: pred
-        :param image2:true
-        :return:
-        """
-        unique_class = np.unique(image2)
-        dice = 0
-        num_count = 0
-        if img_mask is not None:
-            image1[img_mask == 0] = 0
-            # image2[img_mask==0]=0
-        for i in unique_class:
-            if (i == 0) or ((image1 == i).sum() == 0) or ((image2 == i).sum() == 0):
-                continue
-            sub_dice = np.sum(image2[image1 == i] == i) * \
-                2.0 / (np.sum(image1 == i) + np.sum(image2 == i))
-            dice += sub_dice
-            num_count += 1
-        if num_count == 0:
-            return 0
-        else:
-            return dice / num_count
-
-    def dice_per_class_anna(self, image1: np.ndarray, image2: np.ndarray, classes: list[int], img_mask: np.ndarray = None) -> list[float]:
-        """
-        Computes dice scores per class labels. Based on Tony Mok LapIRN implementation
-        :param image1:
-        :param image2:
-        :param classes: list of labels to compute dice on
-        :return: list of dice scores
-        """
-        dice_ls = []
-        if img_mask is not None:
-            image1[img_mask == 0] = 0
-        for i in classes:
-            if (i == 0) or (np.sum(image1 == i) == 0) or (np.sum(image2 == i) == 0):
-                dice_ls.append(0)  # TODO check if correct
-                continue
-            sub_dice = np.sum(image2[image1 == i] == i) * \
-                2.0 / (np.sum(image1 == i) + np.sum(image2 == i))
-            dice_ls.append(sub_dice)
-        return dice_ls
-
     def _evaluate_segmentation(self,
                                path_displacement: Path,
-                               segmentation_fixed: Tuple[Path, np.ndarray],
-                               segmentation_moving: Tuple[Path, np.ndarray],
+                               path_segmentation_fixed: Path,
+                               path_segmentation_moving: Path,
                                name: str) -> None:
         """
         Evaluate segmentations.
@@ -269,38 +217,28 @@ class Evaluation():
         hausdorff_mean = 0
         hausdorff95_mean = 0
 
-        if not path_displacement.exists():
-            raise FileNotFoundError(
-                f"File {path_displacement} does not exist.")
+        for path in [path_displacement, path_segmentation_fixed, path_segmentation_moving]:
 
-        suffixes = path_displacement.suffixes
-        if not suffixes == [".pt"] and \
-            not suffixes == [".nii"] and \
-                not suffixes == [".nii", ".gz"]:
-            raise ValueError(
-                f"Displacement file should have suffixes '.pt', '.nii' or '.nii.gz' but has {suffixes}.")
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"File {path_displacement} does not exist.")
 
-        if suffixes == [".pt"]:
-            displacement = torch.load(
-                path_displacement).detach().cpu().numpy().squeeze()
-        else:
-            displacement = utils.load_image(path_displacement).squeeze()
+            suffixes = path.suffixes
+            if not suffixes == [".nii"] and \
+                    not suffixes == [".nii", ".gz"]:
+                raise ValueError(
+                    f"Displacement file should have suffixes '.pt', '.nii' or '.nii.gz' but has {suffixes}.")
 
-        displacement = torch.load(path_displacement)
-        segmentation_fixed = torch.from_numpy(
-            segmentation_fixed[1]).to(displacement.device)
-        segmentation_moving = torch.from_numpy(
-            segmentation_moving[1]).to(displacement.device)
+        displacement = utils.load_image(path_displacement)
+        segmentation_fixed = utils.load_image(path_segmentation_fixed)
+        segmentation_moving = utils.load_image(path_segmentation_moving)
 
         warped = utils.deform_image(segmentation_moving,
-                                    displacement, mode='nearest')
+                                    displacement,
+                                    mode='nearest')
 
         dice_scores = metrics.dice_score(
-            segmentation_fixed.squeeze(), warped.squeeze())
-
-        # dice_score_me = np.mean(np.array(dice_scores))
-        # dice_scores_anna = self.dice_per_class_anna(segmentation_fixed.squeeze(
-        # ).detach().cpu().numpy(), segmentation_moving.squeeze().detach().cpu().numpy(), [1, 2, 3])
+            segmentation_fixed, warped.squeeze())
 
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
