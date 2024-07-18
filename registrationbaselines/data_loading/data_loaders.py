@@ -58,7 +58,7 @@ class GenericDataset(Dataset):
         }
         subject = tio.Subject(subject_dict)
 
-        utils.check_isotropic_and_identity(subject)
+        utils.check_isotropic_and_identity(subject, self.spacing[0])
 
         image_m = subject["image_m"].data
         image_f = subject["image_f"].data
