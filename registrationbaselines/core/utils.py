@@ -77,6 +77,35 @@ def load_image(image_path: Path) -> floatArray2Dor3Dor4D:
     return image_array
 
 
+def save_image(image: floatArray2Dor3Dor4D, image_path: Path) -> None:
+    """
+    Save a numpy array as a nifti image.
+
+    The voxel size will be isotropic.
+    The direction will be identity.
+    The image can be 2D, 3D or 4D.
+    """
+
+    # check that file is .nii or .nii.gz
+    if not image_path.suffix == '.nii' and not image_path.suffix == '.nii.gz':
+        raise ValueError(
+            "The path should be in .nii or .nii.gz format.")
+
+    # check that it is 2D, 3D or 4D
+    if image.ndim not in [2, 3, 4]:
+        raise ValueError(
+            f"Dimension of image is not 2D, 3D or 4D: {image.ndim}"
+        )
+
+    sitk_image = sitk.GetImageFromArray(image)
+
+    sitk.WriteImage(sitk_image, image_path)
+
+    # check that file was written
+    if not image_path.exists():
+        raise FileNotFoundError(f"File {image_path} was not written.")
+
+
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:
     """
     Get the affine matrix from a SimpleITK image.
