@@ -4,8 +4,11 @@ from pathlib import Path
 from typing import Dict, Any
 
 import yaml
-
 from torch.utils.data import Dataset
+import torch
+import wandb
+
+from registrationbaselines.core import utils
 
 
 class RegistrationInterface(ABC):
@@ -14,16 +17,16 @@ class RegistrationInterface(ABC):
     """
 
     configuration: Dict[str, Any]
-    configuration_all_params: Dict[str, Any]
 
-    method: str
+    path_fixed: Path = Path()
+    path_moving: Path = Path()
 
-    path_results: Path
-    path_deformed: Path
-    path_deformations: Path
+    path_results: Path = Path()
+    path_dir_deformed: Path = Path()
+    path_dir_deformations: Path = Path()
 
-    result_transformation_path: Path
-    result_transformed_image_path: Path
+    path_result_deformation: Path = Path()
+    path_result_deformed: Path = Path()
 
     @abstractmethod
     def __init__(self, configuration: Dict[str, Any]):
@@ -34,53 +37,115 @@ class RegistrationInterface(ABC):
     @abstractmethod
     def register(self,
                  fixed_image_path: Path,
-                 moving_image_path: Path,
-                 print_progress: bool = False):
+                 moving_image_path: Path) -> None:
         """
         Register moving_image to fixed_image.
+
+        This function has to call _save_results() at the end.
+
+        @param fixed_image_path: path to the fixed image
+        @type fixed_image_path: Path
+
+        @param moving_image_path: path to the moving image
+        @type moving_image_path: Path
+
+        @return: None
         """
 
     @abstractmethod
-    def register_all_parametr_sets(self, dataloader: Dataset):
+    def _register_wandb_wrapper(self) -> None:
+        """
+        This wraps register() and is used by wandb.agent.
+        This has to (in order)
+            0. initialise wandb with wandb.init()
+            1. create a unique method name for the current run
+                - if you update the wand.config, make sure to overwrite self.configuration with it
+            2. loop over the entire dataset and call register() for each item.
+            3. create a BaselineTransformations loader
+                - the path should be result_path/method_name
+            4. create an Evaluation object
+                - initialise with result_path and method_name
+            5. call evaluate()
+            6. call visualis() [optional]
+            7. call wandb_log() to log evaluation metrics (results)
+        """
+
+    def register_all_parametr_sets(self, dataloader: Dataset[Any]) -> None:
         """
         Register all parameter sets.
         """
+        self.dataloader = dataloader
+
+        self.sweep_id = wandb.sweep(self.configuration,
+                                    entity=None,
+                                    project="reg_baselines")
+
+        wandb.agent(self.sweep_id,
+                    function=lambda: self._register_wandb_wrapper(),
+                    entity=None,
+                    project="reg_baselines",
+                    count=None)
 
     def get_transformation_path(self):
         """
         Return the transformation model.
         """
-        return self.result_transformation_path
+        return self.path_result_deformation
 
     def get_transformed_image_path(self):
         """
         Return the transformed image.
         """
-        return self.result_transformed_image_path
+        return self.path_result_deformed
 
-    @abstractmethod
-    def _save_results(self, deformed, deformation):
+    def _save_results(self, deformed: torch.Tensor, deformation: torch.Tensor):
         """
         Save the results of the registration.
         """
+
+        self.path_result_deformed, \
+            self.path_result_deformation = self._create_result_paths(self.path_fixed.stem,
+                                                                     self.path_moving.stem,
+                                                                     ".nii.gz",
+                                                                     ".nii.gz")
+
+        # SAVE DEFORMED IMAGE
+        utils.save_image(deformed, self.path_result_deformed)
+
+        # SAVE DEFORMATION
+        utils.save_image(deformation, self.path_result_deformation)
+
+        if not self.path_result_deformed.exists():
+            raise FileNotFoundError(
+                f"File {self.path_result_deformed} couldn't be saved.")
+        if not self.path_result_deformation.exists():
+            raise FileNotFoundError(
+                f"File {self.path_result_deformation} couldn't be saved.")
 
     def _create_result_directories(self):
         """
         Create the directories to save the results.
         """
 
-        self.path_results = Path(self.configuration_all_params["result_path"])
+        self.path_results = Path(self.configuration["result_path"])
 
         # create directory in base_dir called method
         method_dir = self.path_results / self.method
         method_dir.mkdir(parents=True, exist_ok=True)
 
         # create two subdirectories 'deformed' and 'deformations'
-        self.path_deformed = method_dir / 'deformed'
-        self.path_deformed.mkdir(parents=True, exist_ok=True)
+        self.path_dir_deformed = method_dir / 'deformed'
+        self.path_dir_deformed.mkdir(parents=True, exist_ok=True)
 
-        self.path_deformations = method_dir / 'deformations'
-        self.path_deformations.mkdir(parents=True, exist_ok=True)
+        self.path_dir_deformations = method_dir / 'deformations'
+        self.path_dir_deformations.mkdir(parents=True, exist_ok=True)
+
+        if not self.path_dir_deformations.exists():
+            raise FileNotFoundError(
+                f"Directory {self.path_dir_deformations} couldn't be created.")
+        if not self.path_dir_deformed.exists():
+            raise FileNotFoundError(
+                f"Directory {self.path_dir_deformed} couldn't be created.")
 
     def _create_result_paths(self,
                              name_fixed: str,
@@ -97,17 +162,17 @@ class RegistrationInterface(ABC):
         name_moving = name_moving.replace(".gz", "")
         name_fixed = name_fixed.replace(".gz", "")
 
-        path_deformed = self.path_deformed / \
+        path_dir_deformed = self.path_dir_deformed / \
             f"{name_moving}_deformed_to_{name_fixed}"
-        path_deformation = self.path_deformations / \
+        path_deformation = self.path_dir_deformations / \
             f"{name_moving}_deformation_to_{name_fixed}"
 
-        path_deformed = Path(
-            path_deformed.as_posix() + extension_image)
+        path_dir_deformed = Path(
+            path_dir_deformed.as_posix() + extension_image)
         path_deformation = Path(
             path_deformation.as_posix() + extension_transformation)
 
-        return Path(path_deformed), Path(path_deformation)
+        return Path(path_dir_deformed), Path(path_deformation)
 
     @staticmethod
     def read_config(file_path: Path):
