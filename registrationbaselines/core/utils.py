@@ -78,7 +78,7 @@ def load_image(image_path: Path) -> Union[floatArray2Dor3Dor4D, intArray2Dor3Dor
     return image_array
 
 
-def save_image(image: Union[floatArray2Dor3Dor4D, intArray2Dor3Dor4D], image_path: Path) -> None:
+def save_image(image: torch.Tensor, image_path: Path) -> None:
     """
     Save a numpy array as a nifti image.
 
@@ -98,7 +98,7 @@ def save_image(image: Union[floatArray2Dor3Dor4D, intArray2Dor3Dor4D], image_pat
             f"Dimension of image is not 2D, 3D or 4D: {image.ndim}"
         )
 
-    sitk_image = sitk.GetImageFromArray(image)
+    sitk_image = sitk.GetImageFromArray(image.detach().cpu().numpy())
 
     sitk.WriteImage(sitk_image, image_path)
 
