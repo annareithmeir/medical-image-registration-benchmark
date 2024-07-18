@@ -1,19 +1,19 @@
 from pathlib import Path
-import shutil
 import warnings
-from typing import Optional, Tuple
+
+from typing import Optional, Tuple, Any
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
 import numpy as np
 import torch
-import SimpleITK as sitk
 import wandb
 
-from registrationbaselines.core import utils, result_csv, general_deformation
+from registrationbaselines.core import utils, result_csv
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations
+from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
 
 
 class Evaluation():
@@ -38,7 +38,7 @@ class Evaluation():
 
         self.results = result_csv.EvaluationResults(self.path_results)
 
-    def evaluate(self, dataset_transformations: BaselineTransformations, dataset_data: Dataset) -> None:
+    def evaluate(self, dataset_transformations: BaselineTransformations, dataset_data: Dataset[Any]) -> None:
         """
         Evaluate the registration model.
         """
@@ -53,12 +53,12 @@ class Evaluation():
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
 
-            fixed_name = str(item["img_x"][0].stem).split('.')[0]
+            fixed_name = str(item["fixed_image"].stem).split('.')[0]
 
             self._evaluate_displacement(path_displacement, fixed_name)
 
-            path_fixed = item["labels_x"]
-            path_moving = item["labels_y"]
+            path_fixed = item["fixed_labels"]
+            path_moving = item["moving_labels"]
 
             self._evaluate_segmentation(path_displacement,
                                         path_fixed,
@@ -167,11 +167,32 @@ class Evaluation():
                                                         fixed_keypoints=None, moving_keypoints=None, pred_keypoints=None)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
+        """
+        Evaluates the displacement field with sdlogj and fraction of foldings.
 
-        displacement = torch.load(path_displacement)
+        @param path_displacement: Path to the displacement field (torch tensor or nifti file).
+        @param name: Name of the evaluated file pair
+        """
+
+        if not path_displacement.exists():
+            raise FileNotFoundError(
+                f"File {path_displacement} does not exist.")
+
+        suffixes = path_displacement.suffixes
+        if not suffixes == [".pt"] and \
+            not suffixes == [".nii"] and \
+                not suffixes == [".nii", ".gz"]:
+            raise ValueError(
+                f"Displacement file should have suffixes '.pt', '.nii' or '.nii.gz' but has {suffixes}.")
+
+        if suffixes == [".pt"]:
+            displacement = torch.load(
+                path_displacement).detach().cpu().numpy().squeeze()
+        else:
+            displacement = utils.load_image(path_displacement).squeeze()
 
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
-            displacement.detach().cpu().numpy())
+            displacement)
 
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
@@ -247,6 +268,23 @@ class Evaluation():
         dice_mean = 0
         hausdorff_mean = 0
         hausdorff95_mean = 0
+
+        if not path_displacement.exists():
+            raise FileNotFoundError(
+                f"File {path_displacement} does not exist.")
+
+        suffixes = path_displacement.suffixes
+        if not suffixes == [".pt"] and \
+            not suffixes == [".nii"] and \
+                not suffixes == [".nii", ".gz"]:
+            raise ValueError(
+                f"Displacement file should have suffixes '.pt', '.nii' or '.nii.gz' but has {suffixes}.")
+
+        if suffixes == [".pt"]:
+            displacement = torch.load(
+                path_displacement).detach().cpu().numpy().squeeze()
+        else:
+            displacement = utils.load_image(path_displacement).squeeze()
 
         displacement = torch.load(path_displacement)
         segmentation_fixed = torch.from_numpy(

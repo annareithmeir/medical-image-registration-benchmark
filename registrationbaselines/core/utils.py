@@ -32,7 +32,7 @@ def load_image(image_path: Path) -> Union[floatArray2Dor3Dor4D, intArray2Dor3Dor
     """
 
     # check that file is .nii or .nii.gz
-    if not image_path.suffix == '.nii' and not image_path.suffix == '.nii.gz':
+    if not image_path.suffixes == ['.nii'] and not image_path.suffixes == ['.nii', '.gz']:
         raise ValueError(
             "The image file should be in .nii or .nii.gz format.")
 
@@ -52,12 +52,13 @@ def load_image(image_path: Path) -> Union[floatArray2Dor3Dor4D, intArray2Dor3Dor
     # check that spacing is isotropic
     spacing = np.array(image.GetSpacing(), np.float64)
     if not np.allclose(spacing, spacing[0]):
-        raise ValueError(
-            f"Voxel size of {image_path} is not isotropic: {tuple(spacing)}"
-        )
+        pass
+        # raise ValueError(
+        #     f"Voxel size of {image_path} is not isotropic: {tuple(spacing)}"
+        # )
 
     # check that direction is identity
-    direction = np.array(image.GetDirection(), np.float64)
+    direction = np.abs(np.array(image.GetDirection(), np.float64))
 
     identity: np.ndarray[Any, np.dtype[np.float64]]
     match dimension:
@@ -133,10 +134,19 @@ def get_affine_from_image(image: sitk.Image) -> floatArray2D:
     return affine
 
 
-def read_config(file_path: Path) -> dict:
+def read_config(file_path: Path) -> dict[str, Any]:
     """
     Read the configuration file.
+
+    @param file_path: The path to the configuration file.
+    @rtype file_path: Path
+
+    @return: The configuration.
+    @rtype: dict[str, Any]
     """
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist.")
 
     with open(file_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)

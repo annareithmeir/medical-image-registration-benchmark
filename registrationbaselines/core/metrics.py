@@ -8,9 +8,10 @@ import SimpleITK as sitk
 import torch
 
 from registrationbaselines.core import utils
+from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
 
 
-def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarray:
+def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> floatArray2Dor3D:
 
     displacement = displacement.squeeze()
 
@@ -26,10 +27,11 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
     displacement_image = sitk.GetImageFromArray(displacement, isVector=True)
     jacobian_determinant_image = sitk.DisplacementFieldJacobianDeterminant(
         displacement_image)
+
     return sitk.GetArrayFromImage(jacobian_determinant_image)
 
 
-def displacement_field_metrics(displacement: np.array) -> Tuple[float, float]:
+def displacement_field_metrics(displacement: floatArray3Dor4D) -> Tuple[float, float]:
     """
     Calculate the fraction of foldings and the standard deviation of the logarithm of the Jacobian determinant.
     """

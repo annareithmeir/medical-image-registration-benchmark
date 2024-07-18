@@ -75,7 +75,6 @@ class GenericDataset(Dataset[datasetReturnType]):
         pass
 
     def __getitem__(self, idx: int) -> datasetReturnType:
-        print(self.return_type)
         if (self.has_keypoints is False) and (self.has_labels is False):
             if self.return_type == "path_dict":
                 img_f, img_m = self._get_image_pair_as_paths(idx)

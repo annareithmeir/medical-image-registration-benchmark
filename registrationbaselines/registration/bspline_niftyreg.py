@@ -1,9 +1,14 @@
 from pathlib import Path
+from tqdm import tqdm
 
-from typing import List
+from typing import List, Dict, Any
+
+import wandb
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline, utils_niftyreg
+from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.evaluation.evaluation import Evaluation
 
 
 class BSplineNiftyReg(RegistrationInterface):
@@ -12,66 +17,93 @@ class BSplineNiftyReg(RegistrationInterface):
     No default initialisation, as the choice of registration should be concious.
     """
 
-    def __init__(self, configuration_path: Path) -> None:
+    def __init__(self, configuration: Dict[str, Any]) -> None:
 
-        self.method = "BSplineNiftyReg"
-        self.base_dir = Path(__file__).parent.parent.absolute().parent
-        self.path_reg_f3d = self.base_dir / Path(
+        self.method_name = "BSplineNiftyReg"
+
+        self.configuration = configuration
+
+        base_dir = Path(__file__).parent.parent.absolute().parent
+        self.path_reg_f3d = base_dir / Path(
             "registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
 
-        self.configuration = self.read_config(configuration_path)
-
-        self._create_result_directories()
-
         # paths
-        self.fixed_path = Path()
-        self.moving_path = Path()
-        self.result_transformed_image_path = Path()
-        self.result_control_grid_path = Path()
-        self.result_transformation_path = Path()
-        self.working_dir_path = Path()
+        self.path_working_dir_path = Path()
 
         # command to call NiftyReg
         self.command: List[str] = []
 
     def register(self,
                  fixed_image_path: Path,
-                 moving_image_path: Path,
-                 print_progress: bool = False) -> None:
+                 moving_image_path: Path) -> None:
         """
             Test
         """
 
-        # check that both images exist
-        assert self.fixed_path.exists(), f"File {self.fixed_path} does not exist."
-        assert self.moving_path.exists(), f"File {self.moving_path} does not exist."
+        self.path_fixed = fixed_image_path
+        self.path_moving = moving_image_path
+        self.working_dir_path = self.path_fixed.parent
 
-        self.fixed_path = fixed_image_path
-        self.moving_path = moving_image_path
-        self.working_dir_path = self.fixed_path.parent
+        # check that both images exist
+        assert self.path_fixed.exists(
+        ), f"File {self.path_fixed} does not exist."
+        assert self.path_moving.exists(
+        ), f"File {self.path_moving} does not exist."
 
         self.__create_registration_command_list()
         utils_commandline.run_command_in_terminal(self.command,
                                                   self.__outputs_exist,
                                                   print_command_list=False)
 
-        self.result_transformation_path = \
+        self.path_result_deformation = \
             utils_niftyreg.convert_control_point_grid_to_displacement_field(
-                self.result_control_grid_path, self.fixed_path)
+                self.result_control_grid_path, self.path_fixed)
 
-    def _save_results(self, deformed, deformation):
+    def _register_wandb_wrapper(self) -> None:
         """
-        Nothing happens here because saving is done thorugh the command line.
+        Register and evaluate all files and log to wand.
+
+        @return: None
         """
+
+        # IMPORTANT: this has to be called after creating wandb.agent() for some reason!
+        wandb.init(mode="offline")
+
+        self.method_name = self.method_name + \
+            f"_sim{wandb.config.similarity_metric.replace('-', '').replace(' ', '_')}"
+
+        self._create_result_directories()
+
+        assert len(self.dataloader) > 0, "Dataloader is empty."
+        for item in tqdm(self.dataloader):
+            break
+            self.register(item["fixed_image"], item["moving_image"])
+
+            # evaluate
+        loader_transformations = data_loaders.BaselineTransformations(
+            Path(wandb.config.result_path) / self.method_name)
+
+        print("\nevaluate...")
+        evaluation = Evaluation(
+            Path(wandb.config.result_path), self.method_name)
+        evaluation.evaluate(
+            loader_transformations, self.dataloader)
+
+        # print("\nplot...")
+        # evaluation.visualize(
+        #     loader_transformations, self.dataloader)
+
+        print("\nlog to wandb...")
+        evaluation.wandb_log()
 
     def __create_registration_command_list(self):
         """
         Create the command line list for the registration.
         """
 
-        self.result_transformed_image_path, \
-            self.result_control_grid_path = self._create_result_paths(self.fixed_path.stem,
-                                                                      self.moving_path.stem,
+        self.path_result_deformed, \
+            self.result_control_grid_path = self._create_result_paths(self.path_fixed.stem,
+                                                                      self.path_moving.stem,
                                                                       ".nii.gz",
                                                                       ".nii.gz")
 
@@ -80,20 +112,21 @@ class BSplineNiftyReg(RegistrationInterface):
             self.result_control_grid_path.as_posix().replace(".nii", "_temp.nii"))
 
         self.command = [self.path_reg_f3d.as_posix(),
-                        '-ref', self.fixed_path.as_posix(),
-                        '-flo', self.moving_path.as_posix(),
-                        '-res', self.result_transformed_image_path.as_posix(),
+                        '-ref', self.path_fixed.as_posix(),
+                        '-flo', self.path_moving.as_posix(),
+                        '-res', self.path_result_deformed.as_posix(),
                         '-cpp', self.result_control_grid_path.as_posix()]
 
-        self.command = utils_commandline.add_configuration_to_command(
-            self.command, self.configuration)
+        self.command = utils_commandline.add_configuration_to_command(self.command,
+                                                                      wandb.config,
+                                                                      only_value=True)
 
     def __outputs_exist(self):
         """
         We need this because it's not clear that blockmatching returns non-zero
         when failed
         """
-        if self.result_transformed_image_path.exists() and self.result_transformation_path.exists():
+        if self.path_result_deformed.exists() and self.path_result_deformation.exists():
             return True
 
         return False

@@ -1,57 +1,62 @@
-method_name: BSplineNiftyReg
-result_path: /home/anna/PycharmProjects/registrationbaselines/tmp/results
+method: grid
+name:   BSplineNiftyReg
 
-# input and output paths are not defined here,
-# because we want to do it in the register() function directly
+parameters:
+  result_path:
+    value:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/exp
+  similarity_metric:
+    values:           ["--lncc 3", "--lncc 7", "--ssd", "--nmi"]
 
-aff:        false
-incpp:      false
 
-rmask:      false
-smooR:      false
-smooF:      false
-rLwTh:      false
-rUpTh:      false
-fLwTh:      false
-fUpTh:      false
 
-sx:         false
-sy:         false
-sz:         false
+# aff:        false
+# incpp:      false
 
-be:         false
-le:         false
-jl:         false
-noAppJL:    false
-land:       false
+# rmask:      false
+# smooR:      false
+# smooF:      false
+# rLwTh:      false
+# rUpTh:      false
+# fLwTh:      false
+# fUpTh:      false
 
-nmi:        false
-rbn:        false
-fbn:        false
-lncc:       false
-ssd:        false
-ssdn:       false
-mind:       false
-mindssc:    false
-kld:        false
-rr:         false
+# sx:         false
+# sy:         false
+# sz:         false
 
-maxit:      false
-ln:         false
-lp:         false
-nopy:       false
-noConj:     false
-pert:       false
+# be:         false
+# le:         false
+# jl:         false
+# noAppJL:    false
+# land:       false
 
-vel:        false
-nogce:      false
-fmask:      false
+# nmi:        false
+# rbn:        false
+# fbn:        false
+# lncc:       false
+# ssd:        false
+# ssdn:       false
+# mind:       false
+# mindssc:    false
+# kld:        false
+# rr:         false
 
-omp:        false
+# maxit:      false
+# ln:         false
+# lp:         false
+# nopy:       false
+# noConj:     false
+# pert:       false
 
-smoothGrad: false
-pad:        false
-voff:       false
+# vel:        false
+# nogce:      false
+# fmask:      false
+
+# omp:        false
+
+# smoothGrad: false
+# pad:        false
+# voff:       false
 
 
 #[reg_f3d] * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *

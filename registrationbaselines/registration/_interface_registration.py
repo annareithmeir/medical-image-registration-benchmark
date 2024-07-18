@@ -4,11 +4,11 @@ from pathlib import Path
 from typing import Dict, Any
 
 import yaml
-from torch.utils.data import Dataset
 import torch
 import wandb
 
 from registrationbaselines.core import utils
+from registrationbaselines.data_loading.data_loaders import GenericDataset
 
 
 class RegistrationInterface(ABC):
@@ -16,7 +16,11 @@ class RegistrationInterface(ABC):
     Abstract base class for registration models.
     """
 
-    configuration: Dict[str, Any]
+    method_name: str = ""
+
+    configuration: Dict[str, Any] = {}
+
+    dataloader: GenericDataset
 
     path_fixed: Path = Path()
     path_moving: Path = Path()
@@ -59,7 +63,6 @@ class RegistrationInterface(ABC):
         This has to (in order)
             0. initialise wandb with wandb.init()
             1. create a unique method name for the current run
-                - if you update the wand.config, make sure to overwrite self.configuration with it
             2. loop over the entire dataset and call register() for each item.
             3. create a BaselineTransformations loader
                 - the path should be result_path/method_name
@@ -68,13 +71,20 @@ class RegistrationInterface(ABC):
             5. call evaluate()
             6. call visualis() [optional]
             7. call wandb_log() to log evaluation metrics (results)
+
+            WARNING
+            wandb.config doesn't reflect the entire config file,
+            just the config for the current run
         """
 
-    def register_all_parametr_sets(self, dataloader: Dataset[Any]) -> None:
+    def register_all_parametr_sets(self, dataloader: GenericDataset) -> None:
         """
         Register all parameter sets.
         """
         self.dataloader = dataloader
+
+        # for item in self.dataloader:
+        #     print(item)
 
         self.sweep_id = wandb.sweep(self.configuration,
                                     entity=None,
@@ -127,10 +137,11 @@ class RegistrationInterface(ABC):
         Create the directories to save the results.
         """
 
-        self.path_results = Path(self.configuration["result_path"])
+        self.path_results = Path(
+            self.configuration["parameters"]["result_path"]["value"])
 
         # create directory in base_dir called method
-        method_dir = self.path_results / self.method
+        method_dir = self.path_results / self.method_name
         method_dir.mkdir(parents=True, exist_ok=True)
 
         # create two subdirectories 'deformed' and 'deformations'
