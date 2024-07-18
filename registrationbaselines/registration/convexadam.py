@@ -297,12 +297,10 @@ class ConvexAdam(RegistrationInterface):
                                       ".nii.gz",
                                       ".nii.gz")
 
-        affine = utils.get_affine_from_image(sitk.ReadImage(self.fixed_path))
-
-        utils.save_array_to_nii_gz_image(
-            image_deformed, self.result_transformed_image_path, affine=affine)
-        utils.save_array_to_nii_gz_displacement_field(
-            displacement_field, self.result_transformation_path, affine=affine)
+        utils.save_image(
+            image_deformed, self.result_transformed_image_path)
+        utils.save_image(
+            displacement_field, self.result_transformation_path)
 
     def _extract_features_mind(self,
                                image_fixed: torch.Tensor,

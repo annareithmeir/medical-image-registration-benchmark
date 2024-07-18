@@ -7,7 +7,7 @@ import numpy as np
 import SimpleITK as sitk
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline, utils_nifti
+from registrationbaselines.core import utils_commandline, utils_nifti, utils
 
 
 class DeformableCorrField(RegistrationInterface):
@@ -156,18 +156,16 @@ class DeformableCorrField(RegistrationInterface):
         """
 
         # Read the fixed image using SimpleITK
-        fixed_image: sitk.Image = sitk.ReadImage(str(self.fixed_path))
+        fixed_image = utils.load_image(self.fixed_path)
 
         # Get the size of the fixed image
-        size: tuple[int, ...] = fixed_image.GetSize()
+        size: tuple[int, ...] = fixed_image.shape
 
         # Create a mask with the same dimensions as the fixed image
-        mask: sitk.Image = sitk.Image(size, sitk.sitkUInt8)
-        mask.CopyInformation(fixed_image)
-        mask.FillBuffer(1)
+        mask = np.ones(size, dtype=np.uint8)
 
         # Save the mask
-        sitk.WriteImage(mask, str(self.mask_path))
+        utils.save_image(mask, self.mask_path)
 
     def __rotate_warped_image_by_180_around_x_axis(self) -> None:
         """

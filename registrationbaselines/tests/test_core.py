@@ -14,7 +14,7 @@ class TestDataloaders(unittest.TestCase):
 
         x = np.random.rand(10, 10, 10, 3)
         tmp_filename = Path("/home/anna/tmp.nii.gz")
-        utils.save_array_to_nii_gz_displacement_field(x, tmp_filename)
+        utils.save_image(x, tmp_filename)
         y = utils.load_image(tmp_filename)
         assert (x-y).sum() == 0
         assert x.shape == y.shape
