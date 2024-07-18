@@ -7,6 +7,7 @@ from scipy.ndimage import zoom
 import ants.utils as utils_ants
 import SimpleITK as sitk
 
+from registrationbaselines.core import utils
 from registrationbaselines.core.types import floatArray2Dor3D
 
 # intent codes for nifti files - at the moment we only need NIFTI_INTENT_DISPVECT for setting the displacement field
@@ -59,7 +60,7 @@ def transform_nifti_image_with_matrix(path_image: Path,
         ".nii", ".gz"], "The image file must be a NIfTI file."
 
     # Load the image
-    image = sitk.ReadImage(str(path_image))
+    image = utils.load_image(path_image)
 
     # Get the current affine transform
     current_affine = np.array(image.GetDirection(),
@@ -108,7 +109,7 @@ def resample_nifti_image_isotropically(path_image: Path,
         ".nii", ".gz"], "The image file must be a NIfTI file."
 
     # Load the image
-    image = sitk.ReadImage(str(path_image))
+    image = utils.load_image(path_image)
 
     # Get the current spacing
     spacing = image.GetSpacing()  # type: ignore

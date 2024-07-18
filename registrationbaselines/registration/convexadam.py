@@ -51,9 +51,9 @@ class ConvexAdam(RegistrationInterface):
         ), f"File {self.moving_path} does not exist."
 
         image_moving = torch.from_numpy(
-            utils.load_image_from_nii_gz(self.moving_path))
+            utils.load_image(self.moving_path))
         image_fixed = torch.from_numpy(
-            utils.load_image_from_nii_gz(self.fixed_path))
+            utils.load_image(self.fixed_path))
         assert image_fixed.shape == image_moving.shape
 
         self.result_transformed_image_path, \
@@ -139,10 +139,10 @@ class ConvexAdam(RegistrationInterface):
         image_moving = image_moving.float()
 
         if use_mask:
-            mask_fixed = torch.from_numpy(sitk.GetArrayFromImage(
-                sitk.ReadImage(str(path_fixed_mask))).astype(float))
-            mask_moving = torch.from_numpy(sitk.GetArrayFromImage(
-                sitk.ReadImage(str(path_moving_mask))).astype(float))
+            mask_fixed = torch.from_numpy(
+                utils.load_image(path_fixed_mask).astype(float))
+            mask_moving = torch.from_numpy(
+                utils.load_image(path_moving_mask).astype(float))
         else:
             mask_fixed = None
             mask_moving = None

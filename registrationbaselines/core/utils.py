@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from typing import Any
+from typing import Any, Union
 
 from scipy.ndimage import map_coordinates
 import yaml
@@ -140,16 +140,6 @@ def read_config(file_path: Path) -> dict:
 
     with open(file_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
-
-
-def load_image_from_nii_gz(image_path: Path) -> np.ndarray:
-    """
-    Loads a .nii.gz file to a numpy array
-    @param image_path: path of image
-    @return: numpy array
-    """
-    image = sitk.ReadImage(image_path)
-    return sitk.GetArrayFromImage(image)
 
 
 def save_array_to_nii_gz_image(array: np.ndarray, filename: Path, affine: np.ndarray = None) -> None:

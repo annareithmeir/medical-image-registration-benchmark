@@ -67,7 +67,7 @@ class Evaluation():
 
             """
             if "landmarks" in item:
-                # is2d = sitk.GetArrayFromImage(sitk.ReadImage(
+                # is2d = sitk.GetArrayFromImage(utils.load_image(
                 #     path_displacement, sitk.sitkVectorFloat64)).shape[-1] == 2
 
                 if dataset_data.ndim == 2:
