@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D
+from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D
 
 
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:
@@ -157,7 +157,7 @@ def normalize_tensor_to_0_1(tensor: torch.tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
 
 
-def deform_landmarks(moving_landmarks: np.ndarray, displacement: np.ndarray) -> np.ndarray:
+def deform_landmarks(moving_landmarks: floatArray2D, displacement: floatArray3Dor4D) -> floatArray2D:
     """
     This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
     then the landmark at moving_landmarks[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
@@ -186,4 +186,8 @@ def deform_landmarks(moving_landmarks: np.ndarray, displacement: np.ndarray) -> 
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
 
-    return moving_landmarks + mov_lms_disp
+    deformed_landmarks = moving_landmarks + mov_lms_disp
+
+    assert isinstance(deformed_landmarks, np.ndarray)
+
+    return deformed_landmarks

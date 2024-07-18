@@ -169,23 +169,42 @@ def tre(landmarks_fixed_path: Path,
     """
     Calculate the Target Registration Error (TRE) between two sets of landmarks.
 
-    Args:
-        landmarks_fixed (np.ndarray): The fixed landmarks. landmarks in shape (N,3)
-        landmarks_moving (np.ndarray): The moving landmarks. landmarks in shape (N,3)
-        displacement (np.ndarray): The displacement field. displacement in shape (h,w,d,[1], 3)
-        spacing_moving (Tuple[float, float, float]): The spacing of the moving image.
+    @param landmarks_fixed_path: Path to the fixed landmarks file.
+    @type landmarks_fixed_path: Path
 
-    Returns:
-        float: The mean TRE.
+    @param landmarks_moving_path: Path to the moving landmarks file.
+    @type landmarks_moving_path: Path
+
+    @param displacement_path: Path to the displacement field file.
+    @type displacement_path: Path
+
+    @param spacing_moving: The spacing of the moving image.
+    @type spacing_moving: list[float]
+
+    @param percentile: Percentile to compute if specified.
+    @type percentile: Optional[float]
+
+    @return: The mean TRE.
+    @rtype: float
     """
 
-    displacement = sitk.GetArrayFromImage(
-        sitk.ReadImage(displacement_path.as_posix())).squeeze()
+    # assert that all paths are valid
+    assert landmarks_fixed_path.exists(
+    ), f"{landmarks_fixed_path} does not exist"
+    assert landmarks_moving_path.exists(
+    ), f"{landmarks_moving_path} does not exist"
+    assert displacement_path.exists(), f"{displacement_path} does not exist"
+    assert displacement_path.suffix == '.pt', f"{displacement_path} is not a valid torch file"
+
+    displacement = torch.load(displacement_path).numpy()
+
     landmarks_fixed, landmarks_moving = read_lanmdarks(
         landmarks_fixed_path, landmarks_moving_path)
 
-    assert landmarks_moving.shape == landmarks_fixed.shape
-    assert landmarks_fixed.shape[-1] == 3 or landmarks_fixed.shape[-1] == 2
+    assert landmarks_moving.shape == landmarks_fixed.shape, \
+        "Fixed and moving landmarks should have the same shape"
+    assert landmarks_fixed.shape[-1] == 3 or landmarks_fixed.shape[-1] == 2, \
+        "Landmarks should have shape (N,3) or (N,2)"
 
     mov_lms_warped = utils.deform_landmarks(
         landmarks_moving, displacement)
