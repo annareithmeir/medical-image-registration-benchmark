@@ -14,7 +14,7 @@ import wandb
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
 
-from registrationbaselines.registration._interface_registration_sweep import RegistrationInterface
+from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.evaluation.evaluation import Evaluation
 from registrationbaselines.data_loading import data_loaders
 
@@ -56,7 +56,7 @@ class BSplineFeature(RegistrationInterface):
         joined_metric = ''.join(
             [f'{value}_{key}_' for key, value in wandb.config.metric.items()])
 
-        self.method = method_name + \
+        method = method_name + \
             f"_{wandb.config.encoder}_" \
             f"{joined_metric}_" \
             f"lr{wandb.config.lr}_" \
@@ -81,15 +81,15 @@ class BSplineFeature(RegistrationInterface):
 
         assert len(self.dataloader) > 0, "Dataloader is empty."
         for item in tqdm(self.dataloader):
-            self.register(item["img_x"], item["img_y"])
+            self.register(item["fixed_image"], item["moving_image"])
 
         # evaluate
         loader_transformations = data_loaders.BaselineTransformations(
-            Path(wandb.config.result_path) / self.method)
+            Path(self.configuration_register["result_path"]) / method)
 
         print("\nevaluate...")
-        evaluation = Evaluation(Path(wandb.config.result_path),
-                                self.method)
+        evaluation = Evaluation(Path(self.configuration_register["result_path"]),
+                                method)
         evaluation.evaluate(
             loader_transformations, self.dataloader)
 

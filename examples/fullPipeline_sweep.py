@@ -30,7 +30,7 @@ def main() -> None:
     path_config = base_dir / f"registrationbaselines/configs/BSplines_feat.yaml"
     config = utils.read_config(path_config)
 
-    registration = BSplineFeature(config, configuration_register=None)
+    registration = BSplineFeature(config)
 
     path_data = Path("/data/ACDC/database/")
 
