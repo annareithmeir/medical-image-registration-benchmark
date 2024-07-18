@@ -35,6 +35,10 @@ def load_image(image_path: Path) -> floatArray2Dor3Dor4D:
         raise ValueError(
             "The image file should be in .nii or .nii.gz format.")
 
+    # check that file exists
+    if not image_path.exists():
+        raise FileNotFoundError(f"File {image_path} does not exist.")
+
     image: sitk.Image = sitk.ReadImage(image_path)
 
     # check that it is 2D, 3D or 4D
