@@ -11,10 +11,10 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floatArray2Dor3Dor4D
+from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floatArray2Dor3Dor4D, intArray2Dor3Dor4D
 
 
-def load_image(image_path: Path) -> floatArray2Dor3Dor4D:
+def load_image(image_path: Path) -> Union[floatArray2Dor3Dor4D, intArray2Dor3Dor4D]:
     """
     Load a nifti image from a file and return it as a numpy array.
 
@@ -22,6 +22,7 @@ def load_image(image_path: Path) -> floatArray2Dor3Dor4D:
     The voxel size should be isotropic.
     The direction should be identity.
     The image should be 2D, 3D or 4D.
+    The image should be float or integer.
 
     @param image_path: The path to the image file.
     @type image_path: Path
@@ -77,7 +78,7 @@ def load_image(image_path: Path) -> floatArray2Dor3Dor4D:
     return image_array
 
 
-def save_image(image: floatArray2Dor3Dor4D, image_path: Path) -> None:
+def save_image(image: Union[floatArray2Dor3Dor4D, intArray2Dor3Dor4D], image_path: Path) -> None:
     """
     Save a numpy array as a nifti image.
 
