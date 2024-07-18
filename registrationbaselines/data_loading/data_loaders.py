@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import List, Union, Tuple
 import shutil
 
+from typing import Dict, Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -17,6 +19,8 @@ from tqdm import tqdm
 
 import utils
 
+from registrationbaselines.core.types import datasetReturnType
+
 # global clipping [min,max] values
 # todo verify clipping parameters
 WINDOW_BONES = [-400, 1600]
@@ -27,9 +31,9 @@ Parent class datasets
 """
 
 
-class GenericDataset(Dataset):
+class GenericDataset(Dataset[datasetReturnType]):
 
-    def __init__(self, return_type: str = None, indices:list[int]=None, **kwargs):
+    def __init__(self, return_type: str = None, indices: list[int] = None, **kwargs):
         super().__init__()
 
         self.images_path = None
@@ -43,10 +47,11 @@ class GenericDataset(Dataset):
         self.return_type = return_type
         self.images_list = list()
 
-        self.has_labels=False
-        self.has_keypoints =False
+        self.has_labels = False
+        self.has_keypoints = False
 
-        assert self.return_type in ["torch_tensor","torch_tensor_dict", "path_dict"]
+        assert self.return_type in [
+            "torch_tensor", "torch_tensor_dict", "path_dict"]
 
     def __len__(self):
         return len(self.images_list)
@@ -69,7 +74,7 @@ class GenericDataset(Dataset):
     def _get_keypoint_pair_as_paths(self, idx):
         pass
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> datasetReturnType:
         print(self.return_type)
         if (self.has_keypoints is False) and (self.has_labels is False):
             if self.return_type == "path_dict":
@@ -80,12 +85,14 @@ class GenericDataset(Dataset):
                 item = (img_f, img_m)
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
                 img_f, img_m = self._get_image_pair_as_tensors(idx)
-                item = {"moving_image":img_m, "fixed_image":img_f}
+                item = {"moving_image": img_m, "fixed_image": img_f}
         elif (self.has_keypoints is False) and (self.has_labels is True):
             if self.return_type == "path_dict":
                 path_f, path_m = self._get_image_pair_as_paths(idx)
-                path_labels_f, path_labels_m = self._get_label_pair_as_paths(idx)
-                item = {"fixed_image":path_f, "moving_image":path_m, "fixed_labels":path_labels_f, "moving_labels":path_labels_m}
+                path_labels_f, path_labels_m = self._get_label_pair_as_paths(
+                    idx)
+                item = {"fixed_image": path_f, "moving_image": path_m,
+                        "fixed_labels": path_labels_f, "moving_labels": path_labels_m}
             elif self.return_type == "torch_tensor":  # np_array bsxhxw
                 img_f, img_m = self._get_image_pair_as_tensors(idx)
                 labels_f, labels_m = self._get_label_pair_as_tensors(idx)
@@ -93,41 +100,51 @@ class GenericDataset(Dataset):
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
                 img_f, img_m = self._get_image_pair_as_tensors(idx)
                 labels_f, labels_m = self._get_label_pair_as_tensors(idx)
-                item = {"moving_image":img_m, "fixed_image":img_f,"moving_labels":labels_m, "fixed_labels":labels_f}
+                item = {"moving_image": img_m, "fixed_image": img_f,
+                        "moving_labels": labels_m, "fixed_labels": labels_f}
         elif (self.has_keypoints is True) and (self.has_labels is False):
             if self.return_type == "path_dict":
                 path_f, path_m = self._get_image_pair_as_paths(idx)
-                path_keypoints_f, path_keypoints_m = self._get_keypoint_pair_as_paths(idx)
+                path_keypoints_f, path_keypoints_m = self._get_keypoint_pair_as_paths(
+                    idx)
                 item = {"fixed_image": path_f, "moving_image": path_m, "fixed_keypoints": path_keypoints_f,
                         "moving_keypoints": path_keypoints_m}
             elif self.return_type == "torch_tensor":  # np_array bsxhxw
                 img_f, img_m = self._get_image_pair_as_tensors(idx)
-                keypoints_f, keypoints_m = self._get_keypoint_pair_as_tensors(idx)
+                keypoints_f, keypoints_m = self._get_keypoint_pair_as_tensors(
+                    idx)
                 item = (img_f, img_m, keypoints_f, keypoints_m)
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
                 img_f, img_m = self._get_image_pair_as_tensors(idx)
-                keypoints_f, keypoints_m = self._get_keypoint_pair_as_tensors(idx)
+                keypoints_f, keypoints_m = self._get_keypoint_pair_as_tensors(
+                    idx)
                 item = {"moving_image": img_m, "fixed_image": img_f, "moving_keypoints": keypoints_m,
                         "fixed_keypoints": keypoints_f}
         elif (self.has_keypoints is True) and (self.has_labels is True):
             if self.return_type == "path_dict":
                 path_f, path_m = self._get_image_pair_as_paths(idx)
-                path_labels_f, path_labels_m = self._get_label_pair_as_paths(idx)
-                path_keypoint_f, path_keypoint_m = self._get_keypoint_pair_as_paths(idx)
-                item = (path_f, path_m, path_labels_f, path_labels_m, path_keypoint_f, path_keypoint_m)
+                path_labels_f, path_labels_m = self._get_label_pair_as_paths(
+                    idx)
+                path_keypoint_f, path_keypoint_m = self._get_keypoint_pair_as_paths(
+                    idx)
+                item = (path_f, path_m, path_labels_f, path_labels_m,
+                        path_keypoint_f, path_keypoint_m)
                 item = {"fixed_image": path_f, "moving_image": path_m, "fixed_labels": path_labels_f,
-                        "moving_labels": path_labels_m, "fixed_keypoints":path_keypoint_f, "moving_kepoints":path_keypoint_m}
+                        "moving_labels": path_labels_m, "fixed_keypoints": path_keypoint_f, "moving_kepoints": path_keypoint_m}
             elif self.return_type == "torch_tensor":  # np_array bsxhxw
                 img_f, img_m = self._get_image_pair_as_tensors(idx)
                 labels_f, labels_m = self._get_label_pair_as_tensors(idx)
-                keypoint_f, keypoint_m = self._get_keypoint_pair_as_tensors(idx)
-                item = (img_f, img_m, labels_f, labels_m, keypoint_f, keypoint_m)
+                keypoint_f, keypoint_m = self._get_keypoint_pair_as_tensors(
+                    idx)
+                item = (img_f, img_m, labels_f,
+                        labels_m, keypoint_f, keypoint_m)
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
                 img_f, img_m = self._get_image_pair_as_tensors(idx)
                 labels_f, labels_m = self._get_label_pair_as_tensors(idx)
-                keypoint_f, keypoint_m = self._get_keypoint_pair_as_tensors(idx)
+                keypoint_f, keypoint_m = self._get_keypoint_pair_as_tensors(
+                    idx)
                 item = {"moving_image": img_m, "fixed_image": img_f, "moving_labels": labels_m,
-                        "fixed_labels": labels_f, "fixed_keypoints":keypoint_f, "moving_keypoints":keypoint_m}
+                        "fixed_labels": labels_f, "fixed_keypoints": keypoint_f, "moving_keypoints": keypoint_m}
         return item
 
     def plot_random_image(self) -> None:
@@ -146,8 +163,8 @@ class GenericDataset(Dataset):
         img_m = img_m.numpy()
 
         fig = plt.figure(figsize=(20, 12))
-        
-        if self.ndim==2:
+
+        if self.ndim == 2:
             # moving image
             ax = fig.add_subplot(1, 2, 1)
             plt.imshow(img_m, cmap='gray')
@@ -157,7 +174,7 @@ class GenericDataset(Dataset):
                 plt.scatter(kp_m[:, 0], kp_m[:, 1], marker='x', c='red')
             plt.colorbar()
             plt.title("Moving")
-    
+
             # fixed image
             ax = fig.add_subplot(1, 2, 2)
             plt.imshow(img_f, cmap='gray')
@@ -180,21 +197,24 @@ class GenericDataset(Dataset):
                     if self.has_labels:
                         slice_seg_m = seg_m[slices[a], :, :]
                     if self.has_keypoints:
-                        slice_kp_m = kp_m[np.where(abs(kp_m[:, 0] - slices[a]) <= 0.5)]
+                        slice_kp_m = kp_m[np.where(
+                            abs(kp_m[:, 0] - slices[a]) <= 0.5)]
                         slice_kp_m = slice_kp_m[:, 1:]
                 if a == 1:
                     slice_img_m = img_m[:, slices[a], :]
                     if self.has_labels:
                         slice_seg_m = seg_m[:, slices[a], :]
                     if self.has_keypoints:
-                        slice_kp_m = kp_m[np.where(abs(kp_m[:, 1] - slices[a]) <= 0.5)]
+                        slice_kp_m = kp_m[np.where(
+                            abs(kp_m[:, 1] - slices[a]) <= 0.5)]
                         slice_kp_m = slice_kp_m[:, [0, 2]]
                 if a == 2:
                     slice_img_m = img_m[:, :, slices[a]]
                     if self.has_labels:
                         slice_seg_m = seg_m[:, :, slices[a]]
                     if self.has_keypoints:
-                        slice_kp_m = kp_m[np.where(abs(kp_m[:, 2] - slices[a]) <= 0.5)]
+                        slice_kp_m = kp_m[np.where(
+                            abs(kp_m[:, 2] - slices[a]) <= 0.5)]
                         slice_kp_m = slice_kp_m[:, :-1]
 
                 plt.imshow(slice_img_m, cmap='gray')
@@ -202,7 +222,8 @@ class GenericDataset(Dataset):
                 if self.has_labels:
                     plt.imshow(slice_seg_m, alpha=0.3)
                 if self.has_keypoints:
-                    plt.scatter(slice_kp_m[:, 1],slice_kp_m[:, 0], marker='x', c='red')
+                    plt.scatter(
+                        slice_kp_m[:, 1], slice_kp_m[:, 0], marker='x', c='red')
                 # plt.gca().invert_yaxis()
 
                 # fixed image
@@ -212,21 +233,24 @@ class GenericDataset(Dataset):
                     if self.has_labels:
                         slice_seg_f = seg_f[slices[a], :, :]
                     if self.has_keypoints:
-                        slice_kp_f = kp_f[np.where(abs(kp_f[:, 0] - slices[a]) <= 0.5)]
+                        slice_kp_f = kp_f[np.where(
+                            abs(kp_f[:, 0] - slices[a]) <= 0.5)]
                         slice_kp_f = slice_kp_f[:, 1:]
                 if a == 1:
                     slice_img_f = img_f[:, slices[a], :]
                     if self.has_labels:
                         slice_seg_f = seg_f[:, slices[a], :]
                     if self.has_keypoints:
-                        slice_kp_f = kp_f[np.where(abs(kp_f[:, 1] - slices[a]) <= 0.5)]
+                        slice_kp_f = kp_f[np.where(
+                            abs(kp_f[:, 1] - slices[a]) <= 0.5)]
                         slice_kp_f = slice_kp_f[:, [0, 2]]
                 if a == 2:
                     slice_img_f = img_f[:, :, slices[a]]
                     if self.has_labels:
                         slice_seg_f = seg_f[:, :, slices[a]]
                     if self.has_keypoints:
-                        slice_kp_f = kp_f[np.where(abs(kp_f[:, 2] - slices[a]) <= 0.5)]
+                        slice_kp_f = kp_f[np.where(
+                            abs(kp_f[:, 2] - slices[a]) <= 0.5)]
                         slice_kp_f = slice_kp_f[:, :-1]
 
                 plt.imshow(slice_img_f, cmap='gray')
@@ -234,7 +258,8 @@ class GenericDataset(Dataset):
                 if self.has_labels:
                     plt.imshow(slice_seg_f, alpha=0.3)
                 if self.has_keypoints:
-                    plt.scatter(slice_kp_f[:, 1],slice_kp_f[:, 0], marker='x', c='red')
+                    plt.scatter(
+                        slice_kp_f[:, 1], slice_kp_f[:, 0], marker='x', c='red')
 
         plt.tight_layout()
         plt.suptitle("idx: {}".format(rand_idx))
@@ -267,8 +292,8 @@ class MNISTDataset(GenericDataset):
         self.spacing = (1, 1)
         self.image_shape = (32, 32)  # vmx needs 2N, N=number of layers
         self.num_pairs = num_pairs
-        self.has_segmentations= False
-        self.has_keypoints=False
+        self.has_segmentations = False
+        self.has_keypoints = False
 
         # Define transformations for the dataset including the custom transform
         self.transforms = transforms.Compose([
@@ -277,7 +302,8 @@ class MNISTDataset(GenericDataset):
         ])
 
         # Download and load the training dataset
-        self.dataset = datasets.MNIST(root='./data', train=False, download=True)
+        self.dataset = datasets.MNIST(
+            root='./data', train=False, download=True)
 
         # Create a dictionary to store indices of each digit
         self.digit_indices = {i: [] for i in range(10)}
@@ -369,7 +395,7 @@ class L2RLungCTDataset(GenericDataset):
                 self.segmentations_list[i] for i in indices]
             self.keypoints_list = [self.keypoints_list[i] for i in indices]
 
-    def _get_label_pair_as_tensors(self, idx:int):
+    def _get_label_pair_as_tensors(self, idx: int):
         subject_dict = {
             "seg_f": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
             "seg_m": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1]),
@@ -379,7 +405,7 @@ class L2RLungCTDataset(GenericDataset):
         seg_f = subject["seg_f"].data
         return seg_f.squeeze(), seg_m.squeeze()
 
-    def _get_image_pair_as_tensors(self, idx:int):
+    def _get_image_pair_as_tensors(self, idx: int):
         subject_dict = {
             "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
             "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1])
@@ -389,7 +415,7 @@ class L2RLungCTDataset(GenericDataset):
         img_f = subject["image_f"].data
         return img_f.squeeze(), img_m.squeeze()
 
-    def _get_keypoint_pair_as_tensors(self,idx):
+    def _get_keypoint_pair_as_tensors(self, idx):
         kp_f = np.genfromtxt(self.images_path / self.keypoints_list[idx][0],
                              delimiter=',')
 
@@ -464,8 +490,8 @@ class L2RLungCTDataset(GenericDataset):
             # save preprocessed images
             subject["image_m"].save(save_path / file_img_m)
             subject["image_f"].save(save_path / file_img_f)
-            subject["seg_m"].save(save_path /  file_seg_m)
-            subject["seg_f"].save(save_path /  file_seg_f)
+            subject["seg_m"].save(save_path / file_seg_m)
+            subject["seg_f"].save(save_path / file_seg_f)
             np.savetxt(save_path / file_kp_m, kp_m, delimiter=",")
             np.savetxt(save_path / file_kp_f, kp_f, delimiter=",")
 
@@ -519,7 +545,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
     preprocess() optional, since already isotropic pixel size
     """
 
-    def __init__(self, dataset_path: Path,return_type: str = None,
+    def __init__(self, dataset_path: Path, return_type: str = None,
                  indices: list[int] = None) -> None:
         """
 
@@ -557,7 +583,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             self.segmentations_list = [
                 self.segmentations_list[i] for i in indices]
 
-    def _get_label_pair_as_tensors(self, idx:int):
+    def _get_label_pair_as_tensors(self, idx: int):
         subject_dict = {
             "seg_f": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
             "seg_m": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1]),
@@ -567,7 +593,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         seg_f = subject["seg_f"].data
         return seg_f.squeeze(), seg_m.squeeze()
 
-    def _get_image_pair_as_tensors(self, idx:int):
+    def _get_image_pair_as_tensors(self, idx: int):
         subject_dict = {
             "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
             "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1])
@@ -715,7 +741,7 @@ class L2RAbdominalCTCTDataset(GenericDataset):
             self.segmentations_list = [
                 self.segmentations_list[i] for i in indices]
 
-    def _get_label_pair_as_tensors(self, idx:int):
+    def _get_label_pair_as_tensors(self, idx: int):
         subject_dict = {
             "seg_f": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
             "seg_m": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1]),
@@ -725,7 +751,7 @@ class L2RAbdominalCTCTDataset(GenericDataset):
         seg_f = subject["seg_f"].data
         return seg_f.squeeze(), seg_m.squeeze()
 
-    def _get_image_pair_as_tensors(self, idx:int):
+    def _get_image_pair_as_tensors(self, idx: int):
         subject_dict = {
             "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
             "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1])
@@ -764,7 +790,8 @@ class L2RAbdominalCTCTDataset(GenericDataset):
 
         for idx in tqdm(range(len(files_images)), desc="Preprocessing",
                         unit="iteration"):
-            file_img_m = files_images[idx] # since inter-patient, pairs not given
+            # since inter-patient, pairs not given
+            file_img_m = files_images[idx]
             file_seg_m = files_segmentations[idx]
 
             subject_dict = {
@@ -835,7 +862,7 @@ class ACDCDataset(GenericDataset):
     we assume that the images have been preprocessed to 2d-middle slices, shape (128, 128), normalized and resampled to isotropic 1.8 (can be done with preprocess())
     """
 
-    def __init__(self, dataset_path: Path, return_type: str=None, return_mode: str="train", indices: list[int] = None) -> None:
+    def __init__(self, dataset_path: Path, return_type: str = None, return_mode: str = "train", indices: list[int] = None) -> None:
         """
 
         @param dataset_path:
@@ -856,8 +883,8 @@ class ACDCDataset(GenericDataset):
         self.images_path = dataset_path
         assert return_mode in ["train", "val", "test"]
         self.return_mode = return_mode
-        
-        self.classes = { 
+
+        self.classes = {
             0: "background",
             1: "RV",  # right ventricle
             2: "LV-Myo",  # epicardium
@@ -876,7 +903,8 @@ class ACDCDataset(GenericDataset):
 
         if indices is not None:
             self.images_list = [self.images_list[i] for i in indices]
-            self.segmentations_list = [self.segmentations_list[i] for i in indices]
+            self.segmentations_list = [
+                self.segmentations_list[i] for i in indices]
             self.groups = [self.groups[i] for i in indices]
 
     def read_filenames(self):
@@ -891,7 +919,8 @@ class ACDCDataset(GenericDataset):
             for i in range(1, 101):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.images_path / \
-                                ('training/' + file_str + "/" + file_str + '_frame*_gt.nii.gz')
+                    ('training/' + file_str + "/" +
+                     file_str + '_frame*_gt.nii.gz')
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -916,7 +945,8 @@ class ACDCDataset(GenericDataset):
             for i in range(101, 126):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.images_path / \
-                                ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                    ("testing/" + file_str + "/" +
+                     file_str + "_frame*_gt.nii.gz")
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -936,11 +966,12 @@ class ACDCDataset(GenericDataset):
                             break
 
                 group_ls.append(self.group_map[group])
-        else: #test
+        else:  # test
             for i in range(126, 151):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.images_path / \
-                                ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                    ("testing/" + file_str + "/" +
+                     file_str + "_frame*_gt.nii.gz")
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -962,7 +993,7 @@ class ACDCDataset(GenericDataset):
 
         return list(zip(x_ls, y_ls)), list(zip(masks_x_ls, masks_y_ls)), group_ls
 
-    def _get_label_pair_as_tensors(self, idx:int):
+    def _get_label_pair_as_tensors(self, idx: int):
         subject_dict = {
             "seg_f": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
             "seg_m": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1]),
@@ -972,7 +1003,7 @@ class ACDCDataset(GenericDataset):
         seg_f = subject["seg_f"].data
         return seg_f.squeeze(), seg_m.squeeze()
 
-    def _get_image_pair_as_tensors(self, idx:int):
+    def _get_image_pair_as_tensors(self, idx: int):
         subject_dict = {
             "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
             "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1])
@@ -992,7 +1023,7 @@ class ACDCDataset(GenericDataset):
         """
         Preprocesses the dataset to uniform pixel size, cropping around heart, 2d middle slice
         @param save_path: path to save the preprocessed images to
-        @return: 
+        @return:
         """
 
         if "train" in self.return_mode:
@@ -1050,24 +1081,37 @@ class ACDCDataset(GenericDataset):
             # save preprocessed images
             if "train" in self.return_mode:
                 save_path.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(self.images_path / "training" / file_img_m.parent.name / "Info.cfg", save_path / "training" / file_img_m.parent.name / "Info.cfg")
-                (save_path / "training"/ file_img_m.parent.name).mkdir(parents=True, exist_ok=True)
-                (save_path / "training"/ file_img_m.parent.name).mkdir(parents=True, exist_ok=True)
-                subject["image_m"].save(save_path / "training" / file_img_m.parent.name / file_img_m.name)
-                subject["image_f"].save(save_path / "training" / file_img_f.parent.name / file_img_f.name)
-                subject["seg_m"].save(save_path / "training" / file_seg_m.parent.name / file_seg_m.name)
-                subject["seg_f"].save(save_path / "training" / file_seg_f.parent.name / file_seg_f.name)
+                shutil.copyfile(self.images_path / "training" / file_img_m.parent.name /
+                                "Info.cfg", save_path / "training" / file_img_m.parent.name / "Info.cfg")
+                (save_path / "training" /
+                 file_img_m.parent.name).mkdir(parents=True, exist_ok=True)
+                (save_path / "training" /
+                 file_img_m.parent.name).mkdir(parents=True, exist_ok=True)
+                subject["image_m"].save(
+                    save_path / "training" / file_img_m.parent.name / file_img_m.name)
+                subject["image_f"].save(
+                    save_path / "training" / file_img_f.parent.name / file_img_f.name)
+                subject["seg_m"].save(
+                    save_path / "training" / file_seg_m.parent.name / file_seg_m.name)
+                subject["seg_f"].save(
+                    save_path / "training" / file_seg_f.parent.name / file_seg_f.name)
             else:
 
                 save_path.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(self.images_path / "testing" / file_img_m.parent.name / "Info.cfg",
                                 save_path / "testing" / file_img_m.parent.name / "Info.cfg")
-                (save_path / "testing"/ file_img_m.parent.name).mkdir(parents=True, exist_ok=True)
-                (save_path / "testing"/ file_img_m.parent.name).mkdir(parents=True, exist_ok=True)
-                subject["image_m"].save(save_path / "testing" / file_img_m.parent.name / file_img_m.name)
-                subject["image_f"].save(save_path / "testing" / file_img_f.parent.name / file_img_f.name)
-                subject["seg_m"].save(save_path / "testing" / file_seg_m.parent.name / file_seg_m.name)
-                subject["seg_f"].save(save_path / "testing" / file_seg_f.parent.name / file_seg_f.name)
+                (save_path / "testing" /
+                 file_img_m.parent.name).mkdir(parents=True, exist_ok=True)
+                (save_path / "testing" /
+                 file_img_m.parent.name).mkdir(parents=True, exist_ok=True)
+                subject["image_m"].save(
+                    save_path / "testing" / file_img_m.parent.name / file_img_m.name)
+                subject["image_f"].save(
+                    save_path / "testing" / file_img_f.parent.name / file_img_f.name)
+                subject["seg_m"].save(
+                    save_path / "testing" / file_seg_m.parent.name / file_seg_m.name)
+                subject["seg_f"].save(
+                    save_path / "testing" / file_seg_f.parent.name / file_seg_f.name)
 
         self.images_path = save_path
         print("From now on reading images from ", self.images_path)
@@ -1079,7 +1123,7 @@ class FIREDataset(GenericDataset):
     134 retina image pairs and landmarks
     """
 
-    def __init__(self, dataset_path: Path, return_type: str = None, indices: list[int] = None, rgb:bool = True):
+    def __init__(self, dataset_path: Path, return_type: str = None, indices: list[int] = None, rgb: bool = True):
         """
 
         @param imgs_path: Path to the original dataset
@@ -1147,11 +1191,11 @@ class FIREDataset(GenericDataset):
         coords_moving = data[:, [2, 3]]
         return torch.from_numpy(coords_fixed), torch.from_numpy(coords_moving)
 
-    def _get_keypoint_pair_as_paths(self, idx: int) -> Tuple[Path,Path]:
+    def _get_keypoint_pair_as_paths(self, idx: int) -> Tuple[Path, Path]:
         file_path = self.keypoints_list[idx]
         return file_path, file_path
 
-    def _get_image_pair_as_tensors(self, idx:int):
+    def _get_image_pair_as_tensors(self, idx: int):
         path_fixed = self.images_list[idx][0]
         path_moving = self.images_list[idx][1]
         image_fixed = Image.open(path_fixed)
