@@ -118,6 +118,9 @@ def get_affine_from_image(image: sitk.Image) -> floatArray2D:
     @rtype: np.ndarray[Tuple[int, int, int], np.dtype[np.float64]]
     """
 
+    if image.GetDimension() != 3:
+        raise ValueError("The image should be 3D.")
+
     direction = np.array(image.GetDirection(), np.float64).reshape(3, 3)
     spacing = np.array(image.GetSpacing(), np.float64)
     origin = np.array(image.GetOrigin(), np.float64)
