@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from typing import Any, Union
+
 from scipy.ndimage import map_coordinates
 import yaml
 import numpy as np
@@ -9,7 +11,100 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D
+from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floatArray2Dor3Dor4D, intArray2Dor3Dor4D
+
+
+def load_image(image_path: Path) -> Union[floatArray2Dor3Dor4D, intArray2Dor3Dor4D]:
+    """
+    Load a nifti image from a file and return it as a numpy array.
+
+    The file should be in .nii or .nii.gz format.
+    The voxel size should be isotropic.
+    The direction should be identity.
+    The image should be 2D, 3D or 4D.
+    The image should be float or integer.
+
+    @param image_path: The path to the image file.
+    @type image_path: Path
+
+    @return: The image.
+    @rtype: floatArray2Dor3Dor4D
+    """
+
+    # check that file is .nii or .nii.gz
+    if not image_path.suffix == '.nii' and not image_path.suffix == '.nii.gz':
+        raise ValueError(
+            "The image file should be in .nii or .nii.gz format.")
+
+    # check that file exists
+    if not image_path.exists():
+        raise FileNotFoundError(f"File {image_path} does not exist.")
+
+    image: sitk.Image = sitk.ReadImage(image_path)
+
+    # check that it is 2D, 3D or 4D
+    dimension = int(image.GetDimension())
+    if dimension not in [2, 3, 4]:
+        raise ValueError(
+            f"Dimension of {image_path} is not 2D, 3D or 4D: {dimension}"
+        )
+
+    # check that spacing is isotropic
+    spacing = np.array(image.GetSpacing(), np.float64)
+    if not np.allclose(spacing, spacing[0]):
+        raise ValueError(
+            f"Voxel size of {image_path} is not isotropic: {tuple(spacing)}"
+        )
+
+    # check that direction is identity
+    direction = np.array(image.GetDirection(), np.float64)
+
+    identity: np.ndarray[Any, np.dtype[np.float64]]
+    match dimension:
+        case 2:
+            identity = np.eye(2)
+        case 3:
+            identity = np.eye(3)
+        case _:
+            identity = np.eye(4)
+
+    if not np.allclose(direction, identity.flatten()):
+        raise ValueError(
+            f"Direction of {image_path} is not identity: {tuple(direction)}"
+        )
+
+    image_array = sitk.GetArrayFromImage(image)
+
+    return image_array
+
+
+def save_image(image: Union[floatArray2Dor3Dor4D, intArray2Dor3Dor4D], image_path: Path) -> None:
+    """
+    Save a numpy array as a nifti image.
+
+    The voxel size will be isotropic.
+    The direction will be identity.
+    The image can be 2D, 3D or 4D.
+    """
+
+    # check that file is .nii or .nii.gz
+    if not image_path.suffix == '.nii' and not image_path.suffix == '.nii.gz':
+        raise ValueError(
+            "The path should be in .nii or .nii.gz format.")
+
+    # check that it is 2D, 3D or 4D
+    if image.ndim not in [2, 3, 4]:
+        raise ValueError(
+            f"Dimension of image is not 2D, 3D or 4D: {image.ndim}"
+        )
+
+    sitk_image = sitk.GetImageFromArray(image)
+
+    sitk.WriteImage(sitk_image, image_path)
+
+    # check that file was written
+    if not image_path.exists():
+        raise FileNotFoundError(f"File {image_path} was not written.")
 
 
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:
@@ -22,6 +117,9 @@ def get_affine_from_image(image: sitk.Image) -> floatArray2D:
     @return: The affine matrix.
     @rtype: np.ndarray[Tuple[int, int, int], np.dtype[np.float64]]
     """
+
+    if image.GetDimension() != 3:
+        raise ValueError("The image should be 3D.")
 
     direction = np.array(image.GetDirection(), np.float64).reshape(3, 3)
     spacing = np.array(image.GetSpacing(), np.float64)
@@ -42,16 +140,6 @@ def read_config(file_path: Path) -> dict:
 
     with open(file_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
-
-
-def load_image_from_nii_gz(image_path: Path) -> np.ndarray:
-    """
-    Loads a .nii.gz file to a numpy array
-    @param image_path: path of image
-    @return: numpy array
-    """
-    image = sitk.ReadImage(image_path)
-    return sitk.GetArrayFromImage(image)
 
 
 def save_array_to_nii_gz_image(array: np.ndarray, filename: Path, affine: np.ndarray = None) -> None:

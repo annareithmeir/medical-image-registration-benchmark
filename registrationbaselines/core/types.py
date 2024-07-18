@@ -12,3 +12,9 @@ floatArray2Dor3D = np.ndarray[Union[Tuple[int, int], Tuple[int, int, int]],
 
 floatArray3Dor4D = np.ndarray[Union[Tuple[int, int, int], Tuple[int, int, int, int]],
                               np.dtype[np.float64]]
+
+floatArray2Dor3Dor4D = np.ndarray[Union[Tuple[int, int], Tuple[int, int, int], Tuple[int, int, int, int]],
+                                  np.dtype[np.float64]]
+
+intArray2Dor3Dor4D = np.ndarray[Union[Tuple[int, int], Tuple[int, int, int], Tuple[int, int, int, int]],
+                                Union[np.dtype[np.uint8], np.dtype[np.uint16], np.dtype[np.uint32], np.dtype[np.uint64]]]
