@@ -5,10 +5,10 @@ from typing import Optional, Tuple
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
-import nibabel as nib
 import numpy as np
 import torch
 import SimpleITK as sitk
+import wandb
 
 from registrationbaselines.core import utils, result_csv, general_deformation
 from registrationbaselines.core import metrics
@@ -370,3 +370,41 @@ class Evaluation():
             f"deformed/{name_moving}_deformed_to_{name_fixed}{extension}"
 
         return path_plots
+
+    def wandb_log(self):
+        """
+        Log the results to wandb.
+        """
+        # log quantitative results
+
+        for key, value in self.results.df.loc["mean"].to_dict().items():
+            if 'mean' not in key:
+                new_key = key + "_mean"
+            else:
+                new_key = key.replace("_mean", "_overal_mean")
+
+            wandb.log({new_key: float(value)})
+
+        for key, value in self.results.df.loc["min"].to_dict().items():
+            new_key = key + "_min"
+
+            if 'mean' in key:
+                new_key = key.replace("_mean", "_overal_min")
+
+            wandb.log({new_key: float(value)})
+
+        for key, value in self.results.df.loc["max"].to_dict().items():
+            new_key = key + "_max"
+
+            if 'mean' in key:
+                new_key = key.replace("_mean", "_overal_max")
+
+            wandb.log({new_key: float(value)})
+
+        for key, value in self.results.df.loc["std"].to_dict().items():
+            new_key = key + "_std"
+
+            if 'mean' in key:
+                new_key = key.replace("_mean", "_overal_std")
+
+            wandb.log({new_key: float(value)})

@@ -1,10 +1,10 @@
 from pathlib import Path
 import warnings
 
-from typing import List
+from typing import List, Union, Any
 
-import nibabel as nib
 import numpy as np
+import SimpleITK as sitk
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline, utils_nifti
@@ -119,25 +119,67 @@ class DeformableCorrField(RegistrationInterface):
         self.__check_if_image_has_isotropic_voxel_size(self.moving_path)
         self.__check_if_image_has_isotropic_voxel_size(self.mask_path)
 
-    def __check_if_image_has_isotropic_voxel_size(self, image_path: Path) -> None:
-        # Check if the voxel size is isotropic
-        image = nib.load(image_path)
-        voxel_size = image.header.get_zooms()
+    def __check_if_image_has_isotropic_voxel_size(self, image_path: Union[str, Path]) -> None:
+        """
+        Check if the input image has isotropic voxel size.
 
+        @param image_path: Path to the input image file
+        @type image_path: Union[str, Path]
+
+        @return: None
+        @rtype: None
+
+        @raise ValueError: If the voxel size is not isotropic
+        """
+        # Read the image using SimpleITK
+        image: sitk.Image = sitk.ReadImage(str(image_path))
+
+        # Get the voxel spacing
+        voxel_size: np.ndarray[Any, np.dtype[np.float64]
+                               ] = np.array(image.GetSpacing())
+
+        # Check if the voxel size is isotropic
         if not np.allclose(voxel_size, voxel_size[0]):
             raise ValueError(
-                f"Voxel size of {image_path} is not isotropic: {voxel_size}")
+                f"Voxel size of {image_path} is not isotropic: {tuple(voxel_size)}"
+            )
 
     def __create_empty_fixed_image_mask(self) -> None:
+        """
+        Create an empty mask with the same dimensions as the fixed image and save it.
+
+        This method reads the fixed image, creates a mask of ones with the same
+        dimensions, and saves it to the specified mask path.
+
+        @return: None
+        @rtype: None
+        """
+
+        # Read the fixed image using SimpleITK
+        fixed_image: sitk.Image = sitk.ReadImage(str(self.fixed_path))
+
+        # Get the size of the fixed image
+        size: tuple[int, ...] = fixed_image.GetSize()
+
         # Create a mask with the same dimensions as the fixed image
-        fixed_image = nib.load(self.fixed_path)
-        mask = np.ones(fixed_image.shape)
+        mask: sitk.Image = sitk.Image(size, sitk.sitkUInt8)
+        mask.CopyInformation(fixed_image)
+        mask.FillBuffer(1)
 
         # Save the mask
-        nib.save(nib.Nifti1Image(mask, fixed_image.affine), self.mask_path)
+        sitk.WriteImage(mask, str(self.mask_path))
 
     def __rotate_warped_image_by_180_around_x_axis(self) -> None:
-        # transform the image
+        """
+        Rotate the warped image by 180 degrees around the x-axis and save it.
+
+        This method reads the transformed image, applies a 180-degree rotation
+        around the x-axis, and saves the result back to the same file.
+
+        @return: None
+        @rtype: None
+        """
+
         rotation_matrix_180_around_x = np.array([
             [1, 0,  0, 0],
             [0, -1, 0, 0],  # Invert y-axis
@@ -149,7 +191,7 @@ class DeformableCorrField(RegistrationInterface):
                                                                   just_replace_existing_affine=False)
 
         # Save the transformed image
-        nib.save(new_image, self.result_transformed_image_path)
+        sitk.WriteImage(new_image, str(self.result_transformed_image_path))
 
     def __create_registration_command(self):
         """

@@ -5,7 +5,6 @@ import registrationbaselines.core.utils as utils
 import time
 from pathlib import Path
 from typing import Optional, Union
-import nibabel as nib
 import numpy as np
 import SimpleITK as sitk
 import torch
@@ -140,10 +139,10 @@ class ConvexAdam(RegistrationInterface):
         image_moving = image_moving.float()
 
         if use_mask:
-            mask_fixed = torch.from_numpy(
-                nib.load(path_fixed_mask).get_fdata()).float()
-            mask_moving = torch.from_numpy(
-                nib.load(path_moving_mask).get_fdata()).float()
+            mask_fixed = torch.from_numpy(sitk.GetArrayFromImage(
+                sitk.ReadImage(str(path_fixed_mask))).astype(float))
+            mask_moving = torch.from_numpy(sitk.GetArrayFromImage(
+                sitk.ReadImage(str(path_moving_mask))).astype(float))
         else:
             mask_fixed = None
             mask_moving = None
@@ -298,7 +297,7 @@ class ConvexAdam(RegistrationInterface):
                                       ".nii.gz",
                                       ".nii.gz")
 
-        affine = nib.load(self.fixed_path).affine
+        affine = utils.get_affine_from_image(sitk.ReadImage(self.fixed_path))
 
         utils.save_array_to_nii_gz_image(
             image_deformed, self.result_transformed_image_path, affine=affine)

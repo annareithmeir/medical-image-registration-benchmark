@@ -1,11 +1,18 @@
-method_name:             BSplines_feat
-result_path:            /home/anna/PycharmProjects/registrationbaselines/tmp/results
-#result_path:             /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_test
-encoders:                [DINOv2, SAM, MedSAM]
-metrics:                 [{L1: 0.0, MSE: 0.0}]
-#metrics:                 [{COSINE: 0.5, MSE: 0.5}]
-lrs:                     [0.0005]
-regularisation_weights:  [[0.001, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0]]
-iterationss:             [[1500]]
-sigmas:                  [[[6, 6]]]
-dino_upsample_factor:    14
+method: grid  # or 'random', 'bayes'
+name:   BSplines_feat
+
+parameters:
+  result_path:
+    value:    /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_wandb
+  encoder:
+    values:   [no_encoder] #DINOv2, SAM, MedSAM]
+  metric:
+    values:   [{MSE: 0.5, NCC: 0.5}, {MSE: 1.0}, {NCC: 1.0}]
+  lr:
+    values:   [0.0005]
+  regularisation_weight:
+    values:   [0, 200, 100000]
+  iterations:
+    values:   [1000]
+  sigma:
+    values:   [[2, 2], [6, 6], [20, 20]]

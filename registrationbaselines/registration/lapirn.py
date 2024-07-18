@@ -1,6 +1,9 @@
+from registrationbaselines.dl_repos.LapIRN.Code.miccai2020_model_stage import Miccai2020_LDR_laplacian_unit_add_lvl1, \
+    Miccai2020_LDR_laplacian_unit_add_lvl2, Miccai2020_LDR_laplacian_unit_add_lvl3, SpatialTransform_unit
+from registrationbaselines.dl_repos.LapIRN.Code.Functions import generate_grid, Dataset_epoch, transform_unit_flow_to_flow_cuda, \
+    generate_grid_unit, transform_unit_flow_to_flow
 import os
 import torchio as tio
-import nibabel as nib
 import numpy as np
 
 from pathlib import Path
@@ -14,12 +17,8 @@ import sys
 sys.path.append(str(Path(__file__).parent.absolute().parent))
 
 # if we dont do this then LapIRN.Code.miccai2020_model_stage.py can't import Functions
-sys.path.append(str(Path(__file__).parent.parent.absolute() / "dl_repos/LapIRN/Code"))
-
-from registrationbaselines.dl_repos.LapIRN.Code.Functions import generate_grid, Dataset_epoch, transform_unit_flow_to_flow_cuda, \
-    generate_grid_unit, transform_unit_flow_to_flow
-from registrationbaselines.dl_repos.LapIRN.Code.miccai2020_model_stage import Miccai2020_LDR_laplacian_unit_add_lvl1, \
-    Miccai2020_LDR_laplacian_unit_add_lvl2, Miccai2020_LDR_laplacian_unit_add_lvl3, SpatialTransform_unit
+sys.path.append(
+    str(Path(__file__).parent.parent.absolute() / "dl_repos/LapIRN/Code"))
 
 
 class LapIRNReg(RegistrationInterface):
@@ -30,7 +29,7 @@ class LapIRNReg(RegistrationInterface):
 
         self.method = "LapIRN"
 
-        self.config= self.read_config(configuration_path)
+        self.config = self.read_config(configuration_path)
 
         self.fixed_affine = None
 
@@ -40,12 +39,14 @@ class LapIRNReg(RegistrationInterface):
 
         # from config
         self.base_dir = Path(__file__).parent.parent.absolute().parent
-        self.path_model = self.base_dir / Path(self.config["inference_model_path"])
-        self.result_transformed_image_path = self.base_dir / Path(self.config["result_path"]) / 'warped_lapirn.nii.gz'
-        self.result_transformation_path = self.base_dir / Path(self.config["result_path"]) / 'disp_lapirn.nii.gz'
+        self.path_model = self.base_dir / \
+            Path(self.config["inference_model_path"])
+        self.result_transformed_image_path = self.base_dir / \
+            Path(self.config["result_path"]) / 'warped_lapirn.nii.gz'
+        self.result_transformation_path = self.base_dir / \
+            Path(self.config["result_path"]) / 'disp_lapirn.nii.gz'
 
         self.device = self.__handle_device_selection()
-
 
     def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
 
@@ -55,8 +56,10 @@ class LapIRNReg(RegistrationInterface):
         # load moving and fixed images
         moving_img, fixed_img = self._load_images()  # returns torch tensor
 
-        fixed_img = fixed_img.view(1, 1, *fixed_img.shape).float().to(self.device)
-        moving_img = moving_img.view(1, 1, *moving_img.shape).float().to(self.device)
+        fixed_img = fixed_img.view(
+            1, 1, *fixed_img.shape).float().to(self.device)
+        moving_img = moving_img.view(
+            1, 1, *moving_img.shape).float().to(self.device)
         print(fixed_img.shape)
 
         imgshape = fixed_img.shape[2:]
@@ -79,28 +82,33 @@ class LapIRNReg(RegistrationInterface):
         transform.eval()
 
         grid = generate_grid_unit(imgshape)
-        grid = torch.from_numpy(np.reshape(grid, (1,) + grid.shape)).cuda().float()
+        grid = torch.from_numpy(np.reshape(
+            grid, (1,) + grid.shape)).cuda().float()
 
         # predict
         with (torch.no_grad()):
             F_X_Y = model(moving_img, fixed_img)
 
-            X_Y = transform(moving_img, F_X_Y.permute(0, 2, 3, 4, 1), grid).data.cpu().numpy()[0, 0, :, :, :]
+            X_Y = transform(moving_img, F_X_Y.permute(
+                0, 2, 3, 4, 1), grid).data.cpu().numpy()[0, 0, :, :, :]
 
-            F_X_Y_cpu = F_X_Y.data.cpu().numpy()[0, :, :, :, :].transpose(1, 2, 3, 0)
+            F_X_Y_cpu = F_X_Y.data.cpu().numpy(
+            )[0, :, :, :, :].transpose(1, 2, 3, 0)
             F_X_Y_cpu = transform_unit_flow_to_flow(F_X_Y_cpu)
 
         self.__save_results(X_Y, F_X_Y_cpu)
 
     def get_transformation_path(self):
 
-        assert self.path_result_transformation.exists(), "Transformation file does not exist."
+        assert self.path_result_transformation.exists(
+        ), "Transformation file does not exist."
 
         return self.path_result_transformation
 
     def get_transformed_image_path(self):
 
-        assert self.path_result_transformed_image.exists(), "Transformed image file does not exist."
+        assert self.path_result_transformed_image.exists(
+        ), "Transformed image file does not exist."
 
         return self.path_result_transformed_image
 
@@ -130,7 +138,8 @@ class LapIRNReg(RegistrationInterface):
         subject = tio.Subject(subject_dict)
 
         # todo preprocessing
-        rescale = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100))
+        rescale = tio.RescaleIntensity(
+            out_min_max=(0, 1), percentiles=(0, 100))
         subject = rescale(subject)
 
         self.img_moving = subject["image_m"].data
@@ -147,10 +156,10 @@ class LapIRNReg(RegistrationInterface):
         save_flow(result_transformation, self.result_transformation_path)
         save_img(result_transformed_image, self.result_transformed_image_path)
 
-        affine = np.array([[-1,0,0,0],[0,-1,0,0],[0,0,1,0],[0,0,0,1]])
+        affine = np.array([[-1, 0, 0, 0], [0, -1, 0, 0],
+                          [0, 0, 1, 0], [0, 0, 0, 1]])
 
-        transform_nifti_image_with_matrix(self.result_transformed_image_path, affine)
-        set_intent_code(self.result_transformation_path, 'NIFTI_INTENT_DISPVECT')
-
-
-
+        transform_nifti_image_with_matrix(
+            self.result_transformed_image_path, affine)
+        set_intent_code(self.result_transformation_path,
+                        'NIFTI_INTENT_DISPVECT')
