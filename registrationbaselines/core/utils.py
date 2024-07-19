@@ -11,7 +11,126 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D
+from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D
+
+
+def is_nifti_and_exists(path: Path) -> None:
+    """
+    Function to check if a file is a nifti and exists.
+
+    @param path: The path to the file.
+
+    @return: True if the file is a nifti and exists, False otherwise.
+
+    @raise ValueError: If the file is not a nifti.
+    @raise FileNotFoundError: If the file does not exist
+    """
+
+    # check that file is .nii or .nii.gz
+    suffixes = path.suffixes
+    if not suffixes == ['.nii'] and not suffixes == ['.nii', '.gz']:
+        raise ValueError(
+            "The file should be in .nii or .nii.gz format, but it is {suffixes}.")
+
+    # check that file exists
+    if not path.exists():
+        raise FileNotFoundError(
+            f"File {path} does not exist.")
+
+
+def is_isotropic(image: sitk.Image) -> None:
+    """
+    Checks if an image has isotropic voxel size.
+
+    @param image: The image.
+
+    @raise ValueError: If the voxel size is not isotropic.
+    """
+
+    spacing = np.array(image.GetSpacing(), np.float64)
+
+    if not np.allclose(spacing, spacing[0]):
+        raise ValueError(
+            f"Voxel size is not isotropic: {tuple(spacing)}"
+        )
+
+
+def is_direction_identity(image: sitk.Image) -> None:
+
+    dimension = int(image.GetDimension())
+    direction = np.abs(np.array(image.GetDirection(), np.float64))
+
+    identity: np.ndarray[Any, np.dtype[np.float64]]
+    match dimension:
+        case 2:
+            identity = np.eye(2)
+        case 3:
+            identity = np.eye(3)
+        case 4:
+            identity = np.eye(4)
+        case _:
+            identity = np.eye(5)
+
+    if not np.allclose(direction, identity.flatten()):
+        raise ValueError(
+            f"Direction is not identity: {tuple(direction)}"
+        )
+
+
+def load_displacement(path: Path) -> torch.Tensor:
+    """
+    Load a displacement field from a file and return it as a numpy array.
+
+    @param path: The path to the displacement field file.
+
+    @return: The displacement field.
+
+    @raise ValueError: If the intent code of the displacement field is not NIFTI_INTENT_DISPVECT.
+    @raise ValueError: If the displacement field has wrong dimensions.
+    """
+
+    is_nifti_and_exists(path)
+
+    displacement_sitk: sitk.Image = sitk.ReadImage(path)
+    displacement_array: floarArray4Dor5D = sitk.GetArrayFromImage(
+        displacement_sitk)
+
+    # check intent code
+    # 1006 = NIFTI_INTENT_DISPVECT
+    if displacement_sitk.GetMetaData("intent_code") != "1006":
+        raise ValueError(
+            "The intent code of the displacement field should be NIFTI_INTENT_DISPVECT.")
+
+    # is_isotropic(displacement_sitk)
+
+    # check dimensions
+    shape = displacement_array.shape
+
+    # check that it is 4D or 5D
+    if len(shape) not in [4, 5]:
+        raise ValueError(
+            f"Dimension is not 4D, 5D: {len(shape)}"
+        )
+
+    separating_dimension_correct = shape[1] == 1  # dim 1 is dummy
+    # dim 0 is vector dimension, which has to correspond to spatial dimensions
+    vector_dimension_correct = shape[0] == len(shape) - 2
+
+    if not separating_dimension_correct or not vector_dimension_correct:
+        raise ValueError(
+            "The displacement field should have spatial dimensions as the last dimensions \
+                and a vector dimension as the first dimension and separated by a dummy dimension.")
+
+    displacement_tensor = torch.Tensor(displacement_array)
+
+    # remove separating dummy dimension
+    displacement_tensor = displacement_tensor.squeeze()
+
+    # move the vector dimension to the last dimension
+    new_order = list(range(1, displacement_tensor.dim())) + [0]
+    displacement_tensor = displacement_tensor.permute(new_order)
+
+    return displacement_tensor
 
 
 def load_image(image_path: Path) -> torch.Tensor:
@@ -31,50 +150,24 @@ def load_image(image_path: Path) -> torch.Tensor:
     @rtype: floatArray2Dor3Dor4D
     """
 
-    # check that file is .nii or .nii.gz
-    if not image_path.suffixes == ['.nii'] and not image_path.suffixes == ['.nii', '.gz']:
-        raise ValueError(
-            "The image file should be in .nii or .nii.gz format.")
+    is_nifti_and_exists(image_path)
 
-    # check that file exists
-    if not image_path.exists():
-        raise FileNotFoundError(f"File {image_path} does not exist.")
+    image_sitk: sitk.Image = sitk.ReadImage(image_path)
+    image_array: array2Dor3D = sitk.GetArrayFromImage(image_sitk)
 
-    image: sitk.Image = sitk.ReadImage(image_path)
+    dimension = image_array.ndim
 
     # check that it is 2D, 3D or 4D
-    dimension = int(image.GetDimension())
-    if dimension not in [2, 3, 4]:
+    if dimension not in [2, 3]:
         raise ValueError(
-            f"Dimension of {image_path} is not 2D, 3D or 4D: {dimension}"
+            f"Dimension of {image_path} is not 2D, 3D: {dimension}"
         )
 
     # check that spacing is isotropic
-    spacing = np.array(image.GetSpacing(), np.float64)
-    if not np.allclose(spacing, spacing[0]):
-        pass
-        # raise ValueError(
-        #     f"Voxel size of {image_path} is not isotropic: {tuple(spacing)}"
-        # )
+    # is_isotropic(image_sitk)
 
     # check that direction is identity
-    direction = np.abs(np.array(image.GetDirection(), np.float64))
-
-    identity: np.ndarray[Any, np.dtype[np.float64]]
-    match dimension:
-        case 2:
-            identity = np.eye(2)
-        case 3:
-            identity = np.eye(3)
-        case _:
-            identity = np.eye(4)
-
-    if not np.allclose(direction, identity.flatten()):
-        raise ValueError(
-            f"Direction of {image_path} is not identity: {tuple(direction)}"
-        )
-
-    image_array = sitk.GetArrayFromImage(image)
+    is_direction_identity(image_sitk)
 
     return torch.Tensor(image_array).squeeze()
 

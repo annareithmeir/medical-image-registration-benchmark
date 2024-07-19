@@ -182,7 +182,7 @@ class Evaluation():
             raise ValueError(
                 f"Displacement file should have suffixes  '.nii' or '.nii.gz' but has {suffixes}.")
 
-        displacement = utils.load_image(path_displacement)
+        displacement = utils.load_displacement(path_displacement)
 
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
             displacement)
@@ -218,18 +218,9 @@ class Evaluation():
         hausdorff95_mean = 0
 
         for path in [path_displacement, path_segmentation_fixed, path_segmentation_moving]:
+            utils.is_nifti_and_exists(path)
 
-            if not path.exists():
-                raise FileNotFoundError(
-                    f"File {path_displacement} does not exist.")
-
-            suffixes = path.suffixes
-            if not suffixes == [".nii"] and \
-                    not suffixes == [".nii", ".gz"]:
-                raise ValueError(
-                    f"Displacement file should have suffixes '.pt', '.nii' or '.nii.gz' but has {suffixes}.")
-
-        displacement = utils.load_image(path_displacement)
+        displacement = utils.load_displacement(path_displacement)
         segmentation_fixed = utils.load_image(path_segmentation_fixed)
         segmentation_moving = utils.load_image(path_segmentation_moving)
 
@@ -238,7 +229,7 @@ class Evaluation():
                                     mode='nearest')
 
         dice_scores = metrics.dice_score(
-            segmentation_fixed, warped.squeeze())
+            segmentation_fixed, warped)
 
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
