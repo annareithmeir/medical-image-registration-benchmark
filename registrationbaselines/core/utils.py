@@ -294,6 +294,18 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
     sitk.WriteImage(image, str(filename))
 
 
+def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tensor:
+    """
+    Convert a displacement field to a unit displacement field.
+    """
+
+    for dim in range(displacement.shape[-1]):
+        displacement[..., dim] = 2.0 * displacement[..., dim] / \
+            float(displacement.shape[-dim - 2] - 1)
+
+    return displacement
+
+
 def deform_image(image: torch.Tensor,
                  displacement: torch.Tensor,
                  mode: str) -> torch.Tensor:
@@ -309,7 +321,11 @@ def deform_image(image: torch.Tensor,
     image = image.squeeze()
     displacement = displacement.squeeze()
 
-    if image.ndim == displacement.ndim - 1:
+    # convert to unit displacement if range is not [-1,1]
+    if displacement.min() < -1 or displacement.max() > 1:
+        displacement = displacement_to_unit_displacement(displacement)
+
+    if image.ndim != displacement.ndim - 1:
         raise ValueError(
             "The displacement field should have one more dimension than the image.")
 
@@ -321,7 +337,13 @@ def deform_image(image: torch.Tensor,
     displacement = displacement.unsqueeze(0)
 
     # warp image
-    warped_image = F.grid_sample(image, - displacement + grid, mode=mode)
+    warped_image = F.grid_sample(
+        image, displacement + grid, mode=mode).squeeze()
+
+    if warped_image.ndim != image.squeeze().ndim:
+        raise ValueError(
+            "The warped image should have the same number of dimensions as the original image. \
+                Something wen wrong with deforming")
 
     return warped_image.squeeze()
 
