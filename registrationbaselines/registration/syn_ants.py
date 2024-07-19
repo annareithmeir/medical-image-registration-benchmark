@@ -1,5 +1,4 @@
 import ants
-import os
 from pathlib import Path
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
@@ -21,7 +20,9 @@ class SyNANTs(RegistrationInterface):
 
         self.method = "SyNANTs"
 
-        self.configuration = self.read_config(configuration_path)
+        self.base_dir = Path(__file__).parent.parent.absolute().parent
+
+        self.configuration = self.read_config(self.base_dir / configuration_path)
 
         self._create_result_directories()
 
@@ -60,6 +61,9 @@ class SyNANTs(RegistrationInterface):
         self._save_results(
             registration['warpedmovout'], registration['fwdtransforms'])
 
+    def _register_wandb_wrapper(self) -> None:
+        pass
+
     def get_transformation_path(self):
         return self.result_transformation_path
 
@@ -77,6 +81,7 @@ class SyNANTs(RegistrationInterface):
         utils_nifti.convert_h5_to_nii(self.fixed_path,
                                       Path(deformation),
                                       self.result_transformation_path)
+        utils_nifti.set_intent_code(self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
 
         # save transformed image
         deformed.to_filename(self.result_transformed_image_path)
