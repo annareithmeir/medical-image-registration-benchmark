@@ -30,13 +30,13 @@ def main() -> None:
     path_config = base_dir / f"registrationbaselines/configs/BSplineNiftyReg.yaml"
     config = utils.read_config(path_config)
 
-    registration = BSplineNiftyReg(config)
-
     loader_data = data_loaders.L2RLungCTDataset(Path("/data/LungCT"),
                                                 return_type="path_dict",
-                                                indices=[0, 1, 2])
+                                                indices=[0])
 
-    registration.register_all_parametr_sets(loader_data)
+    registration = BSplineNiftyReg(config, loader_data)
+
+    registration.register_all_parametr_sets()
 
 
 if __name__ == "__main__":
