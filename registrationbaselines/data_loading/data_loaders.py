@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import List, Union, Tuple
 import shutil
 
+from typing import Dict, Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -17,6 +19,8 @@ from tqdm import tqdm
 
 import utils
 
+from registrationbaselines.core.types import datasetReturnType
+
 # global clipping [min,max] values
 # todo verify clipping parameters
 WINDOW_BONES = [-400, 1600]
@@ -27,9 +31,9 @@ Parent class datasets
 """
 
 
-class GenericDataset(Dataset):
+class GenericDataset(Dataset[datasetReturnType]):
 
-    def __init__(self, return_type: str = None, indices:list[int]=None, **kwargs):
+    def __init__(self, return_type: str = None, indices: list[int] = None, **kwargs):
         super().__init__()
 
         self.images_path = None
@@ -107,7 +111,8 @@ class GenericDataset(Dataset):
         elif (self.has_keypoints is True) and (self.has_segmentations is False):
             if self.return_type == "path_dict":
                 path_f, path_m = self._get_image_pair_as_paths(idx)
-                path_keypoints_f, path_keypoints_m = self._get_keypoint_pair_as_paths(idx)
+                path_keypoints_f, path_keypoints_m = self._get_keypoint_pair_as_paths(
+                    idx)
                 item = {"fixed_image": path_f, "moving_image": path_m, "fixed_keypoints": path_keypoints_f,
                         "moving_keypoints": path_keypoints_m}
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
@@ -147,8 +152,8 @@ class GenericDataset(Dataset):
         image_m = image_m.numpy()
 
         fig = plt.figure(figsize=(20, 12))
-        
-        if self.ndim==2:
+
+        if self.ndim == 2:
             # moving image
             ax = fig.add_subplot(1, 2, 1)
             plt.imshow(image_m, cmap='gray')
@@ -158,7 +163,7 @@ class GenericDataset(Dataset):
                 plt.scatter(keypoints_m[:, 0], keypoints_m[:, 1], marker='x', c='red')
             plt.colorbar()
             plt.title("Moving")
-    
+
             # fixed image
             ax = fig.add_subplot(1, 2, 2)
             plt.imshow(image_f, cmap='gray')
@@ -268,8 +273,8 @@ class MNISTDataset(GenericDataset):
         self.spacing = (1, 1)
         self.image_shape = (32, 32)  # vmx needs 2N, N=number of layers
         self.num_pairs = num_pairs
-        self.has_segmentations= False
-        self.has_keypoints=False
+        self.has_segmentations = False
+        self.has_keypoints = False
 
         # Define transformations for the dataset including the custom transform
         self.transforms = transforms.Compose([
@@ -278,7 +283,8 @@ class MNISTDataset(GenericDataset):
         ])
 
         # Download and load the training dataset
-        self.dataset = datasets.MNIST(root='./data', train=False, download=True)
+        self.dataset = datasets.MNIST(
+            root='./data', train=False, download=True)
 
         # Create a dictionary to store indices of each digit
         self.digit_indices = {i: [] for i in range(10)}
@@ -494,7 +500,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
     preprocess() optional, since already isotropic pixel size
     """
 
-    def __init__(self, dataset_path: Path,return_type: str = None,
+    def __init__(self, dataset_path: Path, return_type: str = None,
                  indices: list[int] = None) -> None:
         """
 
@@ -758,7 +764,7 @@ class ACDCDataset(GenericDataset):
     we assume that the images have been preprocessed to 2d-middle slices, shape (128, 128), normalized and resampled to isotropic 1.8 (can be done with preprocess())
     """
 
-    def __init__(self, dataset_path: Path, return_type: str=None, return_mode: str="train", indices: list[int] = None) -> None:
+    def __init__(self, dataset_path: Path, return_type: str = None, return_mode: str = "train", indices: list[int] = None) -> None:
         """
 
         @param dataset_path:
@@ -779,8 +785,8 @@ class ACDCDataset(GenericDataset):
         self.images_path = dataset_path
         assert return_mode in ["train", "val", "test"]
         self.return_mode = return_mode
-        
-        self.classes = { 
+
+        self.classes = {
             0: "background",
             1: "RV",  # right ventricle
             2: "LV-Myo",  # epicardium
@@ -799,7 +805,8 @@ class ACDCDataset(GenericDataset):
 
         if indices is not None:
             self.images_list = [self.images_list[i] for i in indices]
-            self.segmentations_list = [self.segmentations_list[i] for i in indices]
+            self.segmentations_list = [
+                self.segmentations_list[i] for i in indices]
             self.groups = [self.groups[i] for i in indices]
 
     def read_filenames(self):
@@ -814,7 +821,8 @@ class ACDCDataset(GenericDataset):
             for i in range(1, 101):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.images_path / \
-                                ('training/' + file_str + "/" + file_str + '_frame*_gt.nii.gz')
+                    ('training/' + file_str + "/" +
+                     file_str + '_frame*_gt.nii.gz')
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -839,7 +847,8 @@ class ACDCDataset(GenericDataset):
             for i in range(101, 126):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.images_path / \
-                                ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                    ("testing/" + file_str + "/" +
+                     file_str + "_frame*_gt.nii.gz")
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -859,11 +868,12 @@ class ACDCDataset(GenericDataset):
                             break
 
                 group_ls.append(self.group_map[group])
-        else: #test
+        else:  # test
             for i in range(126, 151):
                 file_str = "patient" + str(i).zfill(3)
                 file_str_full = self.images_path / \
-                                ("testing/" + file_str + "/" + file_str + "_frame*_gt.nii.gz")
+                    ("testing/" + file_str + "/" +
+                     file_str + "_frame*_gt.nii.gz")
                 ids = sorted(glob.glob(str(file_str_full)))
                 m_id = ids[1][-12:-10]
                 f_id = ids[0][-12:-10]
@@ -889,7 +899,7 @@ class ACDCDataset(GenericDataset):
         """
         Preprocesses the dataset to uniform pixel size, cropping around heart, 2d middle slice
         @param save_path: path to save the preprocessed images to
-        @return: 
+        @return:
         """
 
         if "train" in self.return_mode:
@@ -976,7 +986,7 @@ class FIREDataset(GenericDataset):
     134 retina image pairs and keypoints
     """
 
-    def __init__(self, dataset_path: Path, return_type: str = None, indices: list[int] = None, rgb:bool = True):
+    def __init__(self, dataset_path: Path, return_type: str = None, indices: list[int] = None, rgb: bool = True):
         """
 
         @param imgs_path: Path to the original dataset
@@ -1044,11 +1054,11 @@ class FIREDataset(GenericDataset):
         coords_moving = data[:, [2, 3]]
         return torch.from_numpy(coords_fixed), torch.from_numpy(coords_moving)
 
-    def _get_keypoint_pair_as_paths(self, idx: int) -> Tuple[Path,Path]:
+    def _get_keypoint_pair_as_paths(self, idx: int) -> Tuple[Path, Path]:
         file_path = self.keypoints_list[idx]
         return file_path, file_path
 
-    def _get_image_pair_as_tensors(self, idx:int):
+    def _get_image_pair_as_tensors(self, idx: int):
         path_fixed = self.images_list[idx][0]
         path_moving = self.images_list[idx][1]
         image_fixed = Image.open(path_fixed)

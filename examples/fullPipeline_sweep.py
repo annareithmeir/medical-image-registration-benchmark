@@ -7,6 +7,7 @@ import os
 import time
 import SimpleITK as sitk
 
+
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'
 os.environ['VXM_BACKEND'] = 'pytorch'
@@ -17,7 +18,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "lat
 
 from registrationbaselines.core import utils  # nopep8
 from registrationbaselines.data_loading import data_loaders  # nopep8
-from registrationbaselines.registration.bspline_feature_sweep import BSplineFeature  # nopep8
+from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
 
 
 def main() -> None:
@@ -26,21 +27,16 @@ def main() -> None:
     """
 
     base_dir = Path(__file__).parent.parent.absolute()
-
-    path_config = base_dir / f"registrationbaselines/configs/BSplines_feat.yaml"
+    path_config = base_dir / f"registrationbaselines/configs/BSplineNiftyReg.yaml"
     config = utils.read_config(path_config)
 
-    registration = BSplineFeature(config)
+    loader_data = data_loaders.L2RLungCTDataset(Path("/data/LungCT"),
+                                                return_type="path_dict",
+                                                indices=[0])
 
-    path_data = Path("/data/ACDC/database/")
+    registration = BSplineNiftyReg(config, loader_data)
 
-    loader_data = data_loaders.ACDCDataset(path_data,
-                                           return_mode="test_imgs4",
-                                           normalize_mode=True,
-                                           roi_only=True,
-                                           dim_mode='2d-middle')
-
-    registration.register_all_parametr_sets(loader_data)
+    registration.register_all_parametr_sets()
 
 
 if __name__ == "__main__":

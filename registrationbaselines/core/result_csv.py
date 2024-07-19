@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from registrationbaselines.core import visualization
 
+
 class EvaluationResults:
     """
     A class to handle evaluation results and store them in a DataFrame.
@@ -28,7 +29,7 @@ class EvaluationResults:
 
         open(self.file_path, 'w').close()
 
-    def add_value(self, method: str, value, row_name: str):
+    def add_value(self, method: str, value: float, row_name: str):
         """
         Add a value to the specified method in the DataFrame.
 
@@ -123,7 +124,7 @@ class EvaluationResults:
 
         self.df.to_csv(self.file_path)
 
-    def plot(self, plot_path:Path) -> None:
+    def plot(self, plot_path: Path) -> None:
         """
         Plot statistical results
         @return:
