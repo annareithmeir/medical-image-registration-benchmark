@@ -286,10 +286,9 @@ def plot_all_registration_results(save_path: Path,
         fig.suptitle(title)
     image_size = moving_image.shape
     image_dim = displacement.shape[-1]
-    # print(image_dim)
 
     jacobian_determinant = metrics.jacobian_determinant_from_displacement(
-        displacement.detach().cpu().numpy())
+        displacement)
 
     if image_dim == 3:
         half_slice_idx = [int(s / 2) for s in image_size]
@@ -339,6 +338,7 @@ def plot_all_registration_results(save_path: Path,
             ax = fig.add_subplot(3, 9, (9 * d) + 4)
             axes = [0, 1, 2]
             axes.remove(d)
+            print(displacement.shape, displacement[..., axes].take(half_slice_idx[d], axis=d).transpose(2, 0, 1).shape, pred_image.take(half_slice_idx[d], axis=d).shape)
             fieldAx = displacement[..., axes].take(half_slice_idx[d], axis=d)
             plot_quiverplot(fieldAx, ax=ax)
             plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(
@@ -411,7 +411,7 @@ def plot_all_registration_results(save_path: Path,
 
         # moving image
         ax = fig.add_subplot(3, 9, 1)
-        ax.imshow(moving_image.squeeze().detach().cpu().numpy(), cmap='gray')
+        ax.imshow(moving_image.squeeze(), cmap='gray')
         if moving_keypoints is not None:
             ax.scatter(
                 moving_keypoints[:, 0], moving_keypoints[:, 1], marker='.', c='red')
@@ -421,7 +421,7 @@ def plot_all_registration_results(save_path: Path,
 
         # fixed image
         ax = fig.add_subplot(3, 9, 2)
-        ax.imshow(fixed_image.squeeze().detach().cpu().numpy(), cmap='gray')
+        ax.imshow(fixed_image.squeeze(), cmap='gray')
         if fixed_keypoints is not None:
             ax.scatter(fixed_keypoints[:, 0],
                        fixed_keypoints[:, 1], marker='.', c='red')
@@ -431,7 +431,7 @@ def plot_all_registration_results(save_path: Path,
 
         # deformed image
         ax = fig.add_subplot(3, 9, 3)
-        ax.imshow(pred_image.squeeze().detach().cpu().numpy(), cmap='gray')
+        ax.imshow(pred_image.squeeze(), cmap='gray')
         if pred_keypoints is not None:
             ax.scatter(pred_keypoints[:, 0],
                        pred_keypoints[:, 1], marker='.', c='red')
@@ -441,11 +441,11 @@ def plot_all_registration_results(save_path: Path,
 
         # displacement field
         ax = fig.add_subplot(3, 9, 4)
-        fieldAx = displacement.detach().cpu().numpy().squeeze()
+        fieldAx = displacement.squeeze()
         # plot_quiverplot(fieldAx, ax=ax)
         # neurite.plot.flow([displacement], show=False)
         plot_deformation_field(
-            ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.detach().cpu().numpy().squeeze(), interval=5, color="white")
+            ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.squeeze(), interval=5, color="white")
         ax.set_frame_on(False)
         if toprow:
             ax.title.set_text("deformation")
@@ -455,7 +455,7 @@ def plot_all_registration_results(save_path: Path,
         # difference image before registration
         ax = fig.add_subplot(3, 9, 5)
         diff_image = fixed_image.squeeze() - moving_image.squeeze()
-        ax.imshow(diff_image.detach().cpu().numpy(), cmap='gray')
+        ax.imshow(diff_image, cmap='gray')
         ax.set_frame_on(False)
         if toprow:
             ax.title.set_text("diff image")
@@ -465,7 +465,7 @@ def plot_all_registration_results(save_path: Path,
         # difference image after registration
         ax = fig.add_subplot(3, 9, 6)
         diff_image = fixed_image.squeeze() - pred_image.squeeze()
-        ax.imshow(diff_image.detach().cpu().numpy(), cmap='gray')
+        ax.imshow(diff_image, cmap='gray')
         ax.set_frame_on(False)
         if toprow:
             ax.title.set_text("diff image after")
@@ -474,8 +474,8 @@ def plot_all_registration_results(save_path: Path,
         # boundaries
         ax = fig.add_subplot(3, 9,  7)
         if (fixed_labels is not None) and (pred_labels is not None):
-            fixed_labels = fixed_labels.squeeze().detach().cpu().numpy()
-            pred_labels = pred_labels.squeeze().detach().cpu().numpy()
+            fixed_labels = fixed_labels.squeeze()
+            pred_labels = pred_labels.squeeze()
 
             fixed_boundary = multilabel_to_boundary(fixed_labels)
             pred_boundary = multilabel_to_boundary(pred_labels)

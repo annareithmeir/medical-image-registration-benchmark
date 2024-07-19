@@ -163,19 +163,19 @@ def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: O
     return scores
 
 
-def tre(landmarks_fixed_path: Path,
-        landmarks_moving_path: Path,
-        displacement_path: Path,
+def tre(keypoints_fixed_path: Path,
+        keypoints_moving_path: Path,
+        path_displacement: Path,
         spacing_moving: list[float],
         percentile: Optional[float] = None) -> float:
     """
-    Calculate the Target Registration Error (TRE) between two sets of landmarks.
+    Calculate the Target Registration Error (TRE) between two sets of keypoints.
 
-    @param landmarks_fixed_path: Path to the fixed landmarks file.
-    @type landmarks_fixed_path: Path
+    @param keypoints_fixed_path: Path to the fixed keypoints file.
+    @type keypoints_fixed_path: Path
 
-    @param landmarks_moving_path: Path to the moving landmarks file.
-    @type landmarks_moving_path: Path
+    @param keypoints_moving_path: Path to the moving keypoints file.
+    @type keypoints_moving_path: Path
 
     @param displacement_path: Path to the displacement field file.
     @type displacement_path: Path
@@ -191,32 +191,32 @@ def tre(landmarks_fixed_path: Path,
     """
 
     # assert that all paths are valid
-    assert landmarks_fixed_path.exists(
-    ), f"{landmarks_fixed_path} does not exist"
-    assert landmarks_moving_path.exists(
-    ), f"{landmarks_moving_path} does not exist"
-    assert displacement_path.exists(), f"{displacement_path} does not exist"
-    assert displacement_path.suffix == '.pt', f"{displacement_path} is not a valid torch file"
+    assert keypoints_fixed_path.exists(
+    ), f"{keypoints_fixed_path} does not exist"
+    assert keypoints_moving_path.exists(
+    ), f"{keypoints_moving_path} does not exist"
+    assert path_displacement.exists(), f"{path_displacement} does not exist"
+    # assert displacement_path.suffix == '.pt', f"{displacement_path} is not a valid torch file"
 
-    displacement = torch.load(displacement_path).numpy()
+    displacement = utils.load_displacement(path_displacement)
 
-    landmarks_fixed, landmarks_moving = read_lanmdarks(
-        landmarks_fixed_path, landmarks_moving_path)
+    keypoints_fixed, keypoints_moving = read_lanmdarks(
+        keypoints_fixed_path, keypoints_moving_path)
 
-    assert landmarks_moving.shape == landmarks_fixed.shape, \
-        "Fixed and moving landmarks should have the same shape"
-    assert landmarks_fixed.shape[-1] == 3 or landmarks_fixed.shape[-1] == 2, \
-        "Landmarks should have shape (N,3) or (N,2)"
+    assert keypoints_moving.shape == keypoints_fixed.shape, \
+        "Fixed and moving keypoints should have the same shape"
+    assert keypoints_fixed.shape[-1] == 3 or keypoints_fixed.shape[-1] == 2, \
+        "keypoints should have shape (N,3) or (N,2)"
 
-    mov_lms_warped = utils.deform_landmarks(
-        landmarks_moving, displacement)
+    mov_lms_warped = utils.deform_keypoints(
+        keypoints_moving, displacement)
 
     # Calculate the TRE
-    all_errors = np.linalg.norm((mov_lms_warped - landmarks_fixed)
+    all_errors = np.linalg.norm((mov_lms_warped - keypoints_fixed)
                                 * spacing_moving, axis=1)
     # original TRE
     ori_tre = np.linalg.norm(
-        (landmarks_moving - landmarks_fixed) * spacing_moving, axis=1).mean()
+        (keypoints_moving - keypoints_fixed) * spacing_moving, axis=1).mean()
 
     print("\n")
     if all_errors.mean() < ori_tre:
@@ -234,13 +234,13 @@ def tre(landmarks_fixed_path: Path,
     return result
 
 
-def read_lanmdarks(landmarks_fixed_path: Path, landmarks_moving_path: Path) -> np.ndarray:
-    # hacky but if both paths are the same we are dealign iwth 2d landmarks stored in one file
-    if landmarks_fixed_path != landmarks_moving_path:
-        return np.genfromtxt(landmarks_fixed_path, delimiter=','), np.genfromtxt(landmarks_moving_path, delimiter=',')
+def read_lanmdarks(keypoints_fixed_path: Path, keypoints_moving_path: Path) -> np.ndarray:
+    # hacky but if both paths are the same we are dealign iwth 2d keypoints stored in one file
+    if keypoints_fixed_path != keypoints_moving_path:
+        return np.genfromtxt(keypoints_fixed_path, delimiter=','), np.genfromtxt(keypoints_moving_path, delimiter=',')
 
     else:
-        values = np.genfromtxt(landmarks_fixed_path)
+        values = np.genfromtxt(keypoints_fixed_path)
 
         fixed = values[:, 0:2]
         moving = values[:, 2:4]

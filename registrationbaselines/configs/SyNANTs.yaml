@@ -1,5 +1,9 @@
 method_name: SyNANTs
-result_path: /home/anna/tmp/results/
+
+parameters:
+  result_path:
+#    value:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/exp
+    value: /home/anna/PycharmProjects/registrationbaselines/tmp/results/
 #result_path: /home/fryderyk/Documents/data/results/
 
 grad_step: 0.2 # 0.2

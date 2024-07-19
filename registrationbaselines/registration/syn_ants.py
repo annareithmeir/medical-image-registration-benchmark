@@ -18,7 +18,7 @@ class SyNANTs(RegistrationInterface):
         NOTE: the displacement field won't work in slicer correctly if the correct itent code is set - the original should be left.
         """
 
-        self.method = "SyNANTs"
+        self.method_name = "SyNANTs"
 
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
@@ -57,6 +57,8 @@ class SyNANTs(RegistrationInterface):
             type_of_transform='SyNOnly',
             write_composite_transform=True  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
+
+        self._create_result_directories()
 
         self._save_results(
             registration['warpedmovout'], registration['fwdtransforms'])
