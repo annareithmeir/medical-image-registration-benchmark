@@ -212,18 +212,20 @@ def deform_image(image: torch.Tensor,
     @return:
     """
 
-    image_size = image.shape[-2:]
+    # squeeze both image and displacement to ensure we only have spatial dimensions
+    image = image.squeeze()
+    displacement = displacement.squeeze()
+
+    if image.ndim == displacement.ndim - 1:
+        raise ValueError(
+            "The displacement field should have one more dimension than the image.")
 
     grid = utils_metrics.compute_grid(
-        image_size, dtype=image.dtype, device=image.device)
+        image.shape, dtype=image.dtype, device=image.device)
 
-    if displacement.shape[0] != 1:
-        displacement = displacement.unsqueeze(0)
-
-    if image.shape[0] != 1:
-        image = image.unsqueeze(0)
-    if image.shape[1] != 1:
-        image = image.unsqueeze(1)
+    # unsqueeze image and displacement to conform to grid_sample requirements
+    image = image.unsqueeze(0).unsqueeze(0)
+    displacement = displacement.unsqueeze(0)
 
     # warp image
     warped_image = F.grid_sample(image, - displacement + grid, mode=mode)
