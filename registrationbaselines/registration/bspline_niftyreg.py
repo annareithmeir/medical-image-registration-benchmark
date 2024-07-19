@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 import wandb
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline, utils_niftyreg
+from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import Evaluation
 
@@ -58,6 +58,10 @@ class BSplineNiftyReg(RegistrationInterface):
         self.path_result_deformation = \
             utils_niftyreg.convert_control_point_grid_to_displacement_field(
                 self.result_control_grid_path, self.path_fixed)
+
+        # assign intent code to the displacement field
+        utils_nifti.set_intent_code(
+            self.path_result_deformation, "NIFTI_INTENT_DISPVECT")
 
     def _register_wandb_wrapper(self) -> None:
         """
