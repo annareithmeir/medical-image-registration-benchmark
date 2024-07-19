@@ -1,8 +1,10 @@
 import subprocess
 
+from typing import Callable, Optional, List, Any
+
 
 def run_command_in_terminal(command: list[str],
-                            check: callable = None,
+                            check: Optional[Callable[[], bool]],
                             print_command_list: bool = False) -> bool:
     """
         Run a command in the terminal and check the result using the provided lambda function.
@@ -37,17 +39,28 @@ def print_command(cmd_list):
     print(full_cmd)
 
 
-def add_configuration_to_command(command: list[str], configuration: dict):
+def add_configuration_to_command(command: List[str],
+                                 configuration: Any,
+                                 only_value: bool) -> List[str]:
     """
     Add the configuration to the command line.
+
+    @param command: command line arguments
+    @param configuration: configuration dictionary (from wandb)
+
+    @return: command line arguments with configuration
     """
+
     for key, value in configuration.items():
-        if key != 'result_path' and key != 'method_name':  # Skip if key is 'result_path' or 'method
+
+        if key not in ['result_path', 'method_name']:
             if isinstance(value, bool):
                 if value:  # Only add flag if True
-                    command.append(f"-{key}")
+                    command.append(f"{key}")
             else:
-                command.append(f"-{key}")
-                command.append(f"{value}")
+
+                command.extend(value.split(' '))
+                if not only_value:
+                    command.append(f"{key}")
 
     return command

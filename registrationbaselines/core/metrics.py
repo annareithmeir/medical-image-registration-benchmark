@@ -8,9 +8,10 @@ import SimpleITK as sitk
 import torch
 
 from registrationbaselines.core import utils
+from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
 
 
-def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarray:
+def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> floatArray2Dor3D:
 
     displacement = displacement.squeeze()
 
@@ -26,10 +27,11 @@ def jacobian_determinant_from_displacement(displacement: np.ndarray) -> np.ndarr
     displacement_image = sitk.GetImageFromArray(displacement, isVector=True)
     jacobian_determinant_image = sitk.DisplacementFieldJacobianDeterminant(
         displacement_image)
+
     return sitk.GetArrayFromImage(jacobian_determinant_image)
 
 
-def displacement_field_metrics(displacement: np.array) -> Tuple[float, float]:
+def displacement_field_metrics(displacement: torch.Tensor) -> Tuple[float, float]:
     """
     Calculate the fraction of foldings and the standard deviation of the logarithm of the Jacobian determinant.
     """
@@ -37,7 +39,7 @@ def displacement_field_metrics(displacement: np.array) -> Tuple[float, float]:
     epsilon = 1e-6  # so we don't get log(0)
 
     jacobian_determinant = jacobian_determinant_from_displacement(
-        displacement)
+        displacement.detach().cpu().numpy())
 
     # foldings are where the jacobian determinant is negative
     num_foldings = int((jacobian_determinant < 0).astype(float).sum())
@@ -99,7 +101,7 @@ def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
 
     classes, data1, data2 = preprocess_segmentations(image1, image2)
 
-    scores = []
+    scores: List[float] = []
 
     for c in classes:
         # Create binary masks for the current class

@@ -3,7 +3,7 @@ from typing import List, Union
 import torch
 
 
-def compute_grid(image_size: List[int],
+def compute_grid(image_size: torch.Size,
                  dtype: torch.dtype = torch.float32,
                  device: Union[str, torch.device] = 'cpu') -> torch.Tensor:
     """
