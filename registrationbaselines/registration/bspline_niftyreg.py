@@ -22,6 +22,7 @@ class BSplineNiftyReg(RegistrationInterface):
                  dataloader: data_loaders.GenericDataset) -> None:
 
         self.method_name = "BSplineNiftyReg"
+        self.method_name_ori = self.method_name
 
         self.configuration = configuration
 
@@ -75,9 +76,9 @@ class BSplineNiftyReg(RegistrationInterface):
         """
 
         # IMPORTANT: this has to be called after creating wandb.agent()
-        wandb.init(mode="online")
+        wandb.init(mode="offline")
 
-        self.method_name = self.method_name + \
+        self.method_name = self.method_name_ori + \
             f"_sim{wandb.config.similarity_metric.replace('-', '').replace(' ', '_')}"
 
         self._create_result_directories()

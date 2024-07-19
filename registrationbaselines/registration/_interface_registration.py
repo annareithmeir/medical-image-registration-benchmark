@@ -17,6 +17,7 @@ class RegistrationInterface(ABC):
     """
 
     method_name: str = ""
+    method_name_ori: str = ""
 
     configuration: Dict[str, Any] = {}
 
