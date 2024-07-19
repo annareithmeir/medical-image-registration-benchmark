@@ -4,8 +4,7 @@ from typing import Dict, Any, Tuple
 
 import numpy as np
 import torch
-from PIL import Image
-import SimpleITK as sitk
+
 from torch.utils.data import Dataset
 from tqdm import tqdm
 import matplotlib.pyplot as plt
