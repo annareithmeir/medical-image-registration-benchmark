@@ -101,7 +101,7 @@ def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
 
     classes, data1, data2 = preprocess_segmentations(image1, image2)
 
-    scores = []
+    scores: List[float] = []
 
     for c in classes:
         # Create binary masks for the current class
