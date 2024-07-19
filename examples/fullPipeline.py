@@ -41,10 +41,8 @@ def main() -> None:
 
     if method == "BSplines":
         registration = BSplineFeature(config)
-    elif method == "voxelmorph_feature":
-        registration = VoxelmorphReg(config)
     elif method == "SyNANTs":
-        registration = SyNANTs(config)
+        registration = SyNANTs(path_config)
     else:
         raise ValueError("Method not implemented")
 
@@ -57,10 +55,30 @@ def main() -> None:
         path_data = Path("/home/anna/datasets/LungCT_preprocessed")
         # path_data = Path("/home/anna/datasets/FIRE")
 
-    loader_data = data_loaders.ACDCDataset(path_data)
+    loader_data = data_loaders.L2RLungCTDataset(path_data, return_type="path_dict")
+    # loader_data.preprocess(Path("/home/anna/datasets/LungCT_preprocessed"))
 
-    registration.register(loader_data)
+    for item in loader_data:
+        fixed = item["fixed_image"]
+        moving = item["moving_image"]
+        #registration.register(fixed, moving)
+        break
+
     # registration.register_all_parametr_sets(loader_data)
+
+    print("\nevaluate...")
+    loader_transformations = data_loaders.BaselineTransformations(
+        Path(config["parameters"]["result_path"]["value"]) / method)
+
+    evaluation = Evaluation(Path(config["parameters"]["result_path"]["value"]),method)
+    evaluation.evaluate(
+        loader_transformations, loader_data)
+    print("\nplot...")
+    evaluation.visualize(
+        loader_transformations, loader_data)
+    print("\ndone\n\n")
+
+    evaluation.evaluate(loader_transformations, loader_data)
 
 
 if __name__ == "__main__":
@@ -81,5 +99,6 @@ if __name__ == "__main__":
     print(f"Execution time: {execution_time} seconds")
 
     # Save execution time to a tex file
-    with open('/u/home/koeglf/Documents/code/registrationbaselines/tmp/time.txt', 'w') as f:
+    with open('/home/anna/PycharmProjects/registrationbaselines/tmp/time.txt', 'w') as f:
+    # with open('/u/home/koeglf/Documents/code/registrationbaselines/tmp/time.txt', 'w') as f:
         f.write(f"Execution time: {execution_time} seconds")

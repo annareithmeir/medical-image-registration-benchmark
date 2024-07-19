@@ -17,7 +17,7 @@ from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 from tqdm import tqdm
 
-import utils
+from . import utils
 
 from registrationbaselines.core.types import datasetReturnType
 
@@ -91,7 +91,6 @@ class GenericDataset(Dataset[datasetReturnType]):
         pass
 
     def __getitem__(self, idx):
-        print(self.return_type)
         if (self.has_keypoints is False) and (self.has_segmentations is False):
             if self.return_type == "path_dict":
                 image_f, image_m = self._get_image_pair_as_paths(idx)
@@ -125,9 +124,8 @@ class GenericDataset(Dataset[datasetReturnType]):
                 path_f, path_m = self._get_image_pair_as_paths(idx)
                 path_segmentations_f, path_segmentations_m = self._get_segmentation_pair_as_paths(idx)
                 path_keypoint_f, path_keypoint_m = self._get_keypoint_pair_as_paths(idx)
-                item = (path_f, path_m, path_segmentations_f, path_segmentations_m, path_keypoint_f, path_keypoint_m)
                 item = {"fixed_image": path_f, "moving_image": path_m, "fixed_segmentations": path_segmentations_f,
-                        "moving_segmentations": path_segmentations_m, "fixed_keypoints":path_keypoint_f, "moving_kepoints":path_keypoint_m}
+                        "moving_segmentations": path_segmentations_m, "fixed_keypoints":path_keypoint_f, "moving_keypoints":path_keypoint_m}
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
                 image_f, image_m = self._get_image_pair_as_tensors(idx)
                 segmentations_f, segmentations_m = self._get_segmentation_pair_as_tensors(idx)
@@ -411,8 +409,8 @@ class L2RLungCTDataset(GenericDataset):
             subject_dict = {
                 "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
                 "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
-                "segmentation_m": tio.segmentationMap(self.images_path / self.segmentations_list[idx][0]),
-                "segmentation_f": tio.segmentationMap(self.images_path / self.segmentations_list[idx][1]),
+                "segmentation_m": tio.LabelMap(self.images_path / self.segmentations_list[idx][0]),
+                "segmentation_f": tio.LabelMap(self.images_path / self.segmentations_list[idx][1]),
             }
             subject = tio.Subject(subject_dict)
 
@@ -559,8 +557,8 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             subject_dict = {
                 "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
                 "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
-                "segmentation_f": tio.segmentationMap(self.images_path / self.segmentations_list[idx][0]),
-                "segmentation_m": tio.segmentationMap(self.images_path / self.segmentations_list[idx][1])
+                "segmentation_f": tio.LabelMap(self.images_path / self.segmentations_list[idx][0]),
+                "segmentation_m": tio.LabelMap(self.images_path / self.segmentations_list[idx][1])
             }
             subject = tio.Subject(subject_dict)
 
@@ -698,7 +696,7 @@ class L2RAbdominalCTCTDataset(GenericDataset):
 
             subject_dict = {
                 "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
-                "segmentation_m": tio.segmentationMap(self.images_path / self.segmentations_list[idx][1])
+                "segmentation_m": tio.LabelMap(self.images_path / self.segmentations_list[idx][1])
             }
             subject = tio.Subject(subject_dict)
 

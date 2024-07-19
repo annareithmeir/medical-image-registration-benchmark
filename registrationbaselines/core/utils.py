@@ -374,37 +374,37 @@ def normalize_tensor_to_0_1(tensor: torch.tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
 
 
-def deform_landmarks(moving_landmarks: floatArray2D, displacement: floatArray3Dor4D) -> floatArray2D:
+def deform_keypoints(moving_keypoints: floatArray2D, displacement: floatArray3Dor4D) -> floatArray2D:
     """
     This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
-    then the landmark at moving_landmarks[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
+    then the landmark at moving_keypoints[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
     in the direction of the displacement. On the other hand, F.grid_sample works non-intuitively, that is
     it pulls - so 
 
-    Map the moving landmarks to the fixed landmarks using the displacement field
+    Map the moving keypoints to the fixed keypoints using the displacement field
     """
 
-    if moving_landmarks.shape[-1] == 3:
+    if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 0], moving_landmarks.transpose())
+            displacement[:, :, :, 0], moving_keypoints.transpose())
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, :, 1], moving_landmarks.transpose())
+            displacement[:, :, :, 1], moving_keypoints.transpose())
         mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 2], moving_landmarks.transpose())
+            displacement[:, :, :, 2], moving_keypoints.transpose())
         mov_lms_disp = np.array(
             (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
-    elif moving_landmarks.shape[-1] == 2:
+    elif moving_keypoints.shape[-1] == 2:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, 0], moving_landmarks.transpose())
+            displacement[:, :, 0], moving_keypoints.transpose())
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, 1], moving_landmarks.transpose())
+            displacement[:, :, 1], moving_keypoints.transpose())
         mov_lms_disp = np.array((mov_lms_disp_x, mov_lms_disp_y)).transpose()
     else:
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
 
-    deformed_landmarks = moving_landmarks + mov_lms_disp
+    deformed_keypoints = moving_keypoints + mov_lms_disp
 
-    assert isinstance(deformed_landmarks, np.ndarray)
+    assert isinstance(deformed_keypoints, np.ndarray)
 
-    return deformed_landmarks
+    return deformed_keypoints
