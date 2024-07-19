@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 import yaml
 import torch
@@ -33,7 +33,9 @@ class RegistrationInterface(ABC):
     path_result_deformed: Path = Path()
 
     @abstractmethod
-    def __init__(self, configuration: Dict[str, Any]):
+    def __init__(self,
+                 configuration: Dict[str, Any],
+                 dataloader: GenericDataset):
         """
         Initialize the registration model.
         """
@@ -77,14 +79,10 @@ class RegistrationInterface(ABC):
             just the config for the current run
         """
 
-    def register_all_parametr_sets(self, dataloader: GenericDataset) -> None:
+    def register_all_parametr_sets(self) -> None:
         """
         Register all parameter sets.
         """
-        self.dataloader = dataloader
-
-        # for item in self.dataloader:
-        #     print(item)
 
         self.sweep_id = wandb.sweep(self.configuration,
                                     entity=None,
@@ -120,10 +118,14 @@ class RegistrationInterface(ABC):
                                                                      ".nii.gz")
 
         # SAVE DEFORMED IMAGE
-        utils.save_image(deformed, self.path_result_deformed)
+        utils.save_image(deformed,
+                         self.path_result_deformed,
+                         self.dataloader.spacing)
 
         # SAVE DEFORMATION
-        utils.save_image(deformation, self.path_result_deformation)
+        utils.save_image(deformation,
+                         self.path_result_deformation,
+                         self.dataloader.spacing)
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from typing import Any, Union
+from typing import Any, Union, Tuple
 
 from scipy.ndimage import map_coordinates
 import yaml
@@ -172,7 +172,7 @@ def load_image(image_path: Path) -> torch.Tensor:
     return torch.Tensor(image_array).squeeze()
 
 
-def save_image(image: torch.Tensor, image_path: Path) -> None:
+def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int]) -> None:
     """
     Save a numpy array as a nifti image.
 
@@ -193,6 +193,7 @@ def save_image(image: torch.Tensor, image_path: Path) -> None:
         )
 
     sitk_image = sitk.GetImageFromArray(image.detach().cpu().numpy())
+    sitk_image.SetSpacing(spacing)
 
     sitk.WriteImage(sitk_image, image_path)
 

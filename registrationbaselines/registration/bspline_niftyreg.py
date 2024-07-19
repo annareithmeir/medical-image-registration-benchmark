@@ -17,11 +17,15 @@ class BSplineNiftyReg(RegistrationInterface):
     No default initialisation, as the choice of registration should be concious.
     """
 
-    def __init__(self, configuration: Dict[str, Any]) -> None:
+    def __init__(self,
+                 configuration: Dict[str, Any],
+                 dataloader: data_loaders.GenericDataset) -> None:
 
         self.method_name = "BSplineNiftyReg"
 
         self.configuration = configuration
+
+        self.dataloader = dataloader
 
         base_dir = Path(__file__).parent.parent.absolute().parent
         self.path_reg_f3d = base_dir / Path(
@@ -71,7 +75,7 @@ class BSplineNiftyReg(RegistrationInterface):
         """
 
         # IMPORTANT: this has to be called after creating wandb.agent()
-        wandb.init(mode="offline")
+        wandb.init(mode="online")
 
         self.method_name = self.method_name + \
             f"_sim{wandb.config.similarity_metric.replace('-', '').replace(' ', '_')}"
@@ -80,7 +84,7 @@ class BSplineNiftyReg(RegistrationInterface):
 
         assert len(self.dataloader) > 0, "Dataloader is empty."
         for item in tqdm(self.dataloader):
-            break
+            # break
             self.register(item["fixed_image"], item["moving_image"])
 
             # evaluate

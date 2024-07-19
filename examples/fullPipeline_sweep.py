@@ -34,7 +34,7 @@ def main() -> None:
 
     loader_data = data_loaders.L2RLungCTDataset(Path("/data/LungCT"),
                                                 return_type="path_dict",
-                                                indices=[0, 1])
+                                                indices=[0, 1, 2])
 
     registration.register_all_parametr_sets(loader_data)
 
