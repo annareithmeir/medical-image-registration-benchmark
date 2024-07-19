@@ -5,7 +5,7 @@ parameters:
   result_path:
     value:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/exp
   similarity_metric:
-    values:           ["--lncc 3", "--lncc 7", "--ssd", "--nmi"]
+    values:           ["--lncc 3", "--ssd", "--nmi"]
 
 
 

@@ -66,7 +66,7 @@ class BSplineNiftyReg(RegistrationInterface):
         @return: None
         """
 
-        # IMPORTANT: this has to be called after creating wandb.agent() for some reason!
+        # IMPORTANT: this has to be called after creating wandb.agent()
         wandb.init(mode="offline")
 
         self.method_name = self.method_name + \
