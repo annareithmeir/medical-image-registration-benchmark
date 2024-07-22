@@ -71,18 +71,23 @@ def preprocess_segmentations(image1: torch.Tensor, image2: torch.Tensor) -> Tupl
     classes1 = torch.unique(image1)
     classes2 = torch.unique(image2)
 
-    assert torch.equal(
-        classes1, classes2), "Both images should have the same classes."
+    # Find common classes
+    common_classes = torch.tensor(
+        [c for c in classes1 if c in classes2], device=image1.device, dtype=classes1.dtype)
+
+    if not torch.equal(classes1, classes2):
+        Warning(
+            "Both images should have the same classes. Continuing with classes common for both segmentations.")
 
     # find index of class 0
     idx = torch.where(classes1 == 0)[0]
 
     # remove class 0
-    mask = torch.ones(len(classes1), dtype=bool, device=classes1.device)
+    mask = torch.ones(len(common_classes), dtype=bool, device=classes1.device)
     mask[idx] = 0
-    classes1 = torch.masked_select(classes1, mask)
+    common_classes = torch.masked_select(common_classes, mask)
 
-    return classes1, image1, image2
+    return common_classes, image1, image2
 
 
 def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
