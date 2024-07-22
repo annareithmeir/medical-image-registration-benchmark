@@ -53,15 +53,17 @@ def main() -> None:
         path_data = Path("/data/ACDC/database/")
     else:
         path_data = Path("/home/anna/datasets/LungCT_preprocessed")
+
         # path_data = Path("/home/anna/datasets/FIRE")
 
-    loader_data = data_loaders.L2RLungCTDataset(path_data, return_type="path_dict")
+    loader_data = data_loaders.L2RLungCTDataset(
+        path_data, return_type="path_dict")
     # loader_data.preprocess(Path("/home/anna/datasets/LungCT_preprocessed"))
 
     for item in loader_data:
         fixed = item["fixed_image"]
         moving = item["moving_image"]
-        #registration.register(fixed, moving)
+        # registration.register(fixed, moving)
         break
 
     # registration.register_all_parametr_sets(loader_data)
@@ -70,7 +72,8 @@ def main() -> None:
     loader_transformations = data_loaders.BaselineTransformations(
         Path(config["parameters"]["result_path"]["value"]) / method)
 
-    evaluation = Evaluation(Path(config["parameters"]["result_path"]["value"]),method)
+    evaluation = Evaluation(
+        Path(config["parameters"]["result_path"]["value"]), method)
     evaluation.evaluate(
         loader_transformations, loader_data)
     print("\nplot...")
@@ -100,5 +103,5 @@ if __name__ == "__main__":
 
     # Save execution time to a tex file
     with open('/home/anna/PycharmProjects/registrationbaselines/tmp/time.txt', 'w') as f:
-    # with open('/u/home/koeglf/Documents/code/registrationbaselines/tmp/time.txt', 'w') as f:
+        # with open('/u/home/koeglf/Documents/code/registrationbaselines/tmp/time.txt', 'w') as f:
         f.write(f"Execution time: {execution_time} seconds")
