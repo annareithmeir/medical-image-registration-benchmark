@@ -1,12 +1,8 @@
-from time import time
-from tqdm import tqdm
-import matplotlib
 from pathlib import Path
 import sys
 import logging
 import socket
 import os
-import time
 import time
 import SimpleITK as sitk
 
@@ -22,6 +18,7 @@ from registrationbaselines.core import utils  # nopep8
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.evaluation.evaluation import Evaluation  # nopep8
 from registrationbaselines.training.train_voxelmorph_feature import VoxelmorphFeatureTraining  # nopep8
+from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
 from registrationbaselines.registration.voxelmorph import VoxelmorphReg  # nopep8
 from registrationbaselines.registration.bspline_feature import BSplineFeature  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
@@ -34,7 +31,8 @@ def main() -> None:
 
     base_dir = Path(__file__).parent.parent.absolute()
 
-    method = "BSplines"
+    method = "SyNANTs"
+    # method = "BSplines"
     # method = "voxelmorph_feature"
 
     # path_config = base_dir / f"registrationbaselines/configs/BSplines_feat.yaml"
@@ -43,8 +41,8 @@ def main() -> None:
 
     if method == "BSplines":
         registration = BSplineFeature(config)
-    elif method == "voxelmorph_feature":
-        registration = VoxelmorphReg(config)
+    elif method == "SyNANTs":
+        registration = SyNANTs(path_config)
     else:
         raise ValueError("Method not implemented")
 
@@ -54,39 +52,36 @@ def main() -> None:
     elif machine_name == "janus":
         path_data = Path("/data/ACDC/database/")
     else:
-        path_data = Path("/home/anna/datasets/ACDC")
+        path_data = Path("/home/anna/datasets/LungCT_preprocessed")
+
         # path_data = Path("/home/anna/datasets/FIRE")
 
-    loader_data = data_loaders.ACDCDataset(path_data,
-                                           return_mode="test_imgs4",
-                                           normalize_mode=True,
-                                           roi_only=True,
-                                           dim_mode='2d-middle')
+    loader_data = data_loaders.L2RLungCTDataset(
+        path_data, return_type="path_dict")
+    # loader_data.preprocess(Path("/home/anna/datasets/LungCT_preprocessed"))
 
-    """
-    idxs = np.arange(134)
-    # np.random.shuffle(idxs)
-    train_idx, val_idx = idxs[:124], idxs[124:]
-    train_dataset = data_loaders.FIREDataset(
-        path_data, return_type="np_arrays_rgb", idxs=[0])
-    val_dataset = data_loaders.FIREDataset(
-        path_data, return_type="np_arrays_rgb_kps", idxs=[0])
-    # train_dataset = MNISTDataset(train=True, subset_range=100, return_type="np_arrays_rgb")
-    # val_dataset = MNISTDataset(train=False, subset_range=1, return_type="np_arrays_rgb")
-    # loader_data = MNISTDataset(train=False, subset_range=1, return_type="path_dict")
+    for item in loader_data:
+        fixed = item["fixed_image"]
+        moving = item["moving_image"]
+        # registration.register(fixed, moving)
+        break
 
-    #ACDC retrun mode is "<2/4>_<train/val/test>". 2 only gives images, 4 also gives labels
-    train_dataset = data_loaders.ACDCDataset(path_data, return_mode = "train_imgs4", normalize_mode=True, roi_only=True, dim_mode='2d-middle', idxs=[0])
-    val_dataset = data_loaders.ACDCDataset(path_data, return_mode = "val_imgs4", normalize_mode=True, roi_only=True, dim_mode='2d-middle', idxs=[0])
-    train_dataset.plot_random_image()
+    # registration.register_all_parametr_sets(loader_data)
 
-    # train
-    # if method == "voxelmorph_feature":
-    #     vxm_registration = VoxelmorphFeatureTraining(train_dataset, path_config, val_dataset)
-    #     vxm_registration.train()
-    """
+    print("\nevaluate...")
+    loader_transformations = data_loaders.BaselineTransformations(
+        Path(config["parameters"]["result_path"]["value"]) / method)
 
-    registration.register_all_parametr_sets(loader_data)
+    evaluation = Evaluation(
+        Path(config["parameters"]["result_path"]["value"]), method)
+    evaluation.evaluate(
+        loader_transformations, loader_data)
+    print("\nplot...")
+    evaluation.visualize(
+        loader_transformations, loader_data)
+    print("\ndone\n\n")
+
+    evaluation.evaluate(loader_transformations, loader_data)
 
 
 if __name__ == "__main__":
@@ -107,5 +102,6 @@ if __name__ == "__main__":
     print(f"Execution time: {execution_time} seconds")
 
     # Save execution time to a tex file
-    with open('/u/home/koeglf/Documents/code/registrationbaselines/tmp/time.txt', 'w') as f:
+    with open('/home/anna/PycharmProjects/registrationbaselines/tmp/time.txt', 'w') as f:
+        # with open('/u/home/koeglf/Documents/code/registrationbaselines/tmp/time.txt', 'w') as f:
         f.write(f"Execution time: {execution_time} seconds")

@@ -55,31 +55,23 @@ class Evaluation():
 
             self._evaluate_displacement(path_displacement, fixed_name)
 
-            path_fixed = item["fixed_segmentations"]
-            path_moving = item["moving_segmentations"]
+            if dataset_data.has_segmentations:
+                path_fixed = item["fixed_segmentations"]
+                path_moving = item["moving_segmentations"]
 
             self._evaluate_segmentation(path_displacement,
                                         path_fixed,
                                         path_moving,
                                         fixed_name)
 
-            """
-            if "landmarks" in item:
-                # is2d = sitk.GetArrayFromImage(utils.load_image(
-                #     path_displacement, sitk.sitkVectorFloat64)).shape[-1] == 2
+            if dataset_data.has_keypoints:
+                path_fixed_keypoints = item["fixed_keypoints"]
+                path_moving_keypoints = item["moving_keypoints"]
 
-                if dataset_data.ndim == 2:
-                    path_fixed_landmarks = item["landmarks"]
-                    path_moving_landmarks = item["landmarks"]
-                else:
-                    path_fixed_landmarks = item["landmarks"][0]
-                    path_moving_landmarks = item["landmarks"][1]
-
-                self._evaluate_landmarks(path_displacement,
-                                         path_fixed_landmarks,
-                                         path_moving_landmarks,
+                self._evaluate_keypoints(path_displacement,
+                                         path_fixed_keypoints,
+                                         path_moving_keypoints,
                                          fixed_name)
-            """
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -106,63 +98,56 @@ class Evaluation():
         for i in tqdm(idxs):
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
-            fixed_image_path = item["img_x"][0]
-            moving_image_path = item["img_y"][0]
-            fixed_image = torch.from_numpy(item["img_x"][1])
-            moving_image = torch.from_numpy(item["img_y"][1])
-            displacement = torch.load(path_displacement)
+            fixed_image_path = item["fixed_image"]
+            moving_image_path = item["moving_image"]
+
+            fixed_image = utils.load_image(fixed_image_path)
+            moving_image = utils.load_image(moving_image_path)
+            displacement = utils.load_displacement(path_displacement)
 
             deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
                                                                 moving_image_path.name,
                                                                 extension_overwrite=''.join(path_displacement.suffixes))
-            deformed_image = torch.load(deformed_image_path)
+            deformed_image = utils.load_image(deformed_image_path)
 
             plots_path = self._create_plots_paths(fixed_image_path.name,
                                                   moving_image_path.name,
                                                   extension_overwrite=''.join(path_displacement.suffixes))
 
-            fixed_landmarks = None
-            moving_landmarks = None
-            deformed_landmarks = None
+            fixed_keypoints = None
+            moving_keypoints = None
+            deformed_keypoints = None
             fixed_segmentation = None
             deformed_segmentation = None
 
-            fixed_segmentation = torch.from_numpy(
-                item["labels_x"][1]).to(displacement.device)
-            moving_segmentation = torch.from_numpy(
-                item["labels_y"][1]).to(displacement.device)
+            if dataset_data.has_segmentations:
+                path_segmentation_fixed = item["fixed_segmentations"]
+                path_segmentation_moving = item["moving_segmentations"]
+                fixed_segmentation = utils.load_image(path_segmentation_fixed)
+                moving_segmentation = utils.load_image(
+                    path_segmentation_moving)
 
-            deformed_segmentation = utils.deform_image(moving_segmentation,
-                                                       displacement, mode='nearest')
+                deformed_segmentation = utils.deform_image(moving_segmentation,
+                                                           displacement, mode='nearest')
 
             fixed_image = fixed_image.to(displacement.device)
             moving_image = moving_image.to(displacement.device)
 
-            if "landmarks" in item:
+            if dataset_data.has_keypoints:
+                path_fixed_keypoints = item["fixed_keypoints"]
+                path_moving_keypoints = item["moving_keypoints"]
 
-                if dataset_data.ndim == 2:
-                    path_fixed_landmarks = item["landmarks"]
-                    path_moving_landmarks = item["landmarks"]
-                else:
-                    path_fixed_landmarks = item["landmarks"][0]
-                    path_moving_landmarks = item["landmarks"][1]
+                fixed_keypoints, moving_keypoints = metrics.read_lanmdarks(
+                    path_fixed_keypoints, path_moving_keypoints)
 
-                landmarks_fixed, landmarks_moving = metrics.read_lanmdarks(
-                    path_fixed_landmarks, path_moving_landmarks)
+                assert moving_keypoints.shape == moving_keypoints.shape
+                assert fixed_keypoints.shape[-1] == 3 or fixed_keypoints.shape[-1] == 2
 
-                assert landmarks_moving.shape == landmarks_fixed.shape
-                assert landmarks_fixed.shape[-1] == 3 or landmarks_fixed.shape[-1] == 2
-
-                # fixed_landmarks = np.genfromtxt(path_fixed_landmarks, delimiter=',')
-                # moving_landmarks = np.genfromtxt(path_moving_landmarks, delimiter=',')
-
-                deformed_landmarks = utils.deform_landmarks(
-                    landmarks_moving, displacement)
-                # deformed_landmarks = utils_metrics.deform_landmarks(
-                #     moving_landmarks, displacement)
-            visualization.plot_all_registration_results(plots_path, moving_image, fixed_image, deformed_image,
-                                                        displacement, fixed_labels=fixed_segmentation, pred_labels=deformed_segmentation,
-                                                        fixed_keypoints=None, moving_keypoints=None, pred_keypoints=None)
+                deformed_keypoints = utils.deform_keypoints(
+                    moving_keypoints, displacement)
+            visualization.plot_all_registration_results(plots_path, moving_image.numpy(), fixed_image.numpy(), deformed_image.numpy(),
+                                                        displacement.numpy(), fixed_labels=fixed_segmentation.numpy(), pred_labels=deformed_segmentation.numpy(),
+                                                        fixed_keypoints=fixed_keypoints, moving_keypoints=moving_keypoints, pred_keypoints=deformed_keypoints)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
         """
@@ -268,17 +253,17 @@ class Evaluation():
             hausdorff95_mean /= len(hausdorff95_scores)
             self.results.add_value("hausdorff95_mean", hausdorff95_mean, name)
 
-    def _evaluate_landmarks(self,
+    def _evaluate_keypoints(self,
                             path_displacement: Path,
-                            path_fixed_landmarks: Path,
-                            path_moving_landmarks: Path,
+                            path_fixed_keypoints: Path,
+                            path_moving_keypoints: Path,
                             name: str) -> None:
 
         assert self.dataset_data is not None
 
-        tre = metrics.tre(path_fixed_landmarks, path_moving_landmarks,
+        tre = metrics.tre(path_fixed_keypoints, path_moving_keypoints,
                           path_displacement, self.dataset_data.spacing)
-        tre30 = metrics.tre(path_fixed_landmarks, path_moving_landmarks, path_displacement, self.dataset_data.spacing,
+        tre30 = metrics.tre(path_fixed_keypoints, path_moving_keypoints, path_displacement, self.dataset_data.spacing,
                             percentile=30)
 
         self.results.add_value("tre", tre, name)
