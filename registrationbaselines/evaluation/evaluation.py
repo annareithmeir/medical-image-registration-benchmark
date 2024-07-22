@@ -55,8 +55,8 @@ class Evaluation():
 
             self._evaluate_displacement(path_displacement, fixed_name)
 
-            path_fixed = item["fixed_labels"]
-            path_moving = item["moving_labels"]
+            path_fixed = item["fixed_segmentations"]
+            path_moving = item["moving_segmentations"]
 
             self._evaluate_segmentation(path_displacement,
                                         path_fixed,
