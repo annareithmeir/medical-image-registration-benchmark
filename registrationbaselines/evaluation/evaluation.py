@@ -249,10 +249,9 @@ class Evaluation():
             self.results.add_value("hausdorff", hausdorff_scores[0], name)
             self.results.add_value("hausdorff95", hausdorff95_scores[0], name)
         else:
-            for i in len(hausdorff_scores):
-                self.results.add_value(
-                    "hausdorff_" + str(i), hausdorff_scores[i], name)
-                hausdorff_mean += hausdorff_scores[i]
+            for i, score in enumerate(hausdorff_scores):
+                self.results.add_value("hausdorff_" + str(i), score, name)
+                hausdorff_mean += score
 
                 self.results.add_value(
                     "hausdorff95_" + str(i), hausdorff95_scores[i], name)
