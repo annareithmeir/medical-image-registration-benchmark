@@ -409,7 +409,7 @@ def deform_keypoints(moving_keypoints: floatArray2Dor3D, displacement: floatArra
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
 
-    deformed_keypoints = moving_keypoints + mov_lms_disp
+    deformed_keypoints = moving_keypoints - mov_lms_disp
 
     assert isinstance(deformed_keypoints, np.ndarray)
 
