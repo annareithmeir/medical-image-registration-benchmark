@@ -225,21 +225,36 @@ class Evaluation():
         dice_scores = metrics.dice_score(
             segmentation_fixed, warped)
 
+        dice_scores_base = metrics.dice_score(
+            segmentation_fixed, segmentation_moving)
+
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
+            self.results.add_value("dice_base", dice_scores_base[0], name)
         else:
-            for i, score in enumerate(dice_scores):
-                self.results.add_value("dice_" + str(i), score, name)
-                dice_mean += score
+            for i in len(dice_scores):
+                self.results.add_value("dice_" + str(i), dice_scores[i], name)
+                dice_mean += dice_scores[i]
+
+                self.results.add_value(
+                    "dice_base_" + str(i), dice_scores_base[i], name)
+                dice_base_mean += dice_scores_base[i]
 
             dice_mean /= len(dice_scores)
             self.results.add_value("dice_mean", dice_mean, name)
+            dice_base_mean /= len(dice_scores_base)
+            self.results.add_value("dice_base_mean", dice_base_mean, name)
 
         hausdorff_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
                                                       warped.squeeze())
+        hausdorff_scores_base = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
+                                                           segmentation_moving.squeeze())
         hausdorff95_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
                                                         warped.squeeze(),
                                                         percentile=95)
+        hausdorff95_scores_base = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
+                                                             segmentation_moving.squeeze(),
+                                                             percentile=95)
 
         assert len(hausdorff_scores) == len(
             hausdorff95_scores), "Hausdorff scores and 95th percentile scores should have the same length."
