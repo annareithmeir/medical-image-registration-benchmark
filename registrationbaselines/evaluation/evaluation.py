@@ -5,8 +5,8 @@ from typing import Optional, Any
 
 from tqdm import tqdm
 from torch.utils.data import Dataset
-import torch
 import wandb
+import numpy as np
 
 from registrationbaselines.core import utils, result_csv
 from registrationbaselines.core import metrics
@@ -199,8 +199,13 @@ class Evaluation():
         """
 
         dice_mean = 0
+        dice_base_mean = 0
+
         hausdorff_mean = 0
+        hausdorff_base_mean = 0
+
         hausdorff95_mean = 0
+        hausdorff95_base_mean = 0
 
         for path in [path_displacement, path_segmentation_fixed, path_segmentation_moving]:
             utils.is_nifti_and_exists(path)
