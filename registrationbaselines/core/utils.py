@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D
+from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D, floatArray2Dor3D
 
 
 def is_nifti_and_exists(path: Path) -> None:
@@ -380,7 +380,7 @@ def normalize_tensor_to_0_1(tensor: torch.tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
 
 
-def deform_keypoints(moving_keypoints: floatArray2D, displacement: floatArray3Dor4D) -> floatArray2D:
+def deform_keypoints(moving_keypoints: floatArray2Dor3D, displacement: floatArray3Dor4D) -> floatArray2D:
     """
     This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
     then the landmark at moving_keypoints[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
