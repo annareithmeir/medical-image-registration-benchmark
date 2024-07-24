@@ -262,20 +262,37 @@ class Evaluation():
         if len(hausdorff_scores) == 1:
             self.results.add_value("hausdorff", hausdorff_scores[0], name)
             self.results.add_value("hausdorff95", hausdorff95_scores[0], name)
+            self.results.add_value(
+                "hausdorff_base", hausdorff_scores_base[0], name)
+            self.results.add_value(
+                "hausdorff95_base", hausdorff95_scores_base[0], name)
         else:
-            for i, score in enumerate(hausdorff_scores):
-                self.results.add_value("hausdorff_" + str(i), score, name)
-                hausdorff_mean += score
+            for i in len(hausdorff_scores):
+                self.results.add_value(
+                    "hausdorff_" + str(i), hausdorff_scores[i], name)
+                hausdorff_mean += hausdorff_scores[i]
+                self.results.add_value(
+                    "hausdorff_base_" + str(i), hausdorff_scores_base[i], name)
+                hausdorff_base_mean += hausdorff_scores_base[i]
 
                 self.results.add_value(
                     "hausdorff95_" + str(i), hausdorff95_scores[i], name)
                 hausdorff95_mean += hausdorff95_scores[i]
+                self.results.add_value(
+                    "hausdorff95_base_" + str(i), hausdorff95_scores_base[i], name)
+                hausdorff95_base_mean += hausdorff95_scores_base[i]
 
             hausdorff_mean /= len(hausdorff_scores)
             self.results.add_value("hausdorff_mean", hausdorff_mean, name)
+            hausdorff_base_mean /= len(hausdorff_scores_base)
+            self.results.add_value("hausdorff_base_mean",
+                                   hausdorff_base_mean, name)
 
             hausdorff95_mean /= len(hausdorff95_scores)
             self.results.add_value("hausdorff95_mean", hausdorff95_mean, name)
+            hausdorff95_base_mean /= len(hausdorff95_scores_base)
+            self.results.add_value(
+                "hausdorff95_base_mean", hausdorff95_base_mean, name)
 
     def _evaluate_keypoints(self,
                             path_displacement: Path,
