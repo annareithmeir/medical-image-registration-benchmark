@@ -33,14 +33,14 @@ Parent class datasets
 
 class GenericDataset(Dataset[datasetReturnType]):
 
-    def __init__(self, return_type: str = None, indices: list[int] = None, **kwargs):
+    def __init__(self, name: str, return_type: str = None, indices: list[int] = None, **kwargs) -> None:
         super().__init__()
 
         self.images_path = None
         self.images_path_preprocessed = None
         self.indices = indices
         self.ndim = None
-        self.spacing = None
+        self.spacing: Tuple[int, ...]
         self.image_shape = None
         self.return_type = return_type
         if return_type is None:
@@ -49,6 +49,8 @@ class GenericDataset(Dataset[datasetReturnType]):
 
         self.has_segmentations = False
         self.has_keypoints = False
+
+        self.name = name
 
         assert self.return_type in ["torch_tensor_dict", "path_dict"]
 
@@ -287,7 +289,7 @@ class MNISTDataset(GenericDataset):
         @param return_type: in what data format the images should be returned in __getitem__()
         """
 
-        super().__init__(return_type, None)
+        super().__init__("MNIST", return_type, None)
 
         assert return_type == "torch_tensor"  # path is not applicable for MNIST dataset
 
@@ -368,7 +370,7 @@ class L2RLungCTDataset(GenericDataset):
         @param indices: If desired, only specific indices can be used for the dataset creation (e.g. for train/val/test split)
         """
 
-        super().__init__(return_type, indices)
+        super().__init__("LungCT", return_type, indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -534,7 +536,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         @param indices: list of indices which form the dataset (e.g. for train/val/test split)
         """
 
-        super().__init__(return_type, indices)
+        super().__init__("AbdomenMRCT", return_type, indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -659,7 +661,7 @@ class L2RAbdominalCTCTDataset(GenericDataset):
         @param indices: list of indices which form the dataset (e.g. for train/val/test split)
         """
 
-        super().__init__(return_type, indices)
+        super().__init__("AbdomenCTCT", return_type, indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -798,7 +800,7 @@ class ACDCDataset(GenericDataset):
         @param indices: unused
         """
 
-        super().__init__(return_type, indices)
+        super().__init__("ACDC", return_type, indices)
 
         self.spacing = (1.8, 1.8)
         self.image_shape = (128, 128)
@@ -1038,7 +1040,7 @@ class FIREDataset(GenericDataset):
         @param idxs: If desired, only specific indices can be used for the dataset creation (e.g. for train/val/test split)
         """
 
-        super().__init__(return_type, indices)
+        super().__init__("FIRE", return_type, indices)
 
         self.ndim = 2
         self.spacing = (1, 1)
@@ -1176,6 +1178,8 @@ class BaselineTransformations(Dataset):
             The only criteria for transformation file names is that they have a '.' in them.
         """
 
+        self.name = "BaselineTransformations"
+
         self.list_of_transformations = []
 
         if isinstance(path_transformations, Path):
@@ -1234,6 +1238,8 @@ class PathPairDataset():
 
     def __init__(self, path_pairs: List[tuple[Path, Path]]) -> None:
         self.path_pairs = path_pairs
+
+        self.name = "PathPairDataset"
 
     def __len__(self):
         return len(self.path_pairs)
