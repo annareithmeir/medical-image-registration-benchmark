@@ -1,17 +1,16 @@
 from pathlib import Path
 import warnings
 
-from typing import Optional, Any
+from typing import Optional
 
 from tqdm import tqdm
-from torch.utils.data import Dataset
 import wandb
 import numpy as np
 
 from registrationbaselines.core import utils, result_csv
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
-from registrationbaselines.data_loading.data_loaders import BaselineTransformations
+from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
 
 
 class Evaluation():
@@ -21,41 +20,49 @@ class Evaluation():
     It requires a precomputed transformation.
     """
 
-    def __init__(self, result_path: Path, method: str) -> None:
+    def __init__(self,
+                 result_path: Path,
+                 method: str,
+                 dataset_data: GenericDataset,
+                 dataset_transformations: BaselineTransformations) -> None:
         """
         Initialize the evaluatin model.
         """
 
         # create the csv file and all its parents if doesn't exist
-        self.path_results = result_path / method / 'results.csv'
-        self.path_results_plots = result_path / method / 'results.pdf'
-        self.path_plots = result_path / method / 'plots'
+        self.path_results = result_path / dataset_data.name / method / 'results.csv'
+        self.path_results_plots = result_path / \
+            dataset_data.name / method / 'results.pdf'
+        self.path_plots = result_path / dataset_data.name / method / 'plots'
         self.path_results.parent.mkdir(parents=True, exist_ok=True)
         self.path_plots.mkdir(parents=True, exist_ok=True)
         self.path_results.touch()
 
-        self.results = result_csv.EvaluationResults(self.path_results)
+        self.results = result_csv.EvaluationResults(
+            self.path_results.as_posix())
 
-    def evaluate(self, dataset_transformations: BaselineTransformations, dataset_data: Dataset[Any]) -> None:
+        self.dataset_transformations = dataset_transformations
+        self.dataset_data = dataset_data
+
+    def evaluate(self) -> None:
         """
         Evaluate the registration model.
         """
 
         # assert len(dataset_transformations) == len(
         #     dataset_data), "Number of transformations and data must be the same."
-        length_datasets = len(dataset_transformations)
+        length_datasets = len(self.dataset_transformations)
         self.results.number_of_images = length_datasets
 
-        self.dataset_data = dataset_data
         for i in tqdm(range(length_datasets)):
-            path_displacement = dataset_transformations[i]
-            item = dataset_data[i]
+            path_displacement = self.dataset_transformations[i]
+            item = self.dataset_data[i]
 
             fixed_name = str(item["fixed_image"].stem).split('.')[0]
 
             self._evaluate_displacement(path_displacement, fixed_name)
 
-            if dataset_data.has_segmentations:
+            if self.dataset_data.has_segmentations:
                 path_fixed = item["fixed_segmentations"]
                 path_moving = item["moving_segmentations"]
 
@@ -64,7 +71,7 @@ class Evaluation():
                                         path_moving,
                                         fixed_name)
 
-            if dataset_data.has_keypoints:
+            if self.dataset_data.has_keypoints:
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
 
@@ -81,7 +88,8 @@ class Evaluation():
         self.results.write()
         self.results.plot(self.path_results_plots)
 
-    def visualize(self, dataset_transformations: BaselineTransformations, dataset_data: Dataset, idxs: Optional[list[int]] = None,
+    def visualize(self,
+                  idxs: Optional[list[int]] = None,
                   plot_to_wandb: Optional[bool] = False) -> None:
         """
         Create plots for the evaluation.
@@ -93,11 +101,11 @@ class Evaluation():
         #     dataset_data), "Number of transformations and data must be the same."
 
         if idxs is None:
-            idxs = range(len(dataset_transformations))
+            idxs = range(len(self.dataset_transformations))
 
         for i in tqdm(idxs):
-            path_displacement = dataset_transformations[i]
-            item = dataset_data[i]
+            path_displacement = self.dataset_transformations[i]
+            item = self.dataset_data[i]
 
             fixed_image_path = item["fixed_image"]
             moving_image_path = item["moving_image"]
@@ -121,7 +129,7 @@ class Evaluation():
             fixed_segmentation = None
             deformed_segmentation = None
 
-            if dataset_data.has_segmentations:
+            if self.dataset_data.has_segmentations:
                 path_segmentation_fixed = item["fixed_segmentations"]
                 path_segmentation_moving = item["moving_segmentations"]
                 fixed_segmentation = utils.load_image(path_segmentation_fixed)
@@ -134,7 +142,7 @@ class Evaluation():
             fixed_image = fixed_image.to(displacement.device)
             moving_image = moving_image.to(displacement.device)
 
-            if dataset_data.has_keypoints:
+            if self.dataset_data.has_keypoints:
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
 
