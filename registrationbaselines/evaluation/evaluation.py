@@ -98,6 +98,7 @@ class Evaluation():
         for i in tqdm(idxs):
             path_displacement = dataset_transformations[i]
             item = dataset_data[i]
+
             fixed_image_path = item["fixed_image"]
             moving_image_path = item["moving_image"]
 
@@ -307,13 +308,49 @@ class Evaluation():
 
         assert self.dataset_data is not None
 
-        tre = metrics.tre(path_fixed_keypoints, path_moving_keypoints,
-                          path_displacement, self.dataset_data.spacing)
-        tre30 = metrics.tre(path_fixed_keypoints, path_moving_keypoints, path_displacement, self.dataset_data.spacing,
+        for path in [path_displacement, path_fixed_keypoints, path_moving_keypoints]:
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"File {path.as_posix()} does not exist.")
+
+        displacement = utils.load_displacement(path_displacement)
+        keypoints_fixed, keypoints_moving = metrics.read_lanmdarks(path_fixed_keypoints,
+                                                                   path_moving_keypoints)
+
+        keypoints_moving_warped = utils.deform_keypoints(keypoints_moving,
+                                                         displacement.detach().cpu().numpy())
+
+        warped_keypoints_path = self._get_deformed_image_path(path_fixed_keypoints.name,
+                                                              path_moving_keypoints.name,
+                                                              extension_overwrite="")
+        warped_keypoints_path = Path(
+            warped_keypoints_path.as_posix().replace(".csv", "") + ".csv")
+        np.savetxt(warped_keypoints_path,
+                   keypoints_moving_warped, delimiter=',')
+
+        tre = metrics.tre(keypoints_fixed,
+                          keypoints_moving,
+                          keypoints_moving_warped,
+                          self.dataset_data.spacing)
+        tre_base = metrics.tre(keypoints_fixed,
+                               keypoints_moving,
+                               keypoints_moving,
+                               self.dataset_data.spacing)
+        tre30 = metrics.tre(keypoints_fixed,
+                            keypoints_moving,
+                            keypoints_moving_warped,
+                            self.dataset_data.spacing,
                             percentile=30)
+        tre30_base = metrics.tre(keypoints_fixed,
+                                 keypoints_moving,
+                                 keypoints_moving,
+                                 self.dataset_data.spacing,
+                                 percentile=30)
 
         self.results.add_value("tre", tre, name)
+        self.results.add_value("tre_base", tre_base, name)
         self.results.add_value("tre30", tre30, name)
+        self.results.add_value("tre30_base", tre30_base, name)
 
     def _create_plots_paths(self, name_fixed: str, name_moving: str, extension_overwrite=None):
         """
@@ -338,10 +375,12 @@ class Evaluation():
 
         return path_plots
 
-    def _get_deformed_image_path(self, name_fixed: str, name_moving: str, extension_overwrite=None):
+    def _get_deformed_image_path(self, name_fixed: str, name_moving: str, extension_overwrite: str = "") -> Path:
         """
         Get the corresponding deformed image path.
         """
+
+        extension = ""
 
         if name_fixed.endswith(".nii") or name_fixed.endswith(".nii.gz"):
             name_fixed = name_fixed.replace(".nii", "")
@@ -364,7 +403,7 @@ class Evaluation():
         if extension_overwrite != extension:
             extension = extension_overwrite
 
-        path_plots = self.path_results.parent / \
+        path_plots: Path = self.path_results.parent / \
             f"deformed/{name_moving}_deformed_to_{name_fixed}{extension}"
 
         return path_plots
