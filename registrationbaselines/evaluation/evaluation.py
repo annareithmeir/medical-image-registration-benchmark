@@ -213,6 +213,15 @@ class Evaluation():
                                     displacement,
                                     mode='nearest')
 
+        deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
+                                                                   path_segmentation_moving.name,
+                                                                   extension_overwrite=''.join(path_displacement.suffixes))
+        deformed_segmentation_path = Path(
+            deformed_segmentation_path.as_posix().replace(".nii", "_seg.nii"))
+
+        utils.save_image(warped, deformed_segmentation_path,
+                         spacing=self.dataset_data.spacing)
+
         dice_scores = metrics.dice_score(
             segmentation_fixed, warped)
 
