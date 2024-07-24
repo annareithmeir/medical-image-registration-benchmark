@@ -200,13 +200,8 @@ class Evaluation():
         """
 
         dice_mean = 0
-        dice_base_mean = 0
-
         hausdorff_mean = 0
-        hausdorff_base_mean = 0
-
         hausdorff95_mean = 0
-        hausdorff95_base_mean = 0
 
         for path in [path_displacement, path_segmentation_fixed, path_segmentation_moving]:
             utils.is_nifti_and_exists(path)
@@ -231,36 +226,21 @@ class Evaluation():
         dice_scores = metrics.dice_score(
             segmentation_fixed, warped)
 
-        dice_scores_base = metrics.dice_score(
-            segmentation_fixed, segmentation_moving)
-
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
-            self.results.add_value("dice_base", dice_scores_base[0], name)
         else:
             for i in len(dice_scores):
                 self.results.add_value("dice_" + str(i), dice_scores[i], name)
                 dice_mean += dice_scores[i]
 
-                self.results.add_value(
-                    "dice_base_" + str(i), dice_scores_base[i], name)
-                dice_base_mean += dice_scores_base[i]
-
             dice_mean /= len(dice_scores)
             self.results.add_value("dice_mean", dice_mean, name)
-            dice_base_mean /= len(dice_scores_base)
-            self.results.add_value("dice_base_mean", dice_base_mean, name)
 
         hausdorff_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
                                                       warped.squeeze())
-        hausdorff_scores_base = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
-                                                           segmentation_moving.squeeze())
         hausdorff95_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
                                                         warped.squeeze(),
                                                         percentile=95)
-        hausdorff95_scores_base = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
-                                                             segmentation_moving.squeeze(),
-                                                             percentile=95)
 
         assert len(hausdorff_scores) == len(
             hausdorff95_scores), "Hausdorff scores and 95th percentile scores should have the same length."
@@ -268,37 +248,21 @@ class Evaluation():
         if len(hausdorff_scores) == 1:
             self.results.add_value("hausdorff", hausdorff_scores[0], name)
             self.results.add_value("hausdorff95", hausdorff95_scores[0], name)
-            self.results.add_value(
-                "hausdorff_base", hausdorff_scores_base[0], name)
-            self.results.add_value(
-                "hausdorff95_base", hausdorff95_scores_base[0], name)
         else:
             for i in len(hausdorff_scores):
                 self.results.add_value(
                     "hausdorff_" + str(i), hausdorff_scores[i], name)
                 hausdorff_mean += hausdorff_scores[i]
-                self.results.add_value(
-                    "hausdorff_base_" + str(i), hausdorff_scores_base[i], name)
-                hausdorff_base_mean += hausdorff_scores_base[i]
 
                 self.results.add_value(
                     "hausdorff95_" + str(i), hausdorff95_scores[i], name)
                 hausdorff95_mean += hausdorff95_scores[i]
-                self.results.add_value(
-                    "hausdorff95_base_" + str(i), hausdorff95_scores_base[i], name)
-                hausdorff95_base_mean += hausdorff95_scores_base[i]
 
             hausdorff_mean /= len(hausdorff_scores)
             self.results.add_value("hausdorff_mean", hausdorff_mean, name)
-            hausdorff_base_mean /= len(hausdorff_scores_base)
-            self.results.add_value("hausdorff_base_mean",
-                                   hausdorff_base_mean, name)
 
             hausdorff95_mean /= len(hausdorff95_scores)
             self.results.add_value("hausdorff95_mean", hausdorff95_mean, name)
-            hausdorff95_base_mean /= len(hausdorff95_scores_base)
-            self.results.add_value(
-                "hausdorff95_base_mean", hausdorff95_base_mean, name)
 
     def _evaluate_keypoints(self,
                             path_displacement: Path,
@@ -332,25 +296,14 @@ class Evaluation():
                           keypoints_moving,
                           keypoints_moving_warped,
                           self.dataset_data.spacing)
-        tre_base = metrics.tre(keypoints_fixed,
-                               keypoints_moving,
-                               keypoints_moving,
-                               self.dataset_data.spacing)
         tre30 = metrics.tre(keypoints_fixed,
                             keypoints_moving,
                             keypoints_moving_warped,
                             self.dataset_data.spacing,
                             percentile=30)
-        tre30_base = metrics.tre(keypoints_fixed,
-                                 keypoints_moving,
-                                 keypoints_moving,
-                                 self.dataset_data.spacing,
-                                 percentile=30)
 
         self.results.add_value("tre", tre, name)
-        self.results.add_value("tre_base", tre_base, name)
         self.results.add_value("tre30", tre30, name)
-        self.results.add_value("tre30_base", tre30_base, name)
 
     def _create_plots_paths(self, name_fixed: str, name_moving: str, extension_overwrite=None):
         """
