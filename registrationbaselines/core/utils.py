@@ -130,6 +130,8 @@ def load_displacement(path: Path) -> torch.Tensor:
     new_order = list(range(1, displacement_tensor.dim())) + [0]
     displacement_tensor = displacement_tensor.permute(new_order)
 
+    displacement_tensor = displacement_tensor.permute(2, 1, 0, 3)
+
     return displacement_tensor
 
 
@@ -169,7 +171,11 @@ def load_image(image_path: Path) -> torch.Tensor:
     # check that direction is identity
     is_direction_identity(image_sitk)
 
-    return torch.Tensor(image_array).squeeze()
+    return_tensor = torch.Tensor(image_array).squeeze()
+
+    return_tensor = return_tensor.permute(2, 1, 0)
+
+    return return_tensor
 
 
 def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int]) -> None:
