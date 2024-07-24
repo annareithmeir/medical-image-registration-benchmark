@@ -188,7 +188,7 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int]) -> No
     """
 
     # check that file is .nii or .nii.gz
-    if not image_path.suffix == '.nii' and not image_path.suffix == '.nii.gz':
+    if not image_path.suffix == '.nii' and not image_path.suffixes == ['.nii', '.gz']:
         raise ValueError(
             "The path should be in .nii or .nii.gz format.")
 
