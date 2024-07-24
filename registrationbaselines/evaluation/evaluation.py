@@ -229,9 +229,9 @@ class Evaluation():
         if len(dice_scores) == 1:
             self.results.add_value("dice", dice_scores[0], name)
         else:
-            for i in len(dice_scores):
-                self.results.add_value("dice_" + str(i), dice_scores[i], name)
-                dice_mean += dice_scores[i]
+            for i, score in enumerate(dice_scores):
+                self.results.add_value("dice_" + str(i), score, name)
+                dice_mean += score
 
             dice_mean /= len(dice_scores)
             self.results.add_value("dice_mean", dice_mean, name)
