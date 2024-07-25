@@ -30,9 +30,11 @@ def main() -> None:
     path_config = base_dir / f"registrationbaselines/configs/BSplineNiftyReg.yaml"
     config = utils.read_config(path_config)
 
-    loader_data = data_loaders.L2RLungCTDataset(Path("/data/LungCT"),
+    loader_data = data_loaders.L2RLungCTDataset(Path("/data/LungCT_preprocessed"),
                                                 return_type="path_dict",
-                                                indices=[0])
+                                                indices=[0, 1, 2, 3, 4])
+
+    loader_data.plot_random_image()
 
     registration = BSplineNiftyReg(config, loader_data)
 

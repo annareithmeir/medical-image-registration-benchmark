@@ -22,7 +22,6 @@ class BSplineNiftyReg(RegistrationInterface):
                  dataloader: data_loaders.GenericDataset) -> None:
 
         self.method_name = "BSplineNiftyReg"
-        self.method_name_ori = self.method_name
 
         self.configuration = configuration
 
@@ -78,31 +77,27 @@ class BSplineNiftyReg(RegistrationInterface):
         # IMPORTANT: this has to be called after creating wandb.agent()
         wandb.init(mode="offline")
 
-        self.method_name = self.method_name_ori + \
+        method_name_encoded = self.method_name + \
             f"_sim{wandb.config.similarity_metric.replace('-', '').replace(' ', '_')}"
 
-        self._create_result_directories()
+        self._create_result_directories(method_name_encoded)
 
-        assert len(self.dataloader) > 0, "Dataloader is empty."
         for item in tqdm(self.dataloader):
             # break
             self.register(item["fixed_image"], item["moving_image"])
 
-            # evaluate
         loader_transformations = data_loaders.BaselineTransformations(
-            Path(wandb.config.result_path) / self.method_name)
+            self.method_dir)
 
-        print("\nevaluate...")
-        evaluation = Evaluation(
-            Path(wandb.config.result_path), self.method_name)
-        evaluation.evaluate(
-            loader_transformations, self.dataloader)
+        evaluation = Evaluation(Path(wandb.config.result_path),
+                                self.method_dir.name,
+                                self.dataloader,
+                                loader_transformations)
 
-        # print("\nplot...")
-        # evaluation.visualize(
-        #     loader_transformations, self.dataloader)
+        evaluation.evaluate()
 
-        print("\nlog to wandb...")
+        evaluation.visualize()
+
         evaluation.wandb_log()
 
     def __create_registration_command_list(self):
