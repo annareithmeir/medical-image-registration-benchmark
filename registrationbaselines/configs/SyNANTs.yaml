@@ -8,10 +8,10 @@ parameters:
 #   value: /home/fryderyk/Documents/data/results/
 
   grad_step:
-    values: [0.02, 0.2] # 0.2
+    values: [0.02, 0.2, 2] # 0.2
 
   flow_sigma:
-    values:[0,3,30] #3 smoothing of incremental update field
+    values: [0, 3, 30] #3 smoothing of incremental update field
 
   total_sigma:
-    values:[0] # 0 smoothing of combined field
+    values: [0, 1, 10] # 0 smoothing of combined field

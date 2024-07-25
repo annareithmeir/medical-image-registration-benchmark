@@ -63,6 +63,9 @@ class SyNANTs(RegistrationInterface):
         registration = ants.registration(
             fixed=fixed_image,
             moving=moving_image,
+            grad_step=wandb.config.grad_step,
+            flow_sigma=wandb.config.flow_sigma,
+            total_sigma= wandb.config.total_sigma,
             type_of_transform='SyNOnly',
             write_composite_transform=True  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
@@ -81,20 +84,19 @@ class SyNANTs(RegistrationInterface):
         wandb.init(mode="online")
 
         self.method_name = self.method_name_ori + \
-                           f"_gradstep{wandb.config.grad_step}"
+                           f"_gradstep{wandb.config.grad_step}"+f"_flowsigma{wandb.config.flow_sigma}"
 
         self._create_result_directories()
 
         assert len(self.dataloader) > 0, "Dataloader is empty."
         for item in tqdm(self.dataloader):
-            # break
             self.register(item["fixed_image"], item["moving_image"])
-
-            # evaluate
+        #
+        #     # evaluate
         loader_transformations = data_loaders.BaselineTransformations(
             Path(wandb.config.result_path) / self.method_name)
-
-        print("\nevaluate...")
+        #
+        # print("\nevaluate...")
         evaluation = Evaluation(
             Path(wandb.config.result_path), self.method_name)
         evaluation.evaluate(

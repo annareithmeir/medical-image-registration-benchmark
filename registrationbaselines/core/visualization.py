@@ -335,11 +335,12 @@ def plot_all_registration_results(save_path: Path,
             plt.axis('off')
 
             # displacement field
+            #displacement = np.zeros(displacement.shape)
             ax = fig.add_subplot(3, 9, (9 * d) + 4)
             axes = [0, 1, 2]
             axes.remove(d)
             fieldAx = displacement[..., axes].take(half_slice_idx[d], axis=d)
-            plot_quiverplot(fieldAx, ax=ax)
+            #plot_quiverplot(fieldAx, ax=ax)
             plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(
                 half_slice_idx[d], axis=d), interval=8, color="white")
             ax.set_frame_on(False)
