@@ -17,7 +17,6 @@ class RegistrationInterface(ABC):
     """
 
     method_name: str = ""
-    method_name_ori: str = ""
 
     configuration: Dict[str, Any] = {}
 
@@ -29,6 +28,7 @@ class RegistrationInterface(ABC):
     path_results: Path = Path()
     path_dir_deformed: Path = Path()
     path_dir_deformations: Path = Path()
+    method_dir: Path = Path()
 
     path_result_deformation: Path = Path()
     path_result_deformed: Path = Path()
@@ -135,7 +135,7 @@ class RegistrationInterface(ABC):
             raise FileNotFoundError(
                 f"File {self.path_result_deformation} couldn't be saved.")
 
-    def _create_result_directories(self):
+    def _create_result_directories(self, method_directory_name: str):
         """
         Create the directories to save the results.
         """
@@ -144,14 +144,15 @@ class RegistrationInterface(ABC):
             self.configuration["parameters"]["result_path"]["value"])
 
         # create directory in base_dir called method
-        method_dir = self.path_results / self.method_name
-        method_dir.mkdir(parents=True, exist_ok=True)
+        self.method_dir = self.path_results / \
+            self.dataloader.name / method_directory_name
+        self.method_dir.mkdir(parents=True, exist_ok=True)
 
         # create two subdirectories 'deformed' and 'deformations'
-        self.path_dir_deformed = method_dir / 'deformed'
+        self.path_dir_deformed = self.method_dir / 'deformed'
         self.path_dir_deformed.mkdir(parents=True, exist_ok=True)
 
-        self.path_dir_deformations = method_dir / 'deformations'
+        self.path_dir_deformations = self.method_dir / 'deformations'
         self.path_dir_deformations.mkdir(parents=True, exist_ok=True)
 
         if not self.path_dir_deformations.exists():

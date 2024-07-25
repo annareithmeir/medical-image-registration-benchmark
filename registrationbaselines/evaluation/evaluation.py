@@ -1,17 +1,16 @@
 from pathlib import Path
 import warnings
 
-from typing import Optional, Any
+from typing import Optional
 
 from tqdm import tqdm
-from torch.utils.data import Dataset
-import torch
 import wandb
+import numpy as np
 
 from registrationbaselines.core import utils, result_csv
 from registrationbaselines.core import metrics
 from registrationbaselines.core import visualization
-from registrationbaselines.data_loading.data_loaders import BaselineTransformations
+from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
 
 
 class Evaluation():
@@ -21,51 +20,58 @@ class Evaluation():
     It requires a precomputed transformation.
     """
 
-    def __init__(self, result_path: Path, method: str) -> None:
+    def __init__(self,
+                 result_path: Path,
+                 method: str,
+                 dataset_data: GenericDataset,
+                 dataset_transformations: BaselineTransformations) -> None:
         """
         Initialize the evaluatin model.
         """
 
         # create the csv file and all its parents if doesn't exist
-        self.path_results = result_path / method / 'results.csv'
-        self.path_results_plots = result_path / method / 'results.pdf'
-        self.path_plots = result_path / method / 'plots'
+        self.path_results = result_path / dataset_data.name / method / 'results.csv'
+        self.path_results_plots = result_path / \
+            dataset_data.name / method / 'results.pdf'
+        self.path_plots = result_path / dataset_data.name / method / 'plots'
         self.path_results.parent.mkdir(parents=True, exist_ok=True)
         self.path_plots.mkdir(parents=True, exist_ok=True)
         self.path_results.touch()
 
-        self.results = result_csv.EvaluationResults(self.path_results)
+        self.results = result_csv.EvaluationResults(
+            self.path_results.as_posix())
 
-    def evaluate(self, dataset_transformations: BaselineTransformations, dataset_data: Dataset[Any]) -> None:
+        self.dataset_transformations = dataset_transformations
+        self.dataset_data = dataset_data
+
+    def evaluate(self) -> None:
         """
         Evaluate the registration model.
         """
 
         # assert len(dataset_transformations) == len(
         #     dataset_data), "Number of transformations and data must be the same."
-        length_datasets = len(dataset_transformations)
+        length_datasets = len(self.dataset_transformations)
         self.results.number_of_images = length_datasets
 
-        self.dataset_data = dataset_data
         for i in tqdm(range(length_datasets)):
-            path_displacement = dataset_transformations[i]
-            item = dataset_data[i]
+            path_displacement = self.dataset_transformations[i]
+            item = self.dataset_data[i]
 
             fixed_name = str(item["fixed_image"].stem).split('.')[0]
 
             self._evaluate_displacement(path_displacement, fixed_name)
 
-            if dataset_data.has_segmentations:
+            if self.dataset_data.has_segmentations:
                 path_fixed = item["fixed_segmentations"]
                 path_moving = item["moving_segmentations"]
 
-                self._evaluate_segmentation(path_displacement,
-                                            path_fixed,
-                                            path_moving,
-                                            fixed_name)
+            self._evaluate_segmentation(path_displacement,
+                                        path_fixed,
+                                        path_moving,
+                                        fixed_name)
 
-
-            if dataset_data.has_keypoints:
+            if self.dataset_data.has_keypoints:
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
 
@@ -73,7 +79,6 @@ class Evaluation():
                                          path_fixed_keypoints,
                                          path_moving_keypoints,
                                          fixed_name)
-
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -83,7 +88,8 @@ class Evaluation():
         self.results.write()
         self.results.plot(self.path_results_plots)
 
-    def visualize(self, dataset_transformations: BaselineTransformations, dataset_data: Dataset, idxs: Optional[list[int]] = None,
+    def visualize(self,
+                  idxs: Optional[list[int]] = None,
                   plot_to_wandb: Optional[bool] = False) -> None:
         """
         Create plots for the evaluation.
@@ -95,11 +101,12 @@ class Evaluation():
         #     dataset_data), "Number of transformations and data must be the same."
 
         if idxs is None:
-            idxs = range(len(dataset_transformations))
+            idxs = range(len(self.dataset_transformations))
 
         for i in tqdm(idxs):
-            path_displacement = dataset_transformations[i]
-            item = dataset_data[i]
+            path_displacement = self.dataset_transformations[i]
+            item = self.dataset_data[i]
+
             fixed_image_path = item["fixed_image"]
             moving_image_path = item["moving_image"]
 
@@ -121,20 +128,21 @@ class Evaluation():
             deformed_keypoints = None
             fixed_segmentation = None
             deformed_segmentation = None
-            
-            if dataset_data.has_segmentations:
+
+            if self.dataset_data.has_segmentations:
                 path_segmentation_fixed = item["fixed_segmentations"]
                 path_segmentation_moving = item["moving_segmentations"]
                 fixed_segmentation = utils.load_image(path_segmentation_fixed)
-                moving_segmentation = utils.load_image(path_segmentation_moving)
-    
+                moving_segmentation = utils.load_image(
+                    path_segmentation_moving)
+
                 deformed_segmentation = utils.deform_image(moving_segmentation,
                                                            displacement, mode='nearest')
 
             fixed_image = fixed_image.to(displacement.device)
             moving_image = moving_image.to(displacement.device)
 
-            if dataset_data.has_keypoints:
+            if self.dataset_data.has_keypoints:
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
 
@@ -214,6 +222,15 @@ class Evaluation():
                                     displacement,
                                     mode='nearest')
 
+        deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
+                                                                   path_segmentation_moving.name,
+                                                                   extension_overwrite=''.join(path_displacement.suffixes))
+        deformed_segmentation_path = Path(
+            deformed_segmentation_path.as_posix().replace(".nii", "_seg.nii"))
+
+        utils.save_image(warped, deformed_segmentation_path,
+                         spacing=self.dataset_data.spacing)
+
         dice_scores = metrics.dice_score(
             segmentation_fixed, warped)
 
@@ -262,9 +279,34 @@ class Evaluation():
 
         assert self.dataset_data is not None
 
-        tre = metrics.tre(path_fixed_keypoints, path_moving_keypoints,
-                          path_displacement, self.dataset_data.spacing)
-        tre30 = metrics.tre(path_fixed_keypoints, path_moving_keypoints, path_displacement, self.dataset_data.spacing,
+        for path in [path_displacement, path_fixed_keypoints, path_moving_keypoints]:
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"File {path.as_posix()} does not exist.")
+
+        displacement = utils.load_displacement(path_displacement)
+        keypoints_fixed, keypoints_moving = metrics.read_lanmdarks(path_fixed_keypoints,
+                                                                   path_moving_keypoints)
+
+        keypoints_moving_warped = utils.deform_keypoints(keypoints_moving,
+                                                         displacement.detach().cpu().numpy())
+
+        warped_keypoints_path = self._get_deformed_image_path(path_fixed_keypoints.name,
+                                                              path_moving_keypoints.name,
+                                                              extension_overwrite="")
+        warped_keypoints_path = Path(
+            warped_keypoints_path.as_posix().replace(".csv", "") + ".csv")
+        np.savetxt(warped_keypoints_path,
+                   keypoints_moving_warped, delimiter=',')
+
+        tre = metrics.tre(keypoints_fixed,
+                          keypoints_moving,
+                          keypoints_moving_warped,
+                          self.dataset_data.spacing)
+        tre30 = metrics.tre(keypoints_fixed,
+                            keypoints_moving,
+                            keypoints_moving_warped,
+                            self.dataset_data.spacing,
                             percentile=30)
 
         self.results.add_value("tre", tre, name)
@@ -293,10 +335,12 @@ class Evaluation():
 
         return path_plots
 
-    def _get_deformed_image_path(self, name_fixed: str, name_moving: str, extension_overwrite=None):
+    def _get_deformed_image_path(self, name_fixed: str, name_moving: str, extension_overwrite: str = "") -> Path:
         """
         Get the corresponding deformed image path.
         """
+
+        extension = ""
 
         if name_fixed.endswith(".nii") or name_fixed.endswith(".nii.gz"):
             name_fixed = name_fixed.replace(".nii", "")
@@ -319,7 +363,7 @@ class Evaluation():
         if extension_overwrite != extension:
             extension = extension_overwrite
 
-        path_plots = self.path_results.parent / \
+        path_plots: Path = self.path_results.parent / \
             f"deformed/{name_moving}_deformed_to_{name_fixed}{extension}"
 
         return path_plots

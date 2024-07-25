@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D
+from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D, floatArray2Dor3D
 
 
 def is_nifti_and_exists(path: Path) -> None:
@@ -130,6 +130,8 @@ def load_displacement(path: Path) -> torch.Tensor:
     new_order = list(range(1, displacement_tensor.dim())) + [0]
     displacement_tensor = displacement_tensor.permute(new_order)
 
+    displacement_tensor = displacement_tensor.permute(2, 1, 0, 3)
+
     return displacement_tensor
 
 
@@ -169,10 +171,14 @@ def load_image(image_path: Path) -> torch.Tensor:
     # check that direction is identity
     is_direction_identity(image_sitk)
 
-    return torch.Tensor(image_array).squeeze()
+    return_tensor = torch.Tensor(image_array).squeeze()
+
+    return_tensor = return_tensor.permute(2, 1, 0)
+
+    return return_tensor
 
 
-def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int]) -> None:
+def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int, ...]) -> None:
     """
     Save a numpy array as a nifti image.
 
@@ -182,8 +188,7 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int]) -> No
     """
 
     # check that file is .nii or .nii.gz
-    if not image_path.suffix == '.nii' and not image_path.suffixes == ['.nii','.gz']:
-        print(image_path, image_path.suffix)
+    if not image_path.suffix == '.nii' and not image_path.suffixes == ['.nii', '.gz']:
         raise ValueError(
             "The path should be in .nii or .nii.gz format.")
 
@@ -375,7 +380,7 @@ def normalize_tensor_to_0_1(tensor: torch.tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
 
 
-def deform_keypoints(moving_keypoints: floatArray2D, displacement: floatArray3Dor4D) -> floatArray2D:
+def deform_keypoints(moving_keypoints: floatArray2Dor3D, displacement: floatArray3Dor4D) -> floatArray2D:
     """
     This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
     then the landmark at moving_keypoints[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
@@ -404,7 +409,7 @@ def deform_keypoints(moving_keypoints: floatArray2D, displacement: floatArray3Do
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
 
-    deformed_keypoints = moving_keypoints + mov_lms_disp
+    deformed_keypoints = moving_keypoints - mov_lms_disp
 
     assert isinstance(deformed_keypoints, np.ndarray)
 

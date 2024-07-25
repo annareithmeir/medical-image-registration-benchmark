@@ -13,6 +13,9 @@ def run_command_in_terminal(command: list[str],
     if print_command_list:
         print_command(command)
 
+    # remove empty command values
+    command = [c for c in command if c != '']
+
     p = subprocess.Popen(command, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE)
     output = p.communicate()
