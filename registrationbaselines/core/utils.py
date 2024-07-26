@@ -1,3 +1,4 @@
+import pandas as pd
 from pathlib import Path
 
 from typing import Any, Union, Tuple
@@ -414,3 +415,27 @@ def deform_keypoints(moving_keypoints: floatArray2Dor3D, displacement: floatArra
     assert isinstance(deformed_keypoints, np.ndarray)
 
     return deformed_keypoints
+
+
+def transform_csv(input_csv: Path, output_csv: Path):
+    # Load the CSV file using np.genfromtxt
+    coords = np.genfromtxt(input_csv, delimiter=',')
+
+    # Prepare the data for the new format
+    data = {
+        'label': [f'F-{i+1}' for i in range(coords.shape[0])],
+        'l': coords[:, 0],
+        'p': coords[:, 1],
+        's': coords[:, 2],
+        'defined': [1] * coords.shape[0],
+        'selected': [1] * coords.shape[0],
+        'visible': [1] * coords.shape[0],
+        'locked': [0] * coords.shape[0],
+        'description': [''] * coords.shape[0]
+    }
+
+    # Create a DataFrame
+    df = pd.DataFrame(data)
+
+    # Save to the output CSV file
+    df.to_csv(output_csv, index=False)
