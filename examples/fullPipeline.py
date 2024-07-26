@@ -39,49 +39,37 @@ def main() -> None:
     path_config = base_dir / f"registrationbaselines/configs/{method}.yaml"
     config = utils.read_config(path_config)
 
+    loader_data = data_loaders.L2RLungCTDataset(Path("/home/anna/datasets/LungCT"),
+                                                return_type="path_dict",
+                                                indices=[0])
+
     if method == "BSplines":
         registration = BSplineFeature(config)
     elif method == "SyNANTs":
-        registration = SyNANTs(path_config)
+        registration = SyNANTs(config, loader_data)
     else:
         raise ValueError("Method not implemented")
-
-    machine_name = socket.gethostname()
-    if machine_name == "fryderyk":
-        path_data = Path("/home/fryderyk/Documents/data/ACDC/")
-    elif machine_name == "janus":
-        path_data = Path("/data/ACDC/database/")
-    else:
-        path_data = Path("/home/anna/datasets/LungCT_preprocessed")
-
-        # path_data = Path("/home/anna/datasets/FIRE")
-
-    loader_data = data_loaders.L2RLungCTDataset(
-        path_data, return_type="path_dict")
-    # loader_data.preprocess(Path("/home/anna/datasets/LungCT_preprocessed"))
 
     for item in loader_data:
         fixed = item["fixed_image"]
         moving = item["moving_image"]
-        # registration.register(fixed, moving)
+        registration.register(fixed, moving)
         break
 
     # registration.register_all_parametr_sets(loader_data)
 
     print("\nevaluate...")
     loader_transformations = data_loaders.BaselineTransformations(
-        Path(config["parameters"]["result_path"]["value"]) / method)
+        Path(config["parameters"]["result_path"]["value"]) / loader_data.name / method)
 
     evaluation = Evaluation(
-        Path(config["parameters"]["result_path"]["value"]), method)
-    evaluation.evaluate(
-        loader_transformations, loader_data)
+        Path(config["parameters"]["result_path"]["value"]), method, loader_data, loader_transformations)
+
+    evaluation.evaluate()
     print("\nplot...")
-    evaluation.visualize(
-        loader_transformations, loader_data)
+    evaluation.visualize()
     print("\ndone\n\n")
 
-    evaluation.evaluate(loader_transformations, loader_data)
 
 
 if __name__ == "__main__":

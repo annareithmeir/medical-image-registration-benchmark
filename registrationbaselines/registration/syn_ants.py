@@ -34,9 +34,9 @@ class SyNANTs(RegistrationInterface):
         self.configuration = configuration
         self.dataloader = dataloader
 
-        self._create_result_directories()
+        self._create_result_directories(self.method_name)
 
-    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
+    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False, sweep: bool =False):
         """
         Wrapper around ants to register.
         """
@@ -59,13 +59,22 @@ class SyNANTs(RegistrationInterface):
         fixed_image = ants.image_read(self.path_fixed.as_posix())
         moving_image = ants.image_read(self.path_moving.as_posix())
 
+        if sweep:
+            grad_step = wandb.config.grad_step
+            flow_sigma = wandb.config.flow_sigma
+            total_sigma = wandb.config.total_sigma
+        else:
+            grad_step = self.configuration["parameters"]["grad_step"]["values"]
+            flow_sigma = self.configuration["parameters"]["flow_sigma"]["values"]
+            total_sigma = self.configuration["parameters"]["total_sigma"]["values"]
+
         # Perform registration
         registration = ants.registration(
             fixed=fixed_image,
             moving=moving_image,
-            grad_step=wandb.config.grad_step,
-            flow_sigma=wandb.config.flow_sigma,
-            total_sigma= wandb.config.total_sigma,
+            grad_step=grad_step,
+            flow_sigma=flow_sigma,
+            total_sigma= total_sigma,
             type_of_transform='SyNOnly',
             write_composite_transform=True  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
@@ -86,25 +95,27 @@ class SyNANTs(RegistrationInterface):
         self.method_name = self.method_name_ori + \
                            f"_gradstep{wandb.config.grad_step}"+f"_flowsigma{wandb.config.flow_sigma}"
 
-        self._create_result_directories()
+        self._create_result_directories(self.method_name)
 
         assert len(self.dataloader) > 0, "Dataloader is empty."
         for item in tqdm(self.dataloader):
-            self.register(item["fixed_image"], item["moving_image"])
+            self.register(item["fixed_image"], item["moving_image"], sweep = True)
         #
         #     # evaluate
+        print(self.method_name)
+        print(Path(wandb.config.result_path) / self.dataloader.name / self.method_name)
         loader_transformations = data_loaders.BaselineTransformations(
-            Path(wandb.config.result_path) / self.method_name)
+            Path(wandb.config.result_path) / self.dataloader.name / self.method_name)
         #
-        # print("\nevaluate...")
-        evaluation = Evaluation(
-            Path(wandb.config.result_path), self.method_name)
-        evaluation.evaluate(
-            loader_transformations, self.dataloader)
+        print("\nevaluate...")
+        evaluation = Evaluation(Path(wandb.config.result_path),
+                                self.method_dir.name,
+                                self.dataloader,
+                                loader_transformations)
+        evaluation.evaluate()
 
         print("\nplot...")
-        evaluation.visualize(
-            loader_transformations, self.dataloader)
+        evaluation.visualize()
 
         print("\nlog to wandb...")
         evaluation.wandb_log()

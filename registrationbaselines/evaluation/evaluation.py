@@ -154,6 +154,8 @@ class Evaluation():
 
                 deformed_keypoints = utils.deform_keypoints(
                     moving_keypoints, displacement)
+
+            displacement = utils.displacement_to_unit_displacement(displacement)
             visualization.plot_all_registration_results(plots_path, moving_image.numpy(), fixed_image.numpy(), deformed_image.numpy(),
                                                         displacement.numpy(), fixed_labels=fixed_segmentation.numpy(), pred_labels=deformed_segmentation.numpy(),
                                                         fixed_keypoints=fixed_keypoints, moving_keypoints=moving_keypoints, pred_keypoints=deformed_keypoints)
