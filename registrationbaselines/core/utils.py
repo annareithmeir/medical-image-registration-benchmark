@@ -316,12 +316,14 @@ def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tenso
 
 def deform_image(image: torch.Tensor,
                  displacement: torch.Tensor,
-                 mode: str) -> torch.Tensor:
+                 mode: str ='bilinear') -> torch.Tensor:
     """
     Apply a deformation to an image using the provided deformation.
-    @param image_fixed:
-    @param image_moving:
-    @param displacement_field:
+    If the image is of type int16 ie a segmentation map,
+    it automatically uses mode='nearest' and returns an image of type int16
+    @param image: if label map then dtype must be torch.int16, else torch.float
+    @param displacement:
+    @param mode: interpolation mode. 'bilinear|nearest'
     @return:
     """
 
@@ -336,6 +338,11 @@ def deform_image(image: torch.Tensor,
     if image.ndim != displacement.ndim - 1:
         raise ValueError(
             "The displacement field should have one more dimension than the image.")
+
+
+    if image.dtype == torch.int16:
+        mode = 'nearest'
+        image=image.float()
 
     grid = utils_metrics.compute_grid(
         image.shape, dtype=image.dtype, device=image.device)
@@ -353,6 +360,8 @@ def deform_image(image: torch.Tensor,
             "The warped image should have the same number of dimensions as the original image. \
                 Something wen wrong with deforming")
 
+    if mode == 'nearest':
+        warped_image = warped_image.short()
     return warped_image.squeeze()
 
 
@@ -381,7 +390,7 @@ def normalize_tensor_to_0_1(tensor: torch.tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
 
 
-def deform_keypoints(moving_keypoints: floatArray2Dor3D, displacement: floatArray3Dor4D) -> floatArray2D:
+def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> floatArray2D:
     """
     This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
     then the landmark at moving_keypoints[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
@@ -393,27 +402,24 @@ def deform_keypoints(moving_keypoints: floatArray2Dor3D, displacement: floatArra
 
     if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 0], moving_keypoints.transpose())
+            displacement[:, :, :, 0], moving_keypoints.transpose(0,1))
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, :, 1], moving_keypoints.transpose())
+            displacement[:, :, :, 1], moving_keypoints.transpose(0,1))
         mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 2], moving_keypoints.transpose())
-        mov_lms_disp = np.array(
-            (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
+            displacement[:, :, :, 2], moving_keypoints.transpose(0,1))
+        mov_lms_disp = torch.tensor(
+            (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose(0, 1)
     elif moving_keypoints.shape[-1] == 2:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, 0], moving_keypoints.transpose())
+            displacement[:, :, 0], moving_keypoints.transpose(0,1))
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, 1], moving_keypoints.transpose())
-        mov_lms_disp = np.array((mov_lms_disp_x, mov_lms_disp_y)).transpose()
+            displacement[:, :, 1], moving_keypoints.transpose(0,1))
+        mov_lms_disp = torch.tensor((mov_lms_disp_x, mov_lms_disp_y)).transpose(0,1)
     else:
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
 
     deformed_keypoints = moving_keypoints - mov_lms_disp
-
-    assert isinstance(deformed_keypoints, np.ndarray)
-
     return deformed_keypoints
 
 

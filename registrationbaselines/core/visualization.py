@@ -12,7 +12,7 @@ import wandb
 from pathlib import Path
 from typing import Optional
 import os
-import SimpleITK as sitk
+import torch
 os.environ['NEURITE_BACKEND'] = "pytorch"
 # plt.switch_backend('agg')
 
@@ -244,14 +244,14 @@ def multilabel_to_boundary(label_map: np.ndarray):
     return boundary_label_map
 
 
-def plot_all_registration_results(save_path: Path,
-                                  moving_image: np.ndarray, fixed_image: np.ndarray, pred_image: np.ndarray,
-                                  displacement: np.ndarray, fixed_labels: Optional[np.array] = None,
-                                  pred_labels: Optional[np.array] = None,
+def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch.Tensor, pred_image: torch.Tensor,
+                                  displacement: torch.Tensor, fixed_segmentations: Optional[np.array] = None,
+                                  pred_segmentations: Optional[np.array] = None,
                                   moving_keypoints: Optional[np.array] = None,
                                   fixed_keypoints: Optional[np.array] = None,
-                                  pred_keypoints: Optional[np.ndarray] = None,
-                                  title: Optional[str] = None) -> plt.Figure:
+                                  pred_keypoints: Optional[torch.Tensor] = None,
+                                  title: Optional[str] = None,
+                                  save_path: Path=None) -> plt.Figure:
     """
     plots a figure with 9x3 subplots. Half-slices used for plots in each dimension.
     rows: dims
@@ -260,16 +260,29 @@ def plot_all_registration_results(save_path: Path,
     @param moving_image:
     @param fixed_image:
     @param pred_image:
-    @param displacement: (h,w,d,3)
-    @param fixed_labels:
-    @param pred_labels:
+    @param displacement: (h,w,d,3) unit-displacement
+    @param fixed_segmentations:
+    @param pred_segmentations:
     @param moving_keypoints:
     @param fixed_keypoints:
     @param pred_keypoints:
     @param title:
     @return: plot
     """
-    displacement = displacement.squeeze()
+    moving_image=moving_image.numpy().squeeze()
+    fixed_image=fixed_image.numpy().squeeze()
+    pred_image=pred_image.numpy().squeeze()
+    if fixed_segmentations is not None:
+        fixed_segmentations=fixed_segmentations.numpy().squeeze()
+    if pred_segmentations is not None:
+        pred_segmentations=pred_segmentations.numpy().squeeze()
+    if moving_keypoints is not None:
+        moving_keypoints=moving_keypoints.numpy().squeeze()
+    if fixed_keypoints is not None:
+        fixed_keypoints=fixed_keypoints.numpy().squeeze()
+    if pred_keypoints is not None:
+        pred_keypoints=pred_keypoints.numpy().squeeze()
+    displacement = displacement.numpy().squeeze()
 
     assert displacement.ndim in [
         3, 4], "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
@@ -338,9 +351,9 @@ def plot_all_registration_results(save_path: Path,
             ax = fig.add_subplot(3, 9, (9 * d) + 4)
             axes = [0, 1, 2]
             axes.remove(d)
-            print(displacement.shape, displacement[..., axes].take(half_slice_idx[d], axis=d).transpose(2, 0, 1).shape, pred_image.take(half_slice_idx[d], axis=d).shape)
+            # print(displacement.shape, displacement[..., axes].take(half_slice_idx[d], axis=d).transpose(2, 0, 1).shape, pred_image.take(half_slice_idx[d], axis=d).shape)
             fieldAx = displacement[..., axes].take(half_slice_idx[d], axis=d)
-            plot_quiverplot(fieldAx, ax=ax)
+            #plot_quiverplot(fieldAx, ax=ax)
             plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(
                 half_slice_idx[d], axis=d), interval=8, color="white")
             ax.set_frame_on(False)
@@ -372,9 +385,9 @@ def plot_all_registration_results(save_path: Path,
 
             # boundaries
             ax = fig.add_subplot(3, 9, (9 * d) + 7)
-            if (fixed_labels is not None) and (pred_labels is not None):
-                fixed_boundary = multilabel_to_boundary(fixed_labels)
-                pred_boundary = multilabel_to_boundary(pred_labels)
+            if (fixed_segmentations is not None) and (pred_segmentations is not None):
+                fixed_boundary = multilabel_to_boundary(fixed_segmentations)
+                pred_boundary = multilabel_to_boundary(pred_segmentations)
                 fixed_boundary = fixed_boundary.astype(np.int8)
                 pred_boundary = pred_boundary.astype(np.int8)
                 fixed_boundary[fixed_boundary > 0] = 1
@@ -473,12 +486,12 @@ def plot_all_registration_results(save_path: Path,
 
         # boundaries
         ax = fig.add_subplot(3, 9,  7)
-        if (fixed_labels is not None) and (pred_labels is not None):
-            fixed_labels = fixed_labels.squeeze()
-            pred_labels = pred_labels.squeeze()
+        if (fixed_segmentations is not None) and (pred_segmentations is not None):
+            fixed_segmentations = fixed_segmentations.squeeze()
+            pred_segmentations = pred_segmentations.squeeze()
 
-            fixed_boundary = multilabel_to_boundary(fixed_labels)
-            pred_boundary = multilabel_to_boundary(pred_labels)
+            fixed_boundary = multilabel_to_boundary(fixed_segmentations)
+            pred_boundary = multilabel_to_boundary(pred_segmentations)
             fixed_boundary = fixed_boundary.astype(np.int8)
             pred_boundary = pred_boundary.astype(np.int8)
             fixed_boundary[fixed_boundary > 0] = 1
@@ -521,10 +534,12 @@ def plot_all_registration_results(save_path: Path,
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.01, hspace=0.01)
 
-    # fig.show()
+
     if save_path is not None:
         fig.savefig(save_path)
         plt.close(fig)
+    else:
+        fig.show()
     return fig
 
 
