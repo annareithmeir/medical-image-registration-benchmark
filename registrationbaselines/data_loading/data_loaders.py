@@ -41,7 +41,7 @@ class GenericDataset(Dataset[datasetReturnType]):
         self.indices = indices
         self.ndim = None
         self.spacing: Tuple[int, ...]
-        self.image_shape = None
+        self.image_shape: Tuple[int, ...]
         self.return_type = return_type
         if return_type is None:
             self.return_type = "torch_tensor_dict"
@@ -377,7 +377,8 @@ class L2RLungCTDataset(GenericDataset):
         self.ndim = 3
         self.spacing = (1.75, 1.75, 1.75)
         # self.spacing = (1.75, 1.25, 1.75)
-        self.image_shape = (192, 138, 208)
+        self.image_shape = (160, 192, 224)
+        # self.image_shape = (192, 138, 208)
         # self.image_shape = (192, 192, 208)
 
         self.has_segmentations = True

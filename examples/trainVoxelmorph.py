@@ -1,6 +1,6 @@
 from pathlib import Path
 import sys
-import os
+
 
 import numpy as np
 
@@ -18,17 +18,17 @@ def main():
 
     base_dir = Path(__file__).parent.parent.absolute()
 
-    train_dataset = L2RLungCTDataset(dataset_path=Path("/u/home/koeglf/Documents/data/LungCT"),
-                                     transforms=["normalize"],
+    data_path = Path("/data/LungCT_preprocessed")
+
+    train_dataset = L2RLungCTDataset(dataset_path=data_path,
                                      indices=list(train_idx),
-                                     return_type="np_array")
-    val_dataset = L2RLungCTDataset(dataset_path=Path("/u/home/koeglf/Documents/data/LungCT"),
-                                   transforms=["normalize"],
+                                     return_type="torch_tensor_dict")
+    val_dataset = L2RLungCTDataset(dataset_path=data_path,
                                    indices=list(val_idx),
-                                   return_type="np_array")
+                                   return_type="torch_tensor_dict")
 
     print("train dataset:", len(train_dataset),
-          " val dataset: ", len(val_dataset))
+          "val dataset:  ", len(val_dataset))
 
     vxm_config_file = base_dir / "registrationbaselines/configs/Voxelmorph.yaml"
     vxm_training = VoxelmorphTraining(

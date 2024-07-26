@@ -1,13 +1,13 @@
 method_name: VoxelMorph
 
-result_path: /u/home/koeglf/Documents/code/registrationbaselines/tmp/results
+result_path: /u/home/koeglf/Documents/code/registrationbaselines/tmp/exp
 
-model_path: "/u/home/koeglf/Documents/code/registrationbaselines/tmp/VoxelMorph/results/0001_final.pt"
+model_path: "/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp/VoxelMorph/results/0001_final.pt"
 gpu_number: "0"
 multichannel: False
 
 # Voxelmorph training configuration, taking all default parameters from original repo
-result_model_path: "tmp/results/VoxelMorph"
+result_model_path: "/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp/VoxelMorph"
 initial_weights_path : "tmp/_w.pt"
 batch_size: 1 #1
 epochs: 1 #1
