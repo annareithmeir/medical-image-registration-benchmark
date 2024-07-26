@@ -3,9 +3,9 @@ name:   BSplineNiftyReg
 
 parameters:
   result_path:
-    value:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/exp
+    values:            [/u/home/koeglf/Documents/code/registrationbaselines/tmp/deformation_debugging]
   similarity_metric:
-    values:           ["--lncc 3", "--ssd", "--nmi"]
+    values:           ["--lncc 3"]
 
 
 
