@@ -73,7 +73,7 @@ def main() -> None:
     registration._create_result_directories(method)
 
     for item in loader_data:
-        break
+        # break
         fixed = item["fixed_image"]
         moving = item["moving_image"]
         registration.register(fixed, moving)
@@ -115,8 +115,3 @@ if __name__ == "__main__":
 
     execution_time = end_time - start_time
     print(f"Execution time: {execution_time} seconds")
-
-    # Save execution time to a tex file
-    with open('/home/anna/PycharmProjects/registrationbaselines/tmp/time.txt', 'w') as f:
-        # with open('/u/home/koeglf/Documents/code/registrationbaselines/tmp/time.txt', 'w') as f:
-        f.write(f"Execution time: {execution_time} seconds")
