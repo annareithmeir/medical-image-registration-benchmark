@@ -161,9 +161,9 @@ def load_image(image_path: Path) -> torch.Tensor:
     dimension = image_array.ndim
 
     # check that it is 2D, 3D or 4D
-    if dimension not in [2, 3]:
+    if dimension != 3:
         raise ValueError(
-            f"Dimension of {image_path} is not 2D, 3D: {dimension}"
+            f"Dimension of {image_path} is not 3D: {dimension}"
         )
 
     # check that spacing is isotropic
@@ -316,7 +316,7 @@ def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tenso
 
 def deform_image(image: torch.Tensor,
                  displacement: torch.Tensor,
-                 mode: str ='bilinear') -> torch.Tensor:
+                 mode: str = 'bilinear') -> torch.Tensor:
     """
     Apply a deformation to an image using the provided deformation.
     If the image is of type int16 ie a segmentation map,
@@ -339,10 +339,9 @@ def deform_image(image: torch.Tensor,
         raise ValueError(
             "The displacement field should have one more dimension than the image.")
 
-
     if image.dtype == torch.int16:
         mode = 'nearest'
-        image=image.float()
+        image = image.float()
 
     grid = utils_metrics.compute_grid(
         image.shape, dtype=image.dtype, device=image.device)
@@ -402,19 +401,20 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
 
     if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 0], moving_keypoints.transpose(0,1))
+            displacement[:, :, :, 0], moving_keypoints.transpose(0, 1))
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, :, 1], moving_keypoints.transpose(0,1))
+            displacement[:, :, :, 1], moving_keypoints.transpose(0, 1))
         mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 2], moving_keypoints.transpose(0,1))
+            displacement[:, :, :, 2], moving_keypoints.transpose(0, 1))
         mov_lms_disp = torch.tensor(
             (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose(0, 1)
     elif moving_keypoints.shape[-1] == 2:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, 0], moving_keypoints.transpose(0,1))
+            displacement[:, :, 0], moving_keypoints.transpose(0, 1))
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, 1], moving_keypoints.transpose(0,1))
-        mov_lms_disp = torch.tensor((mov_lms_disp_x, mov_lms_disp_y)).transpose(0,1)
+            displacement[:, :, 1], moving_keypoints.transpose(0, 1))
+        mov_lms_disp = torch.tensor(
+            (mov_lms_disp_x, mov_lms_disp_y)).transpose(0, 1)
     else:
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
