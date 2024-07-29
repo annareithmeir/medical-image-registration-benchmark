@@ -108,7 +108,7 @@ def load_displacement(path: Path) -> torch.Tensor:
     shape = displacement_array.shape
 
     # check that it is 4D or 5D
-    if len(shape) not in [4, 5]:
+    if len(shape) == 5:
         raise ValueError(
             f"Dimension is not 4D, 5D: {len(shape)}"
         )
