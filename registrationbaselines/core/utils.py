@@ -122,7 +122,7 @@ def load_displacement(path: Path) -> torch.Tensor:
             "The displacement field should have spatial dimensions as the last dimensions \
                 and a vector dimension as the first dimension and separated by a dummy dimension.")
 
-    displacement_tensor = torch.Tensor(displacement_array)
+    displacement_tensor = torch.from_numpy(displacement_array)
 
     # remove separating dummy dimension
     displacement_tensor = displacement_tensor.squeeze()
@@ -172,7 +172,7 @@ def load_image(image_path: Path) -> torch.Tensor:
     # check that direction is identity
     is_direction_identity(image_sitk)
 
-    return_tensor = torch.Tensor(image_array).squeeze()
+    return_tensor = torch.from_numpy(image_array).squeeze()
 
     return_tensor = return_tensor.permute(2, 1, 0)
 
