@@ -80,7 +80,7 @@ def is_direction_identity(image: sitk.Image) -> None:
 
 def load_displacement(path: Path) -> torch.Tensor:
     """
-    Load a displacement field from a file and return it as a numpy array.
+    Load a displacement field from a file and return it as a torch tensor in the shape H,W,D,3
 
     @param path: The path to the displacement field file.
 
@@ -133,15 +133,12 @@ def load_displacement(path: Path) -> torch.Tensor:
 
     # should be unit displacement
     if displacement_tensor.min() < -1.0 or displacement_tensor.max() > 1.0:
-        raise ValueError(
-            f"Displacement is not unit: {displacement_tensor.min()}, {displacement_tensor.max()}"
-        )
+        displacement_tensor = displacement_to_unit_displacement(
+            displacement_tensor)
 
     # move the vector dimension to the last dimension
     new_order = list(range(1, displacement_tensor.dim())) + [0]
     displacement_tensor = displacement_tensor.permute(new_order)
-
-    displacement_tensor = displacement_tensor.permute(2, 1, 0, 3)
 
     return displacement_tensor
 
@@ -230,7 +227,6 @@ def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tup
 
     The voxel size will be isotropic.
     The direction will be identity.
-    The image can be 2D, 3D or 4D.
     """
     from registrationbaselines.core import utils_nifti
 
@@ -243,19 +239,11 @@ def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tup
     shape = displacement.shape
 
     # check that it is 5D
-    if len(shape) != 5:
+    if len(shape) != 4:
+        raise ValueError(f"Dimension of displacement is not 4D: {len(shape)}")
+    if shape[-1] == 3:
         raise ValueError(
-            f"Dimension of displacement is not 45: {len(shape)}"
-        )
-
-    separating_dimension_correct = shape[1] == 1  # dim 1 is dummy
-    # dim 0 is vector dimension, which has to correspond to spatial dimensions
-    vector_dimension_correct = shape[0] == len(shape) - 2
-
-    if not separating_dimension_correct or not vector_dimension_correct:
-        raise ValueError(
-            "The displacement field should have spatial dimensions as the last dimensions \
-                and a vector dimension as the first dimension and separated by a dummy dimension.")
+            "The displacement field should have the vector dimension as the last dimension.")
 
     if displacement.dtype != torch.float32:
         raise TypeError(
@@ -264,9 +252,13 @@ def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tup
 
     # should be unit displacement
     if displacement.min() < -1.0 or displacement.max() > 1.0:
-        raise ValueError(
-            f"Displacement is not unit: {displacement.min()}, {displacement.max()}"
-        )
+        displacement = displacement_to_unit_displacement(displacement)
+
+    # move vector dimension from back to front
+    displacement = displacement.permute(3, 0, 1, 2)
+
+    # insert separating dimension
+    displacement = displacement.unsqueeze(1)
 
     sitk_displacement = sitk.GetImageFromArray(
         displacement.detach().cpu().numpy())
@@ -453,11 +445,11 @@ def rgb_to_grayscale(rgb_image):
     return grayscale_image
 
 
-def normalize_tensor_to_0_1(tensor: torch.tensor) -> torch.Tensor:
+def normalize_tensor_to_0_1(tensor: torch.Tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
 
 
-def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> floatArray2D:
+def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> torch.Tensor:
     """
     This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
     then the landmark at moving_keypoints[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
