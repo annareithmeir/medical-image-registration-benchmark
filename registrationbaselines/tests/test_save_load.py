@@ -18,7 +18,8 @@ dataloader preprocess has to save segmentations as np.uint16 and not np.uint8 as
 DISCUSS
 Should utils.save_image return spacing?
 Remove default arugment from deform_image - and just check for float or int and raise otherwise
-Maybe lets do a laod_image, load_semgentation, load_displacement functions?
+Maybe lets do a laod_image, load_semgentation, load_displacement functions? - same for save
+Should our laod and save functions preprocess data if they notice they are not correct? like unit displacement
 """
 
 
@@ -139,3 +140,34 @@ class TestSaveLoad(unittest.TestCase):
                           file_path_wrong_dtype)
 
         file_path_wrong_dtype.unlink()
+
+    def test_save_image_interface(self):
+
+        file_wrong_dim = torch.rand(10, 10, 10, 10)
+
+        # should raise if path is not .nii or .nii.gz
+        dummy_path = Path("dummy.txt")
+        self.assertRaises(ValueError,
+                          utils.save_image,
+                          file_wrong_dim,
+                          dummy_path,
+                          (1, 1, 1, 1))
+
+        # non-3D image should raise
+        file_path_wrong_dim = Path(
+            "registrationbaselines/tests/test_files/image_tmp.nii.gz")
+        self.assertRaises(ValueError,
+                          utils.save_image,
+                          file_wrong_dim,
+                          file_path_wrong_dim,
+                          (1, 1, 1))
+
+        # saving wotks
+        file_path_correct = Path(
+            "registrationbaselines/tests/test_files/image_tmp.nii.gz")
+        file_correct = torch.rand(10, 10, 10)
+        utils.save_image(file_correct, file_path_correct, (1, 1, 1))
+
+        self.assertTrue(file_path_correct.exists())
+
+        file_path_correct.unlink()
