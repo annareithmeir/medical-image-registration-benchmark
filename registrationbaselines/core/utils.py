@@ -176,6 +176,12 @@ def load_image(image_path: Path) -> torch.Tensor:
 
     return_tensor = return_tensor.permute(2, 1, 0)
 
+    # check that image is float or int
+    if not (return_tensor.dtype == torch.int16 or return_tensor.dtype == torch.float32):
+        raise ValueError(
+            f"Image is not float or int: {return_tensor.dtype}"
+        )
+
     return return_tensor
 
 
