@@ -262,6 +262,12 @@ def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tup
             f"Dsiplacement is not torch.float32: {displacement.dtype}"
         )
 
+    # should be unit displacement
+    if displacement.min() < -1.0 or displacement.max() > 1.0:
+        raise ValueError(
+            f"Displacement is not unit: {displacement.min()}, {displacement.max()}"
+        )
+
     sitk_displacement = sitk.GetImageFromArray(
         displacement.detach().cpu().numpy())
     sitk_displacement.SetSpacing(spacing)
