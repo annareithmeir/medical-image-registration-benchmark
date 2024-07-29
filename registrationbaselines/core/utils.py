@@ -211,6 +211,12 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]
             f"Dimension of image is not 3D: {image.ndim}"
         )
 
+    # spacing has to match the image
+    if len(spacing) != image.ndim:
+        raise ValueError(
+            "The spacing does not match the image dimensions."
+        )
+
     sitk_image = sitk.GetImageFromArray(image.detach().cpu().numpy())
     sitk_image.SetSpacing(spacing)
 
@@ -238,10 +244,10 @@ def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tup
     # check dimensions
     shape = displacement.shape
 
-    # check that it is 5D
+    # check that it is 4D
     if len(shape) != 4:
         raise ValueError(f"Dimension of displacement is not 4D: {len(shape)}")
-    if shape[-1] == 3:
+    if shape[-1] != 3:
         raise ValueError(
             "The displacement field should have the vector dimension as the last dimension.")
 
@@ -250,15 +256,25 @@ def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tup
             f"Dsiplacement is not torch.float32: {displacement.dtype}"
         )
 
+    # spacing has to match the image
+    if len(spacing) != len(shape):
+        raise ValueError(
+            "The spacing does not match the image dimensions."
+        )
+
     # should be unit displacement
     if displacement.min() < -1.0 or displacement.max() > 1.0:
         displacement = displacement_to_unit_displacement(displacement)
 
     # move vector dimension from back to front
     displacement = displacement.permute(3, 0, 1, 2)
+    spacing = (spacing[-1],) + spacing[:-1]
 
     # insert separating dimension
     displacement = displacement.unsqueeze(1)
+
+    # add dummy spacing
+    spacing = (spacing[0], 1) + spacing[1:]
 
     sitk_displacement = sitk.GetImageFromArray(
         displacement.detach().cpu().numpy())
