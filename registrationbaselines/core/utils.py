@@ -123,6 +123,10 @@ def load_displacement(path: Path) -> torch.Tensor:
                 and a vector dimension as the first dimension and separated by a dummy dimension.")
 
     displacement_tensor = torch.from_numpy(displacement_array)
+    if displacement_tensor.dtype != torch.float32:
+        raise TypeError(
+            f"Dsiplacement is not torch.float32: {displacement_tensor.dtype}"
+        )
 
     # remove separating dummy dimension
     displacement_tensor = displacement_tensor.squeeze()
@@ -173,14 +177,13 @@ def load_image(image_path: Path) -> torch.Tensor:
     is_direction_identity(image_sitk)
 
     return_tensor = torch.from_numpy(image_array).squeeze()
-
-    return_tensor = return_tensor.permute(2, 1, 0)
-
     # check that image is float or int
     if not (return_tensor.dtype == torch.int16 or return_tensor.dtype == torch.float32):
         raise TypeError(
             f"Image is not float or int: {return_tensor.dtype}"
         )
+
+    return_tensor = return_tensor.permute(2, 1, 0)
 
     return return_tensor
 
