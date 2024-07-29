@@ -194,7 +194,7 @@ def load_image(image_path: Path) -> torch.Tensor:
     return return_tensor
 
 
-def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int, ...]) -> None:
+def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]) -> None:
     """
     Save a numpy array as a nifti image.
 
