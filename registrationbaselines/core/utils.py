@@ -131,6 +131,12 @@ def load_displacement(path: Path) -> torch.Tensor:
     # remove separating dummy dimension
     displacement_tensor = displacement_tensor.squeeze()
 
+    # should be unit displacement
+    if displacement_tensor.min() < -1.0 or displacement_tensor.max() > 1.0:
+        raise ValueError(
+            f"Displacement is not unit: {displacement_tensor.min()}, {displacement_tensor.max()}"
+        )
+
     # move the vector dimension to the last dimension
     new_order = list(range(1, displacement_tensor.dim())) + [0]
     displacement_tensor = displacement_tensor.permute(new_order)
