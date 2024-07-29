@@ -1,12 +1,24 @@
 import unittest
 from pathlib import Path
 import sys
+import socket
+
 import torch
 
-sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
+sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
+
 from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset
 import registrationbaselines.core.utils as utils
 from registrationbaselines.core.visualization import plot_all_registration_results
+
+machine_name = socket.gethostname()
+if machine_name == "fryderyk":
+    path_data = Path("/home/fryderyk/Documents/data/")
+elif machine_name == "janus":
+    path_data = Path("/data/")
+else:
+    path_data = Path("/home/anna/datasets/")
+
 
 class TestDeformImage(unittest.TestCase):
 
@@ -16,10 +28,10 @@ class TestDeformImage(unittest.TestCase):
         @return:
         """
 
-        x = torch.rand(2,2,2)
+        x = torch.rand(2, 2, 2)
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def=utils.displacement_to_unit_displacement(zero_def)
-        y=utils.deform_image(x, zero_def)
+        zero_def = utils.displacement_to_unit_displacement(zero_def)
+        y = utils.deform_image(x, zero_def)
         print(x)
         print(y)
         print(zero_def)
@@ -32,11 +44,11 @@ class TestDeformImage(unittest.TestCase):
         @return:
         """
 
-        x = torch.rand(2,2,2)
+        x = torch.rand(2, 2, 2)
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def[...,0]=1
-        zero_def=utils.displacement_to_unit_displacement(zero_def)
-        y=utils.deform_image(x, zero_def)
+        zero_def[..., 0] = 1
+        zero_def = utils.displacement_to_unit_displacement(zero_def)
+        y = utils.deform_image(x, zero_def)
         print(x)
         print(y)
         print(zero_def)
@@ -49,13 +61,14 @@ class TestDeformImage(unittest.TestCase):
         @return:
         """
 
-        loader = L2RLungCTDataset(Path("/home/anna/datasets/LungCT_preprocessed"), return_type="path_dict",
+        loader = L2RLungCTDataset(path_data / "LungCT_preprocessed",
+                                  return_type="path_dict",
                                   indices=[0])
         item = loader[0]
         x = utils.load_image(item["moving_image"])
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def=utils.displacement_to_unit_displacement(zero_def)
-        y=utils.deform_image(x, zero_def)
+        zero_def = utils.displacement_to_unit_displacement(zero_def)
+        y = utils.deform_image(x, zero_def)
         # print(x)
         # print(y)
         # print(zero_def)
@@ -75,10 +88,10 @@ class TestDeformImage(unittest.TestCase):
         @return:
         """
         x = torch.zeros((3, 3, 3), dtype=torch.int16)
-        x[0,:]=1
-        x[2,:]=2
+        x[0, :] = 1
+        x[2, :] = 2
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def=utils.displacement_to_unit_displacement(zero_def)
+        zero_def = utils.displacement_to_unit_displacement(zero_def)
         y = utils.deform_image(x, zero_def)
         print(x)
         print(y)
@@ -96,15 +109,16 @@ class TestDeformImage(unittest.TestCase):
         x[0, :] = 1
         x[2, :] = 2
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def[...,0]=1
-        zero_def=utils.displacement_to_unit_displacement(zero_def)
-        y=utils.deform_image(x, zero_def)
+        zero_def[..., 0] = 1
+        zero_def = utils.displacement_to_unit_displacement(zero_def)
+        y = utils.deform_image(x, zero_def)
         print(x)
         print(y)
         print(x[..., 1:])
         print(y[..., :2])
         print(zero_def)
-        assert (x[..., 1:] - y[..., :2]).sum() == 0 # in last dim, all entries have moved by 1
+        # in last dim, all entries have moved by 1
+        assert (x[..., 1:] - y[..., :2]).sum() == 0
         assert x.shape == y.shape
 
     def test_deform_loaded_segmentation_zero(self):
@@ -113,15 +127,16 @@ class TestDeformImage(unittest.TestCase):
         @return:
         """
 
-        loader = L2RLungCTDataset(Path("/home/anna/datasets/LungCT_preprocessed"), return_type="path_dict",
+        loader = L2RLungCTDataset(path_data / "LungCT_preprocessed",
+                                  return_type="path_dict",
                                   indices=[0])
         item = loader[0]
         x = utils.load_image(item["moving_segmentations"])
         print(x.dtype)
         x = x.short()
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def=utils.displacement_to_unit_displacement(zero_def)
-        y=utils.deform_image(x, zero_def)
+        zero_def = utils.displacement_to_unit_displacement(zero_def)
+        y = utils.deform_image(x, zero_def)
 
         plot_all_registration_results(save_path=None,
                                       moving_image=x,
