@@ -208,10 +208,10 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]
         raise ValueError(
             "The path should be in .nii or .nii.gz format.")
 
-    # check that it is 2D, 3D or 4D
-    if image.ndim not in [2, 3, 4]:
+    # check that it is 3D
+    if image.ndim != 3:
         raise ValueError(
-            f"Dimension of image is not 2D, 3D or 4D: {image.ndim}"
+            f"Dimension of image is not 3D: {image.ndim}"
         )
 
     sitk_image = sitk.GetImageFromArray(image.detach().cpu().numpy())
@@ -222,6 +222,53 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]
     # check that file was written
     if not image_path.exists():
         raise FileNotFoundError(f"File {image_path} was not written.")
+
+
+def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]) -> None:
+    """
+    Save a displacement field as a nifti image.
+
+    The voxel size will be isotropic.
+    The direction will be identity.
+    The image can be 2D, 3D or 4D.
+    """
+    from registrationbaselines.core import utils_nifti
+
+    # check that file is .nii or .nii.gz
+    if not image_path.suffix == '.nii' and not image_path.suffixes == ['.nii', '.gz']:
+        raise ValueError(
+            "The path should be in .nii or .nii.gz format.")
+
+    # check dimensions
+    shape = displacement.shape
+
+    # check that it is 5D
+    if len(shape) != 5:
+        raise ValueError(
+            f"Dimension of displacement is not 45: {len(shape)}"
+        )
+
+    separating_dimension_correct = shape[1] == 1  # dim 1 is dummy
+    # dim 0 is vector dimension, which has to correspond to spatial dimensions
+    vector_dimension_correct = shape[0] == len(shape) - 2
+
+    if not separating_dimension_correct or not vector_dimension_correct:
+        raise ValueError(
+            "The displacement field should have spatial dimensions as the last dimensions \
+                and a vector dimension as the first dimension and separated by a dummy dimension.")
+
+    if displacement.dtype != torch.float32:
+        raise TypeError(
+            f"Dsiplacement is not torch.float32: {displacement.dtype}"
+        )
+
+    sitk_displacement = sitk.GetImageFromArray(
+        displacement.detach().cpu().numpy())
+    sitk_displacement.SetSpacing(spacing)
+
+    sitk.WriteImage(sitk_displacement, image_path)
+
+    utils_nifti.set_intent_code(image_path, 'NIFTI_INTENT_DISPVECT')
 
 
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:
