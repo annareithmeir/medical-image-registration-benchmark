@@ -180,7 +180,7 @@ def load_image(image_path: Path) -> torch.Tensor:
 
     return_tensor = torch.from_numpy(image_array).squeeze()
     # check that image is float or int
-    if not (return_tensor.dtype == torch.int8 or return_tensor.dtype == torch.float32):
+    if not (return_tensor.dtype == torch.uint8 or return_tensor.dtype == torch.float32):
         raise TypeError(
             f"Image is not float or int: {return_tensor.dtype}"
         )
