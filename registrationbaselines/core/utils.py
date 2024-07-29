@@ -131,14 +131,14 @@ def load_displacement(path: Path) -> torch.Tensor:
     # remove separating dummy dimension
     displacement_tensor = displacement_tensor.squeeze()
 
+    # move the vector dimension to the last dimension
+    new_order = list(range(1, displacement_tensor.dim())) + [0]
+    displacement_tensor = displacement_tensor.permute(new_order)
+
     # should be unit displacement
     if displacement_tensor.min() < -1.0 or displacement_tensor.max() > 1.0:
         displacement_tensor = displacement_to_unit_displacement(
             displacement_tensor)
-
-    # move the vector dimension to the last dimension
-    new_order = list(range(1, displacement_tensor.dim())) + [0]
-    displacement_tensor = displacement_tensor.permute(new_order)
 
     return displacement_tensor
 
@@ -167,7 +167,7 @@ def load_image(image_path: Path) -> torch.Tensor:
 
     dimension = image_array.ndim
 
-    # check that it is 2D, 3D or 4D
+    # check that it 3D
     if dimension != 3:
         raise ValueError(
             f"Dimension of {image_path} is not 3D: {dimension}"
@@ -181,7 +181,7 @@ def load_image(image_path: Path) -> torch.Tensor:
 
     return_tensor = torch.from_numpy(image_array).squeeze()
     # check that image is float or int
-    if not (return_tensor.dtype == torch.int16 or return_tensor.dtype == torch.float32):
+    if not (return_tensor.dtype == torch.int8 or return_tensor.dtype == torch.float32):
         raise TypeError(
             f"Image is not float or int: {return_tensor.dtype}"
         )
@@ -383,6 +383,26 @@ def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tenso
     Convert a displacement field to a unit displacement field.
     """
 
+    """
+    The standard unit of displacement is a half-image, so a displacement vector of magnitude 2 
+    means that the displacement distance is equal to the side length of the displaced image.
+    
+    10,20
+    
+    d = 10,20,2 (non-unit displacement in pixels)
+    
+    pix.val (5, 10) -> unit.val (1, 1)
+    
+     5  -> 1
+    10  -> 2
+     0  -> 0
+    -5  -> -1
+    -10 -> -2
+    
+    for i in range(displacement.shape[-1]):
+        displacement[:, :, i] *= (2 / displacement.shape[i])
+    """
+
     for dim in range(displacement.shape[-1]):
         displacement[..., dim] = 2.0 * displacement[..., dim] / \
             float(displacement.shape[-dim - 2] - 1)
@@ -391,15 +411,13 @@ def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tenso
 
 
 def deform_image(image: torch.Tensor,
-                 displacement: torch.Tensor,
-                 mode: str = 'bilinear') -> torch.Tensor:
+                 displacement: torch.Tensor) -> torch.Tensor:
     """
     Apply a deformation to an image using the provided deformation.
-    If the image is of type int16 ie a segmentation map,
-    it automatically uses mode='nearest' and returns an image of type int16
-    @param image: if label map then dtype must be torch.int16, else torch.float
+    If the image is of type uint8 ie a segmentation map,
+    it automatically uses mode='nearest' and returns an image of type uint8
+    @param image: if label map then dtype must be torch.uint8, else torch.float
     @param displacement:
-    @param mode: interpolation mode. 'bilinear|nearest'
     @return:
     """
 
@@ -415,9 +433,14 @@ def deform_image(image: torch.Tensor,
         raise ValueError(
             "The displacement field should have one more dimension than the image.")
 
-    if image.dtype == torch.int16:
+    if image.dtype == torch.uint8:
         mode = 'nearest'
         image = image.float()
+    elif image.dtype == torch.float32:
+        mode = 'bilinear'
+    else:
+        raise ValueError(
+            "The image should be either uint8 or float32.")
 
     grid = utils_metrics.compute_grid(
         image.shape, dtype=image.dtype, device=image.device)
@@ -436,7 +459,7 @@ def deform_image(image: torch.Tensor,
                 Something wen wrong with deforming")
 
     if mode == 'nearest':
-        warped_image = warped_image.short()
+        warped_image = warped_image.to(dtype=torch.uint8)
     return warped_image.squeeze()
 
 
