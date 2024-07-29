@@ -52,9 +52,8 @@ class TestSaveLoad(unittest.TestCase):
         file_path = Path(
             "registrationbaselines/tests/test_files/LungCT_0001_0000_preprocessed_segmentation.nii.gz")
 
-        Warning("restore this test")
-        # image = utils.load_image(file_path)
-        # self.assertTrue(isinstance(image, torch.Tensor))
+        image = utils.load_image(file_path)
+        self.assertTrue(isinstance(image, torch.Tensor))
 
         # check that it raises if file is not nifti but file exists
         file_path = Path(
