@@ -11,20 +11,6 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 import registrationbaselines.core.utils as utils
 import registrationbaselines.core.utils_nifti as utils_nifti
 
-"""
-TODO
-dataloader preprocess has to save segmentations as np.uint16 and not np.uint8 as it is currently done
-
-DISCUSS
-sitk displacement field needs to be of form 3,1,H,W,D we don't have that, we expect H,W,D,3
-    - we could just change trhis in laoding and saving, and keep using H,W,D,3 inside
-Should utils.save_image return spacing?
-Remove default arugment from deform_image - and just check for float or int and raise otherwise
-Maybe lets do a laod_image, load_semgentation, load_displacement functions? - same for save
-Should our laod and save functions preprocess data if they notice they are not correct? like unit displacement
-Do we want a dummy dimension in the displacement?
-"""
-
 
 class TestSaveLoad(unittest.TestCase):
 
