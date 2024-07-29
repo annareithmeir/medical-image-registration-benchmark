@@ -96,14 +96,6 @@ class TestSaveLoad(unittest.TestCase):
 
     def test_load_displacement_interface(self):
 
-        # check that load_image returns a tensor
-        file_path = Path(
-            "registrationbaselines/tests/test_files/LungCT_0001_0001_deformation_to_LungCT_0001_0000.nii.gz")
-
-        Warning("restore this test")
-        image = utils.load_displacement(file_path)
-        self.assertTrue(isinstance(image, torch.Tensor))
-
         # check that it raises if file is not nifti but file exists
         file_path = Path(
             "registrationbaselines/tests/test_files/results_all.csv")
@@ -143,6 +135,16 @@ class TestSaveLoad(unittest.TestCase):
                           file_path_wrong_dtype)
 
         file_path_wrong_dtype.unlink()
+
+        # check that load_image returns a tensor
+        file_path = Path(
+            "registrationbaselines/tests/test_files/LungCT_0001_0001_deformation_to_LungCT_0001_0000.nii.gz")
+
+        displacement = utils.load_displacement(file_path)
+        self.assertTrue(isinstance(displacement, torch.Tensor))
+
+        self.assertEqual(displacement.shape[-1], 3)
+        self.assertEqual(len(displacement.shape), 4)
 
     def test_save_image_interface(self):
 
@@ -185,7 +187,7 @@ class TestSaveLoad(unittest.TestCase):
                           dummy_path,
                           (1, 1, 1))
 
-        # raises when dim is not 5
+        # raises when dim is not 4
         dummy_path = Path("dummy.nii.gz")
         image = torch.rand(10, 10, 10)
         self.assertRaises(ValueError,
@@ -194,36 +196,35 @@ class TestSaveLoad(unittest.TestCase):
                           dummy_path,
                           (1, 1, 1))
 
-        # raises when dim is 5, but wrong order
-        image = torch.rand(10, 10, 10, 10, 10)
+        # raises when dim is 4, but wrong order
+        image = torch.rand(10, 10, 10, 10)
         self.assertRaises(ValueError,
                           utils.save_displacement,
                           image,
                           dummy_path,
-                          (1, 1, 1, 1, 1))
+                          (1, 1, 1, 1))
 
         # raises when wrong dtype
-        image = torch.rand(3, 1, 10, 10, 10, dtype=torch.float64)
+        image = torch.rand(10, 10, 10, 3, dtype=torch.float64)
         self.assertRaises(TypeError,
                           utils.save_displacement,
                           image,
                           dummy_path,
-                          (1, 1, 1, 1, 1))
+                          (1, 1, 1, 1))
 
-        # raises when not unit
-        image = torch.rand(3, 1, 10, 10, 10, dtype=torch.float32)
-        image[0, 0, 0, 0, 0] = 2
+        # raise when wrong spacing dim
+        image = torch.rand(10, 10, 10, 3, dtype=torch.float32)
         self.assertRaises(ValueError,
                           utils.save_displacement,
                           image,
                           dummy_path,
-                          (1, 1, 1, 1, 1))
+                          (1, 1, 1))
 
         # saved has right intent code
-        image = torch.rand(3, 1, 10, 10, 10, dtype=torch.float32)
-        image = image / image.max()
+        image = torch.rand(10, 10, 10, 3, dtype=torch.float32)
+        image = utils.displacement_to_unit_displacement(image)
 
-        utils.save_displacement(image, dummy_path, (1, 1, 1, 1, 1))
+        utils.save_displacement(image, dummy_path, (1, 1, 1, 1))
 
         loaded = sitk.ReadImage(dummy_path)
         self.assertEqual("1006", loaded.GetMetaData("intent_code"))
