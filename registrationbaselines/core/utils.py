@@ -136,9 +136,8 @@ def load_displacement(path: Path) -> torch.Tensor:
     displacement_tensor = displacement_tensor.permute(new_order)
 
     # should be unit displacement
-    if displacement_tensor.min() < -1.0 or displacement_tensor.max() > 1.0:
-        displacement_tensor = displacement_to_unit_displacement(
-            displacement_tensor)
+    displacement_tensor = displacement_to_unit_displacement(
+        displacement_tensor)
 
     return displacement_tensor
 
@@ -227,7 +226,9 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]
         raise FileNotFoundError(f"File {image_path} was not written.")
 
 
-def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]) -> None:
+def save_displacement(displacement: torch.Tensor,
+                      image_path: Path,
+                      spacing: Tuple[float, ...]) -> None:
     """
     Save a displacement field as a nifti image.
 
@@ -263,8 +264,7 @@ def save_displacement(displacement: torch.Tensor, image_path: Path, spacing: Tup
         )
 
     # should be unit displacement
-    if displacement.min() < -1.0 or displacement.max() > 1.0:
-        displacement = displacement_to_unit_displacement(displacement)
+    displacement = unit_displacement_to_displacement(displacement)
 
     # move vector dimension from back to front
     displacement = displacement.permute(3, 0, 1, 2)
@@ -381,31 +381,22 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
 def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tensor:
     """
     Convert a displacement field to a unit displacement field.
-    """
-
-    """
     The standard unit of displacement is a half-image, so a displacement vector of magnitude 2 
     means that the displacement distance is equal to the side length of the displaced image.
-    
-    10,20
-    
-    d = 10,20,2 (non-unit displacement in pixels)
-    
-    pix.val (5, 10) -> unit.val (1, 1)
-    
-     5  -> 1
-    10  -> 2
-     0  -> 0
-    -5  -> -1
-    -10 -> -2
-    
-    for i in range(displacement.shape[-1]):
-        displacement[:, :, i] *= (2 / displacement.shape[i])
     """
 
     for dim in range(displacement.shape[-1]):
         displacement[..., dim] = 2.0 * displacement[..., dim] / \
             float(displacement.shape[-dim - 2] - 1)
+
+    return displacement
+
+
+def unit_displacement_to_displacement(displacement: torch.Tensor) -> torch.Tensor:
+
+    for dim in range(displacement.shape[-1]):
+        displacement[..., dim] = float(
+            displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
 
     return displacement
 
