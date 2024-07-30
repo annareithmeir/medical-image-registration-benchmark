@@ -285,8 +285,8 @@ class Evaluation():
                     f"File {path.as_posix()} does not exist.")
 
         displacement = utils.load_displacement(path_displacement)
-        keypoints_fixed, keypoints_moving = metrics.read_lanmdarks(path_fixed_keypoints,
-                                                                   path_moving_keypoints)
+        keypoints_fixed =utils.load_keypoints(path_fixed_keypoints)
+        keypoints_moving =utils.load_keypoints(path_moving_keypoints)
 
         keypoints_moving_warped = utils.deform_keypoints(keypoints_moving,
                                                          displacement.detach().cpu().numpy())

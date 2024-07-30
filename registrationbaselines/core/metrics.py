@@ -209,29 +209,3 @@ def tre(keypoints_fixed: floatArray2Dor3D,
         result = all_errors.mean()
 
     return result
-
-
-def read_lanmdarks(keypoints_fixed_path: Path, keypoints_moving_path: Path) -> Tuple[floatArray2Dor3D, floatArray2Dor3D]:
-    # hacky but if both paths are the same we are dealign iwth 2d keypoints stored in one file
-
-    # assert that all paths are valid
-    assert keypoints_fixed_path.exists(
-    ), f"{keypoints_fixed_path} does not exist"
-    assert keypoints_moving_path.exists(
-    ), f"{keypoints_moving_path} does not exist"
-
-    if keypoints_fixed_path != keypoints_moving_path:
-        fixed = np.genfromtxt(keypoints_fixed_path, delimiter=',')
-        moving = np.genfromtxt(keypoints_moving_path, delimiter=',')
-    else:
-        values = np.genfromtxt(keypoints_fixed_path)
-
-        fixed = values[:, 0:2]
-        moving = values[:, 2:4]
-
-    assert moving.shape == fixed.shape, \
-        "Fixed and moving keypoints should have the same shape"
-    assert fixed.shape[-1] == 3 or fixed.shape[-1] == 2, \
-        "keypoints should have shape (N,3) or (N,2)"
-
-    return fixed, moving
