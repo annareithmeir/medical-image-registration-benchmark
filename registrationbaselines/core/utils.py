@@ -190,6 +190,22 @@ def load_image(image_path: Path) -> torch.Tensor:
     return return_tensor
 
 
+def load_keypoints(keypoints_path:Path) -> torch.Tensor:
+    """
+    Load keypoints from a csv file to a torch tensor of shape [N,3]
+    @param keypoints_path:
+    @return:
+    """
+    keypoints = np.loadtxt(keypoints_path, delimiter=',')
+    keypoints = torch.tensor(keypoints)
+    assert keypoints.shape[1] == 3
+    assert keypoints.ndim == 2
+
+    #keypoints[:, [0, 2]] = keypoints[:, [2, 0]]
+
+    return keypoints
+
+
 def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]) -> None:
     """
     Save a numpy array as a nifti image.
@@ -391,6 +407,13 @@ def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tenso
 
     return displacement
 
+def unit_displacement_to_displacement(displacement):
+
+    for dim in range(displacement.shape[-1]):
+        displacement[..., dim] = float(displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
+
+    return displacement
+
 
 def unit_displacement_to_displacement(displacement: torch.Tensor) -> torch.Tensor:
 
@@ -481,13 +504,17 @@ def normalize_tensor_to_0_1(tensor: torch.Tensor) -> torch.Tensor:
 
 def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> torch.Tensor:
     """
-    This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
-    then the landmark at moving_keypoints[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
-    in the direction of the displacement. On the other hand, F.grid_sample works non-intuitively, that is
-    it pulls - so 
+    Deforms keypoints according to the pull convention
 
     Map the moving keypoints to the fixed keypoints using the displacement field
+    The displacement field should be pixel-based for this to work, so in case it is a unit-displacement field, it is first converted...
+    @param moving_keypoints:
+    @param displacement: of shape (...,3) and optimally non-unit displacement (will be converted otherwise)
+    @return:
     """
+
+    if displacement.min() >= -1 and displacement.max() <=1:
+        displacement=unit_displacement_to_displacement(displacement)
 
     if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
@@ -509,7 +536,7 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
 
-    deformed_keypoints = moving_keypoints - mov_lms_disp
+    deformed_keypoints = moving_keypoints - mov_lms_disp # pull
     return deformed_keypoints
 
 
