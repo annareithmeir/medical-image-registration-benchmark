@@ -110,12 +110,16 @@ class TestKeypoints(unittest.TestCase):
 
         zero_def[..., 2] = 30
         zero_def2[..., 0] = 30
-        # zero_def = utils.displacement_to_unit_displacement(zero_def)
+
+        Warning("It is expected that the deformatoin grid doesn't cover the entire image,\
+            as this translation also translates the entire grid")
+
+        zero_def = utils.displacement_to_unit_displacement(zero_def)
         deformed_image = utils.deform_image(moving_image, zero_def)
         deformed_keypoints = utils.deform_keypoints(
             moving_keypoints, zero_def2)
 
-        plot_all_registration_results(save_path=None,
+        plot_all_registration_results(save_path="registrationbaselines/tests/test_files/temp_vis.png",
                                       moving_image=moving_image,
                                       fixed_image=fixed_image,
                                       pred_image=deformed_image,
