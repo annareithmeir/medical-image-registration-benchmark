@@ -7,6 +7,7 @@ import matplotlib.colors as colors
 from scipy.ndimage import binary_erosion
 from matplotlib.colors import Normalize
 from matplotlib.colors import ListedColormap
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pandas as pd
 import wandb
 from pathlib import Path
@@ -251,7 +252,7 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
                                   fixed_keypoints: Optional[np.array] = None,
                                   pred_keypoints: Optional[torch.Tensor] = None,
                                   title: Optional[str] = None,
-                                  save_path: Path=None) -> plt.Figure:
+                                  save_path: Path = None) -> plt.Figure:
     """
     plots a figure with 9x3 subplots. Half-slices used for plots in each dimension.
     rows: dims
@@ -269,19 +270,19 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
     @param title:
     @return: plot
     """
-    moving_image=moving_image.numpy().squeeze()
-    fixed_image=fixed_image.numpy().squeeze()
-    pred_image=pred_image.numpy().squeeze()
+    moving_image = moving_image.numpy().squeeze()
+    fixed_image = fixed_image.numpy().squeeze()
+    pred_image = pred_image.numpy().squeeze()
     if fixed_segmentations is not None:
-        fixed_segmentations=fixed_segmentations.numpy().squeeze()
+        fixed_segmentations = fixed_segmentations.numpy().squeeze()
     if pred_segmentations is not None:
-        pred_segmentations=pred_segmentations.numpy().squeeze()
+        pred_segmentations = pred_segmentations.numpy().squeeze()
     if moving_keypoints is not None:
-        moving_keypoints=moving_keypoints.numpy().squeeze()
+        moving_keypoints = moving_keypoints.numpy().squeeze()
     if fixed_keypoints is not None:
-        fixed_keypoints=fixed_keypoints.numpy().squeeze()
+        fixed_keypoints = fixed_keypoints.numpy().squeeze()
     if pred_keypoints is not None:
-        pred_keypoints=pred_keypoints.numpy().squeeze()
+        pred_keypoints = pred_keypoints.numpy().squeeze()
     displacement = displacement.numpy().squeeze()
 
     assert displacement.ndim in [
@@ -353,7 +354,7 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
             axes.remove(d)
             # print(displacement.shape, displacement[..., axes].take(half_slice_idx[d], axis=d).transpose(2, 0, 1).shape, pred_image.take(half_slice_idx[d], axis=d).shape)
             fieldAx = displacement[..., axes].take(half_slice_idx[d], axis=d)
-            #plot_quiverplot(fieldAx, ax=ax)
+            # plot_quiverplot(fieldAx, ax=ax)
             plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(
                 half_slice_idx[d], axis=d), interval=8, color="white")
             ax.set_frame_on(False)
@@ -408,7 +409,7 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
                 ax.title.set_text("segmentations")
 
             # jacobian determinant, negative values shown in red
-            ax = fig.add_subplot(3, 9, (9 * d) + 8)
+            ax = fig.add_subplot(3, 9, (9 * d) + 9)
             jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
             jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
             norm = colors.TwoSlopeNorm(
@@ -418,7 +419,14 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
             if toprow:
                 ax.title.set_text("jac det")
             plt.axis('off')
-            plt.colorbar(im1, ax=ax)
+
+            # Add a colorbar with adjusted size
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            cbar = plt.colorbar(im1, cax=cax)
+            # Adjust the colorbar tick label size if needed
+            cbar.ax.tick_params(labelsize=6)
+
     elif image_dim == 2:
         toprow = True
 
@@ -533,7 +541,6 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
 
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.01, hspace=0.01)
-
 
     if save_path is not None:
         fig.savefig(save_path)
