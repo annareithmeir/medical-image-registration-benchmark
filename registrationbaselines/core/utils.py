@@ -48,7 +48,8 @@ def is_isotropic(image: sitk.Image) -> None:
     @raise ValueError: If the voxel size is not isotropic.
     """
 
-    spacing = np.array(image.GetSpacing(), np.float64)
+    # we only care about the first 3, the remaining are for displacement
+    spacing = np.array(image.GetSpacing()[:3], np.float64)
 
     if not np.allclose(spacing, spacing[0]):
         raise ValueError(
