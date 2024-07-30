@@ -37,9 +37,10 @@ class TestKeypoints(unittest.TestCase):
         kps_x = torch.clamp(kps_x, min=10, max=90)
 
         zero_def = torch.zeros((100, 100, 100, 3))
-        zero_def[..., 0] = 2
-        zero_def[..., 1] = -2
-        zero_def[..., 2] = 5
+        translations = [2, -2, 5]
+        zero_def[..., 0] = translations[0]
+        zero_def[..., 1] = translations[1]
+        zero_def[..., 2] = translations[2]
         zero_def_unit = utils.displacement_to_unit_displacement(zero_def)
 
         kps_y = utils.deform_keypoints(kps_x, zero_def)
@@ -49,14 +50,14 @@ class TestKeypoints(unittest.TestCase):
         print(kps_y - kps_x)
 
         # test that deform with non-unit displacement works in the pull direction
-        assert torch.all((kps_y[:, 0] - kps_x[:, 0]) == 2)
-        assert torch.all((kps_y[:, 1] - kps_x[:, 1]) == -2)
-        assert torch.all((kps_y[:, 2] - kps_x[:, 2]) == 5)
+        assert torch.all((kps_y[:, 0] - kps_x[:, 0]) == -translations[0])
+        assert torch.all((kps_y[:, 1] - kps_x[:, 1]) == -translations[1])
+        assert torch.all((kps_y[:, 2] - kps_x[:, 2]) == -translations[2])
 
         # test that deform with unit displacement works in the pull direction
-        assert torch.all((kps_y_unit[:, 0] - kps_x[:, 0]) == 2)
-        assert torch.all((kps_y_unit[:, 1] - kps_x[:, 1]) == -2)
-        assert torch.all((kps_y_unit[:, 2] - kps_x[:, 2]) == 5)
+        assert torch.all((kps_y_unit[:, 0] - kps_x[:, 0]) == -translations[0])
+        assert torch.all((kps_y_unit[:, 1] - kps_x[:, 1]) == -translations[1])
+        assert torch.all((kps_y_unit[:, 2] - kps_x[:, 2]) == -translations[2])
 
     def test_deform_loaded_keypoints_zero_and_translation(self):
         kps_file = path_data / "LungCT_preprocessed/keypointsTr/LungCT_0001_0000.csv"
