@@ -5,12 +5,12 @@ FRED
   - works with segmentaitons (uint8 inside)                                                 OK
   - works with volumes (float32 inside)                                                     OK
   - works with displacements (float32 inside) -> last dimension should be 3, so (H,W,D,3)   OK
-  - works with keypoints (float32 inside) -> dim should be N,3 - loading switches x and z
+  - works with keypoints (float32 inside) -> dim should be N,3 - loading switches x and z   OK
   - should return torch                                                                     OK
   - should save as .nii.gz                                                                  OK
   - save and load displacements should be unit displacements                                OK
 
-- loading with torchio (give path to torch io) gives x,y,z, loading with sitk and extracting np.array gives z,y,x
+- loading with torchio (give path to torch io) gives x,y,z, loading with sitk and extracting np.array gives z,y,x OK
 
 ANNA:
 - deform_image
