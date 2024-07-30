@@ -1,14 +1,14 @@
 
 AUTOMATIC TESTS
 FRED
-- save->load should produce the same (we only save and load with our utils)
-  - works with segmentaitons (int16 inside)
-  - works with volumes (float32 inside)
-  - works with displacements (float32 inside) -> last dimension should be 3, so (H,W,D,3)
+- save->load should produce the same (we only save and load with our utils)                 OK
+  - works with segmentaitons (uint8 inside)                                                 OK
+  - works with volumes (float32 inside)                                                     OK
+  - works with displacements (float32 inside) -> last dimension should be 3, so (H,W,D,3)   OK
   - works with keypoints (float32 inside) -> dim should be N,3 - loading switches x and z
-  - should return torch
-  - should save as .nii.gz
-  - save and load displacements should be unit displacements
+  - should return torch                                                                     OK
+  - should save as .nii.gz                                                                  OK
+  - save and load displacements should be unit displacements                                OK
 
 - loading with torchio (give path to torch io) gives x,y,z, loading with sitk and extracting np.array gives z,y,x
 
