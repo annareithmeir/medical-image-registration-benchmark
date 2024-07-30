@@ -48,13 +48,19 @@ def is_isotropic(image: sitk.Image) -> None:
     @raise ValueError: If the voxel size is not isotropic.
     """
 
-    # we only care about the first 3, the remaining are for displacement
-    spacing = np.array(image.GetSpacing()[:3], np.float64)
+    spacing = np.array(image.GetSpacing(), np.float64)
 
-    if not np.allclose(spacing, spacing[0]):
+    if len(spacing) == 3:
+        if not np.allclose(spacing, spacing[0]):
+            raise ValueError(
+                f"Voxel size is not isotropic: {tuple(spacing)}")
+    elif len(spacing) == 5:
+        if not np.allclose(spacing[:3], spacing[0]) and not np.all(spacing[3:] == [1.0, 1.0]):
+            raise ValueError(
+                f"Voxel size is not isotropic: {tuple(spacing)}")
+    else:
         raise ValueError(
-            f"Voxel size is not isotropic: {tuple(spacing)}"
-        )
+            f"Spacing has to be elngth 3 (image/segmentation) or 5 (displacement)")
 
 
 def is_direction_identity(image: sitk.Image) -> None:
@@ -83,9 +89,18 @@ def are_offdiagonal_direction_elements_zero(image: sitk.Image) -> None:
 
     dir = np.abs(np.array(image.GetDirection(), np.float64))
 
-    dir_offdiagonal = list(dir[1:4]) + list(dir[5:8])
+    if len(dir) == 9:
+        dir_offdiagonal = list(dir[1:4]) + list(dir[5:8])
+        zeros = [0.0 for _ in range(6)]
+    elif len(dir) == 25:
+        dir_offdiagonal = list(dir[1:6]) + list(dir[7:12]) + \
+            list(dir[13:18]) + list(dir[19:24])
+        zeros = [0.0 for _ in range(20)]
+    else:
+        raise ValueError(
+            f"Direction has to be elngth 9 (image/segmentation) or 25 (displacement)")
 
-    if not dir_offdiagonal == [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]:
+    if dir_offdiagonal != zeros:
         raise ValueError("Off-diagonal elements are not zero")
 
 
