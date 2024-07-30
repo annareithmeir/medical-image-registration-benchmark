@@ -133,8 +133,6 @@ def load_displacement(path: Path) -> torch.Tensor:
         raise ValueError(
             "The intent code of the displacement field should be NIFTI_INTENT_DISPVECT.")
 
-    # is_isotropic(displacement_sitk)
-
     # check dimensions
     shape = displacement_array.shape
 
