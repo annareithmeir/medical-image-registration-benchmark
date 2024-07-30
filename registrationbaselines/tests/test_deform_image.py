@@ -28,13 +28,16 @@ class TestDeformImage(unittest.TestCase):
         @return:
         """
 
-        x = torch.rand(2, 2, 2)
-        zero_def = torch.zeros(*x.shape, 3)
+        x = torch.rand(8,8)*0.2
+        x[:4, :4 ]=0.9
+        zero_def = torch.zeros(*x.shape, 2)
         zero_def = utils.displacement_to_unit_displacement(zero_def)
         y = utils.deform_image(x, zero_def)
         print(x)
         print(y)
-        print(zero_def)
+        torch.set_printoptions(sci_mode=False, linewidth=200)
+        z=y-x
+        print(z)
         assert (x-y).sum() == 0, (x-y).sum()
         assert x.shape == y.shape
 
@@ -149,3 +152,15 @@ class TestDeformImage(unittest.TestCase):
 
     def test_deform_image_niftyreg(self):
         pass
+
+    def test_to_from_unit_displacement(self):
+        """
+        Test the utils.unit_displacement_to_displacement() and utils.displacement_to_unit_displacement()
+        @return:
+        """
+        displacement = 100*torch.rand((10,10,10,3))
+        displacement_unit = utils.displacement_to_unit_displacement(displacement)
+        displacement_denorm = utils.unit_displacement_to_displacement(displacement_unit)
+
+        assert torch.all((displacement_denorm - displacement_unit)==0)
+

@@ -1,4 +1,3 @@
-import copy
 import glob
 import random
 from itertools import combinations
@@ -17,8 +16,8 @@ from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 from tqdm import tqdm
 
-from . import utils
-
+from . import utils as dataloader_utils
+import registrationbaselines.core.utils as utils
 from registrationbaselines.core.types import datasetReturnType
 
 # global clipping [min,max] values
@@ -64,7 +63,7 @@ class GenericDataset(Dataset[datasetReturnType]):
         }
         subject = tio.Subject(subject_dict)
 
-        utils.check_isotropic_and_identity(subject, self.spacing[0])
+        dataloader_utils.check_isotropic_and_identity(subject, self.spacing[0])
 
         moving_image = subject["moving_image"].data
         fixed_image = subject["fixed_image"].data
@@ -341,8 +340,8 @@ class MNISTDataset(GenericDataset):
         fixed_image = self.transforms(fixed_image)
         moving_image = self.transforms(moving_image)
 
-        moving_image = utils.normalize_tensor_to_0_1(moving_image)
-        fixed_image = utils.normalize_tensor_to_0_1(fixed_image)
+        moving_image = dataloader_utils.normalize_tensor_to_0_1(moving_image)
+        fixed_image = dataloader_utils.normalize_tensor_to_0_1(fixed_image)
 
         return fixed_image.squeeze(), moving_image.squeeze()
 
@@ -401,12 +400,10 @@ class L2RLungCTDataset(GenericDataset):
             self.keypoints_list = [self.keypoints_list[i] for i in indices]
 
     def _get_keypoint_pair_as_tensors(self, idx):
-        keypoints_f = np.genfromtxt(self.images_path / self.keypoints_list[idx][0],
-                                    delimiter=',')
+        keypoints_f = utils.load_keypoints(self.images_path / self.keypoints_list[idx][0])
 
-        keypoints_m = np.genfromtxt(self.images_path / self.keypoints_list[idx][1],
-                                    delimiter=',')
-        return torch.from_numpy(keypoints_f), torch.from_numpy(keypoints_m)
+        keypoints_m = utils.load_keypoints(self.images_path / self.keypoints_list[idx][1])
+        return keypoints_f, keypoints_m
 
     def _get_keypoint_pair_as_paths(self, idx):
         return self.images_path / self.keypoints_list[idx][0], self.images_path / self.keypoints_list[idx][1]
@@ -1115,8 +1112,8 @@ class FIREDataset(GenericDataset):
             moving_imageoving = moving_imageoving.convert('L')
             fixed_imageixed = torch.from_numpy(np.array(fixed_imageixed))
             moving_imageoving = torch.tensor(np.array(moving_imageoving))
-            fixed_imageixed = utils.normalize_tensor_to_0_1(fixed_imageixed)
-            moving_imageoving = utils.normalize_tensor_to_0_1(moving_imageoving)
+            fixed_imageixed = dataloader_utils.normalize_tensor_to_0_1(fixed_imageixed)
+            moving_imageoving = dataloader_utils.normalize_tensor_to_0_1(moving_imageoving)
 
         if self.rgb:
             fixed_imageixed = torch.from_numpy(np.array(fixed_imageixed))
@@ -1144,8 +1141,8 @@ class FIREDataset(GenericDataset):
             moving_imageoving = moving_imageoving.convert('L')
             fixed_imageixed = torch.tensor(fixed_imageixed)
             moving_imageoving = torch.tensor(moving_imageoving)
-            fixed_imageixed = utils.normalize_tensor_to_0_1(fixed_imageixed)
-            moving_imageoving = utils.normalize_tensor_to_0_1(moving_imageoving)
+            fixed_imageixed = dataloader_utils.normalize_tensor_to_0_1(fixed_imageixed)
+            moving_imageoving = dataloader_utils.normalize_tensor_to_0_1(moving_imageoving)
 
         if self.rgb:
             fixed_imageixed = torch.tensor(fixed_imageixed)
