@@ -187,11 +187,12 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
     else:
         background = np.zeros(disp.shape[1:])
 
-    assert disp.shape[0] == 2, "Displacement field should have shape (H, W, 2)"
+    assert disp.shape[0] == 2, "Displacement field should have shape (2, H, W)"
 
     # convert displacement from unit
-    disp[0, ...] = float(disp.shape[1] - 1) * disp[0, ...] / 2.0
-    disp[1, ...] = float(disp.shape[2] - 1) * disp[1, ...] / 2.0
+    if disp.min() >= -1.0 and disp.max() <= 1.0:
+        disp[0, ...] = float(disp.shape[1] - 1) * disp[0, ...] / 2.0
+        disp[1, ...] = float(disp.shape[2] - 1) * disp[1, ...] / 2.0
 
     id_grid_H, id_grid_W = np.meshgrid(range(0, background.shape[0] - 1, interval),
                                        range(
