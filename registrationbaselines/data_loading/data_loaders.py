@@ -15,10 +15,11 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 from tqdm import tqdm
+import SimpleITK as sitk
 
 from . import utils as dataloader_utils
 import registrationbaselines.core.utils as utils
-from registrationbaselines.core.types import datasetReturnType
+from registrationbaselines.core.types import datasetReturnType, floatArray2D
 
 # global clipping [min,max] values
 # todo verify clipping parameters
@@ -56,31 +57,26 @@ class GenericDataset(Dataset[datasetReturnType]):
     def __len__(self):
         return len(self.images_list)
 
-    def _get_image_pair_as_tensors(self, idx):
-        subject_dict = {
-            "fixed_image": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
-            "moving_image": tio.ScalarImage(self.images_path / self.images_list[idx][1])
-        }
-        subject = tio.Subject(subject_dict)
+    def _get_image_pair_as_tensors(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        dataloader_utils.check_isotropic_and_identity(subject, self.spacing[0])
+        image_fixed = utils.load_image(
+            self.images_path / self.images_list[idx][0])
+        image_moving = utils.load_image(
+            self.images_path / self.images_list[idx][1])
 
-        moving_image = subject["moving_image"].data
-        fixed_image = subject["fixed_image"].data
-        return fixed_image.squeeze(), moving_image.squeeze()
+        return image_fixed, image_moving
 
     def _get_image_pair_as_paths(self, idx):
         return self.images_path / self.images_list[idx][0], self.images_path / self.images_list[idx][1]
 
-    def _get_segmentation_pair_as_tensors(self, idx):
-        subject_dict = {
-            "fixed_segmentations": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
-            "moving_segmentations": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1]),
-        }
-        subject = tio.Subject(subject_dict)
-        segmentation_m = subject["moving_segmentations"].data
-        segmentation_f = subject["fixed_segmentations"].data
-        return segmentation_f.squeeze(), segmentation_m.squeeze()
+    def _get_segmentation_pair_as_tensors(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        segmentation_fixed = utils.load_image(
+            self.images_path / self.segmentations_list[idx][0])
+        segmentation_moving = utils.load_image(
+            self.images_path / self.segmentations_list[idx][1])
+
+        return segmentation_fixed, segmentation_moving
 
     def _get_segmentation_pair_as_paths(self, idx):
         return self.images_path / self.segmentations_list[idx][0], self.images_path / self.segmentations_list[idx][1]
@@ -409,7 +405,7 @@ class L2RLungCTDataset(GenericDataset):
             self.images_path / self.keypoints_list[idx][1])
         return keypoints_f, keypoints_m
 
-    def _get_keypoint_pair_as_paths(self, idx):
+    def _get_keypoint_pair_as_paths(self, idx) -> Tuple[Path, Path]:
         return self.images_path / self.keypoints_list[idx][0], self.images_path / self.keypoints_list[idx][1]
 
     def preprocess(self, save_path: Path) -> None:
