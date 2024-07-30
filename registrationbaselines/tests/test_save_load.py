@@ -219,3 +219,37 @@ class TestSaveLoad(unittest.TestCase):
         self.assertTrue(dummy_path.exists())
 
         dummy_path.unlink()
+
+    def test_load_keypoints(self):
+
+        # fails with non-existing path
+        self.assertRaises(FileNotFoundError,
+                          utils.load_keypoints, Path("dummy.txt"))
+
+        # fails with 2D array with more than 3 columns
+        array_2d = np.zeros((5, 5))
+        path_2d = Path(
+            "registrationbaselines/tests/test_files/keypoints_tmp.txt")
+        np.savetxt(path_2d, array_2d, delimiter=',')
+
+        self.assertRaises(ValueError, utils.load_keypoints, path_2d)
+        path_2d.unlink()
+
+        # switches x and y columns
+        keypoints = np.random.rand(5, 3).astype(np.float32)
+        path = Path(
+            "registrationbaselines/tests/test_files/keypoints_tmp.txt")
+        np.savetxt(path, keypoints, delimiter=',')
+
+        loaded_keypoints = utils.load_keypoints(path)
+        keypoints_torch = torch.from_numpy(keypoints)
+
+        self.assertEqual(loaded_keypoints.shape, (5, 3))
+        self.assertTrue(torch.equal(
+            loaded_keypoints[:, 0], keypoints_torch[:, 2]))
+        self.assertTrue(torch.equal(
+            loaded_keypoints[:, 1], keypoints_torch[:, 1]))
+        self.assertTrue(torch.equal(
+            loaded_keypoints[:, 2], keypoints_torch[:, 0]))
+
+        path.unlink()
