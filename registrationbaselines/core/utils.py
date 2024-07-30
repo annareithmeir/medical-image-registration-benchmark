@@ -194,16 +194,26 @@ def load_keypoints(keypoints_path: Path) -> torch.Tensor:
     """
     Load keypoints from a csv file to a torch tensor of shape [N,3].
 
+    dtype: float32
+
     The keypoints have to be in x,y,z order and they will be converted to z,y,x.
     The switch happens because extracting a np array from an sitk image does that too.
 
     @param keypoints_path: Path to the .txt keypoints file
     @return: Keypoints as a torch tensor of shape [N,3].
     """
-    keypoints = np.loadtxt(keypoints_path, delimiter=',')
-    keypoints = torch.tensor(keypoints)
-    assert keypoints.shape[1] == 3
-    assert keypoints.ndim == 2
+
+    if not keypoints_path.exists():
+        raise FileNotFoundError(f"Keypoints file not found: {keypoints_path}")
+
+    keypoints = np.loadtxt(keypoints_path, delimiter=',', dtype=np.float32)
+    keypoints = torch.from_numpy(keypoints)
+
+    if keypoints.ndim != 2:  # this is enforced by numpy, but let's keep it here
+        raise ValueError(f"Keypoints should be 2D: {keypoints.ndim}")
+    if keypoints.shape[1] != 3:
+        raise ValueError(
+            f"Keypoints should have 3 columns: {keypoints.shape[1]}")
 
     # switch x and z
     keypoints[:, [0, 2]] = keypoints[:, [2, 0]]
