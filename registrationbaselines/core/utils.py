@@ -190,18 +190,23 @@ def load_image(image_path: Path) -> torch.Tensor:
     return return_tensor
 
 
-def load_keypoints(keypoints_path:Path) -> torch.Tensor:
+def load_keypoints(keypoints_path: Path) -> torch.Tensor:
     """
-    Load keypoints from a csv file to a torch tensor of shape [N,3]
-    @param keypoints_path:
-    @return:
+    Load keypoints from a csv file to a torch tensor of shape [N,3].
+
+    The keypoints have to be in x,y,z order and they will be converted to z,y,x.
+    The switch happens because extracting a np array from an sitk image does that too.
+
+    @param keypoints_path: Path to the .txt keypoints file
+    @return: Keypoints as a torch tensor of shape [N,3].
     """
     keypoints = np.loadtxt(keypoints_path, delimiter=',')
     keypoints = torch.tensor(keypoints)
     assert keypoints.shape[1] == 3
     assert keypoints.ndim == 2
 
-    #keypoints[:, [0, 2]] = keypoints[:, [2, 0]]
+    # switch x and z
+    keypoints[:, [0, 2]] = keypoints[:, [2, 0]]
 
     return keypoints
 
@@ -407,10 +412,12 @@ def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tenso
 
     return displacement
 
+
 def unit_displacement_to_displacement(displacement):
 
     for dim in range(displacement.shape[-1]):
-        displacement[..., dim] = float(displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
+        displacement[..., dim] = float(
+            displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
 
     return displacement
 
@@ -513,8 +520,8 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
     @return:
     """
 
-    if displacement.min() >= -1 and displacement.max() <=1:
-        displacement=unit_displacement_to_displacement(displacement)
+    if displacement.min() >= -1 and displacement.max() <= 1:
+        displacement = unit_displacement_to_displacement(displacement)
 
     if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
@@ -536,7 +543,7 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
 
-    deformed_keypoints = moving_keypoints - mov_lms_disp # pull
+    deformed_keypoints = moving_keypoints - mov_lms_disp  # pull
     return deformed_keypoints
 
 
