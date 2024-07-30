@@ -15,7 +15,7 @@ from registrationbaselines.core import utils_metrics
 from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D, floatArray2Dor3D
 
 
-def is_nifti_and_exists(path: Path) -> None:
+def is_nifti(path: Path) -> None:
     """
     Function to check if a file is a nifti and exists.
 
@@ -78,6 +78,16 @@ def is_direction_identity(image: sitk.Image) -> None:
         )
 
 
+def are_offdiagonal_direction_elements_zero(image: sitk.Image) -> None:
+
+    dir = np.abs(np.array(image.GetDirection(), np.float64))
+
+    dir_offdiagonal = list(dir[1:4]) + list(dir[5:8])
+
+    if not dir_offdiagonal == [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]:
+        raise ValueError("Off-diagonal elements are not zero")
+
+
 def load_displacement(path: Path) -> torch.Tensor:
     """
     Load a displacement field from a file and return it as a torch tensor in the shape H,W,D,3
@@ -90,9 +100,14 @@ def load_displacement(path: Path) -> torch.Tensor:
     @raise ValueError: If the displacement field has wrong dimensions.
     """
 
-    is_nifti_and_exists(path)
+    is_nifti(path)
 
     displacement_sitk: sitk.Image = sitk.ReadImage(path)
+
+    is_isotropic(displacement_sitk)
+    is_direction_identity(displacement_sitk)
+    are_offdiagonal_direction_elements_zero(displacement_sitk)
+
     displacement_array: floarArray4Dor5D = sitk.GetArrayFromImage(
         displacement_sitk)
 
@@ -107,7 +122,7 @@ def load_displacement(path: Path) -> torch.Tensor:
     # check dimensions
     shape = displacement_array.shape
 
-    # check that it is 4D or 5D
+    # check that it is 5D
     if len(shape) != 5:
         raise ValueError(
             f"Dimension is not 5D: {len(shape)}"
@@ -159,9 +174,14 @@ def load_image(image_path: Path) -> torch.Tensor:
     @rtype: floatArray2Dor3Dor4D
     """
 
-    is_nifti_and_exists(image_path)
+    is_nifti(image_path)
 
     image_sitk: sitk.Image = sitk.ReadImage(image_path)
+
+    is_isotropic(image_sitk)
+    is_direction_identity(image_sitk)
+    are_offdiagonal_direction_elements_zero(image_sitk)
+
     image_array: array2Dor3D = sitk.GetArrayFromImage(image_sitk)
 
     dimension = image_array.ndim
@@ -171,12 +191,6 @@ def load_image(image_path: Path) -> torch.Tensor:
         raise ValueError(
             f"Dimension of {image_path} is not 3D: {dimension}"
         )
-
-    # check that spacing is isotropic
-    # is_isotropic(image_sitk)
-
-    # check that direction is identity
-    is_direction_identity(image_sitk)
 
     return_tensor = torch.from_numpy(image_array).squeeze()
     # check that image is float or int
@@ -216,7 +230,7 @@ def load_keypoints(keypoints_path: Path) -> torch.Tensor:
             f"Keypoints should have 3 columns: {keypoints.shape[1]}")
 
     # switch x and z
-    keypoints[:, [0, 2]] = keypoints[:, [2, 0]]
+    # keypoints[:, [0, 2]] = keypoints[:, [2, 0]]
 
     return keypoints
 
