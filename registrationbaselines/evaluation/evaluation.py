@@ -137,7 +137,7 @@ class Evaluation():
                     path_segmentation_moving)
 
                 deformed_segmentation = utils.deform_image(moving_segmentation,
-                                                           displacement, mode='nearest')
+                                                           displacement)
 
             fixed_image = fixed_image.to(displacement.device)
             moving_image = moving_image.to(displacement.device)
@@ -146,17 +146,24 @@ class Evaluation():
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
 
-                fixed_keypoints, moving_keypoints = metrics.read_lanmdarks(
-                    path_fixed_keypoints, path_moving_keypoints)
+                fixed_keypoints = utils.load_keypoints(path_fixed_keypoints)
+                moving_keypoints = utils.load_keypoints(path_moving_keypoints)
 
                 assert moving_keypoints.shape == moving_keypoints.shape
                 assert fixed_keypoints.shape[-1] == 3 or fixed_keypoints.shape[-1] == 2
 
                 deformed_keypoints = utils.deform_keypoints(
                     moving_keypoints, displacement)
-            visualization.plot_all_registration_results(plots_path, moving_image.numpy(), fixed_image.numpy(), deformed_image.numpy(),
-                                                        displacement.numpy(), fixed_labels=fixed_segmentation.numpy(), pred_labels=deformed_segmentation.numpy(),
-                                                        fixed_keypoints=fixed_keypoints, moving_keypoints=moving_keypoints, pred_keypoints=deformed_keypoints)
+            visualization.plot_all_registration_results(moving_image,
+                                                        fixed_image,
+                                                        deformed_image,
+                                                        displacement,
+                                                        fixed_segmentations=fixed_segmentation,
+                                                        pred_segmentations=deformed_segmentation,
+                                                        fixed_keypoints=fixed_keypoints,
+                                                        moving_keypoints=moving_keypoints,
+                                                        pred_keypoints=deformed_keypoints,
+                                                        save_path=plots_path)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
         """

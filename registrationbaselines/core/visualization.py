@@ -246,11 +246,14 @@ def multilabel_to_boundary(label_map: np.ndarray):
     return boundary_label_map
 
 
-def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch.Tensor, pred_image: torch.Tensor,
-                                  displacement: torch.Tensor, fixed_segmentations: Optional[np.array] = None,
-                                  pred_segmentations: Optional[np.array] = None,
-                                  moving_keypoints: Optional[np.array] = None,
-                                  fixed_keypoints: Optional[np.array] = None,
+def plot_all_registration_results(moving_image: torch.Tensor,
+                                  fixed_image: torch.Tensor,
+                                  pred_image: torch.Tensor,
+                                  displacement: torch.Tensor,
+                                  fixed_segmentations: Optional[torch.Tensor] = None,
+                                  pred_segmentations: Optional[torch.Tensor] = None,
+                                  moving_keypoints: Optional[torch.Tensor] = None,
+                                  fixed_keypoints: Optional[torch.Tensor] = None,
                                   pred_keypoints: Optional[torch.Tensor] = None,
                                   title: Optional[str] = None,
                                   save_path: Path = None) -> plt.Figure:
