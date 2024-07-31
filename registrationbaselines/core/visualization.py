@@ -174,6 +174,9 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
                            color: Optional[str] = 'cornflowerblue') -> None:
     """
     Plots 2d warped grid from a displacement field to a given matplotlib axis. source: https://github.com/qiuhuaqi/midir
+
+    Bugfix: this now uses the pull convention to correctly display the deformation.
+
     :param ax: axis of a plt plot
     :param disp: displacement field of size (2,H,W)
     :param background:
@@ -182,9 +185,7 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
     :param color: color of grid lines
     :return: None
     """
-    if background is not None:
-        background = background
-    else:
+    if background is None:
         background = np.zeros(disp.shape[1:])
 
     assert disp.shape[0] == 2, "Displacement field should have shape (2, H, W)"
@@ -194,21 +195,16 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
         disp[0, ...] = float(disp.shape[1] - 1) * disp[0, ...] / 2.0
         disp[1, ...] = float(disp.shape[2] - 1) * disp[1, ...] / 2.0
 
-    id_grid_H, id_grid_W = np.meshgrid(range(0, background.shape[0] - 1, interval),
-                                       range(
-                                           0, background.shape[1] - 1, interval),
-                                       indexing='ij')
+    H, W = background.shape
+    y, x = np.meshgrid(np.arange(H), np.arange(W), indexing='ij')
 
-    new_grid_H = id_grid_H + disp[0, id_grid_H, id_grid_W]
-    new_grid_W = id_grid_W + disp[1, id_grid_H, id_grid_W]
+    # Create sampling grid
+    sample_y = y[::interval, ::interval] - disp[0, ::interval, ::interval]
+    sample_x = x[::interval, ::interval] - disp[1, ::interval, ::interval]
 
-    kwargs = {"linewidth": 0.34, "color": color}
-    for i in range(new_grid_H.shape[0]):
-        ax.plot(new_grid_W[i, :], new_grid_H[i, :], **
-                kwargs)  # each draws a horizontal line
-    for i in range(new_grid_H.shape[1]):
-        ax.plot(new_grid_W[:, i], new_grid_H[:, i], **
-                kwargs)  # each draws a vertical line
+    # Plot deformed grid
+    ax.plot(sample_x, sample_y, color=color, linewidth=0.34)
+    ax.plot(sample_x.T, sample_y.T, color=color, linewidth=0.34)
 
     ax.set_title(title)
     ax.imshow(background, cmap='gray')
