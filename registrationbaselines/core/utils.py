@@ -104,6 +104,36 @@ def are_offdiagonal_direction_elements_zero(image: sitk.Image) -> None:
         raise ValueError("Off-diagonal elements are not zero")
 
 
+def flip(x: torch.Tensor, dim: int):
+    """
+    Flip order of a specific dimension dim
+
+    x (Tensor): input tensor
+    dim (int): axis which should be flipped
+    return (Tensor): returns the tensor with the specified axis flipped
+    """
+    indices = [slice(None)] * x.dim()
+    indices[dim] = torch.arange(x.size(dim) - 1, -1, -1,
+                                dtype=torch.long, device=x.device)
+    return x[tuple(indices)]
+
+
+def reverse_axis(image: torch.Tensor) -> torch.Tensor:
+    """
+    Flips the order of the axis representing the space dimensions (preceeding dimensions are ignored).
+    Respectively, the axis holding the vectors is flipped as well
+
+    Note: the method is inplace
+    """
+    # reverse order of axis to follow the convention of SimpleITK
+    order = list(reversed(range(image.ndim-1)))
+    order.append(len(order))
+    image = image.squeeze_().permute(tuple(order))
+    image = flip(image, image.ndim-1)
+
+    return image
+
+
 def load_displacement(path: Path) -> torch.Tensor:
     """
     Load a displacement field from a file and return it as a torch tensor in the shape H,W,D,3
