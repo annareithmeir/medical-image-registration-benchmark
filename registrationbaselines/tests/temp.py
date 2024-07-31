@@ -218,6 +218,92 @@ def create_ellipsoid_keypoints(shape: Tuple[int, int, int] = (200, 200, 200),
     return torch.tensor(keypoints, device=device)
 
 
+def create_cube_keypoints(shape: Tuple[int, int, int] = (200, 200, 200),
+                          side_lengths: Tuple[float, float, float] = (
+                              100.0, 80.0, 60.0),
+                          cube_thickness: float = 5.0,
+                          cube_spacing: float = 10.0,
+                          num_cubes: int = 5) -> torch.Tensor:
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    center = torch.tensor([(s - 1) / 2 for s in shape], device=device)
+    keypoints = []
+
+    for i in range(1, num_cubes):
+        if i == 1:
+            spacing = cube_spacing / 2
+        else:
+            spacing = cube_spacing
+
+        offset = i * (cube_thickness + spacing) + cube_thickness / 2
+
+        # Create keypoints for each cube based on side_lengths
+        cube_keypoints = [
+            # x-axis keypoints (along x-axis, keep y and z at center)
+            [center[0], center[1], center[2] + offset],
+            [center[0], center[1], center[2] - offset],
+
+            # y-axis keypoints (along y-axis, keep x and z at center)
+            [center[0], center[1] + offset, center[2]],
+            [center[0], center[1] - offset, center[2]],
+
+            # z-axis keypoints (along z-axis, keep x and y at center)
+            [center[0] + offset, center[1], center[2]],
+            [center[0] - offset, center[1], center[2]],
+        ]
+
+        keypoints.extend(cube_keypoints)
+
+    return torch.tensor(keypoints, device=device)
+
+
+def create_concentric_cuboids(
+    shape: Tuple[int, int, int] = (200, 200, 200),
+    cuboid_size: Tuple[float, float, float] = (100.0, 80.0, 60.0),
+    cuboid_thickness: float = 5.0,
+    cuboid_spacing: float = 10.0,
+    num_cuboids: int = 5
+) -> torch.Tensor:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Create volume
+    volume = torch.zeros(shape, device=device)
+
+    # Calculate center of the volume
+    center = torch.tensor([(s - 1) / 2 for s in shape], device=device)
+
+    for i in range(num_cuboids):
+        # Calculate the current cuboid dimensions
+        current_size = [
+            cuboid_size[j] + 2 * i * (cuboid_thickness + cuboid_spacing)
+            for j in range(3)
+        ]
+
+        # Calculate the start and end indices for each dimension
+        starts = [int(center[j] - current_size[j] / 2) for j in range(3)]
+        ends = [int(center[j] + current_size[j] / 2) for j in range(3)]
+
+        # Check if the current cuboid fits within the volume
+        if any(starts[j] < 0 or ends[j] > shape[j] for j in range(3)):
+            print(
+                f"Warning: Cuboid {i+1} doesn't fit in the volume. Skipping.")
+            break
+
+        # Create the outer surface of the cuboid
+        volume[starts[0]:ends[0], starts[1]:ends[1], starts[2]:ends[2]] = 1.0
+
+        # Remove the inner part to create a hollow cuboid (except for the innermost cuboid)
+        if i < num_cuboids - 1:
+            inner_starts = [starts[j] + cuboid_thickness for j in range(3)]
+            inner_ends = [ends[j] - cuboid_thickness for j in range(3)]
+            volume[inner_starts[0]:inner_ends[0],
+                   inner_starts[1]:inner_ends[1],
+                   inner_starts[2]:inner_ends[2]] = 0.0
+
+    return volume
+
+
 def print_square_tensor(tensor: torch.Tensor) -> None:
     """
     Nicely prints a 2D square torch tensor with 2 values after the decimal point.
@@ -233,22 +319,32 @@ def print_square_tensor(tensor: torch.Tensor) -> None:
 
 shape = (201, 201, 201)
 thickness = 1
-sphere_spacing = 20
+sphere_spacing = 10
 num_ellipsoids = 3
-semi_axes = (90, 70, 50)
-max_displacement = 30
+semi_axes = (100, 80, 60)
+max_displacement = 2
 
-image = create_concentric_ellipsoids(shape,
-                                     semi_axes,
-                                     thickness,
-                                     sphere_spacing,
-                                     num_ellipsoids + 1)
+image = create_concentric_cuboids(shape,
+                                  semi_axes,
+                                  thickness,
+                                  sphere_spacing,
+                                  num_ellipsoids + 1)
+# image = create_concentric_ellipsoids(shape,
+#                                      semi_axes,
+#                                      thickness,
+#                                      sphere_spacing,
+#                                      num_ellipsoids + 1)
 
-keypoints = create_ellipsoid_keypoints(shape,
-                                       semi_axes,
-                                       thickness,
-                                       sphere_spacing,
-                                       num_ellipsoids + 1)
+keypoints = create_cube_keypoints(shape,
+                                  semi_axes,
+                                  thickness,
+                                  sphere_spacing,
+                                  num_ellipsoids + 1)
+# keypoints = create_ellipsoid_keypoints(shape,
+#                                        semi_axes,
+#                                        thickness,
+#                                        sphere_spacing,
+#                                        num_ellipsoids + 1)
 
 displacement = create_displacement_field(shape,
                                          semi_axes,
