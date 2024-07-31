@@ -588,20 +588,23 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
     if displacement.min() >= -1 and displacement.max() <= 1:
         displacement = unit_displacement_to_displacement(displacement)
 
+    # Transpose the keypoints to match the shape for map_coordinates (3, N)
+    moving_keypoints_t = moving_keypoints.transpose(0, 1)
+
     if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 2], moving_keypoints.transpose(0, 1))
+            displacement[:, :, :, 2], moving_keypoints_t)
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, :, 1], moving_keypoints.transpose(0, 1))
+            displacement[:, :, :, 1], moving_keypoints_t)
         mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 0], moving_keypoints.transpose(0, 1))
+            displacement[:, :, :, 0], moving_keypoints_t)
         mov_lms_disp = torch.tensor(
             (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose(0, 1)
     elif moving_keypoints.shape[-1] == 2:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, 0], moving_keypoints.transpose(0, 1))
+            displacement[:, :, 0], moving_keypoints_t)
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, 1], moving_keypoints.transpose(0, 1))
+            displacement[:, :, 1], moving_keypoints_t)
         mov_lms_disp = torch.tensor(
             (mov_lms_disp_x, mov_lms_disp_y)).transpose(0, 1)
     else:
