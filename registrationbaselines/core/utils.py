@@ -198,6 +198,8 @@ def load_displacement(path: Path) -> torch.Tensor:
     displacement_tensor = displacement_to_unit_displacement(
         displacement_tensor)
 
+    displacement_tensor = reverse_axis(displacement_tensor)
+
     return displacement_tensor
 
 
