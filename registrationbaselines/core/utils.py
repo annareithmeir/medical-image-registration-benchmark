@@ -476,29 +476,24 @@ def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tenso
     means that the displacement distance is equal to the side length of the displaced image.
     """
 
+    disp = torch.zeros_like(displacement)
+
     for dim in range(displacement.shape[-1]):
-        displacement[..., dim] = 2.0 * displacement[..., dim] / \
+        disp[..., dim] = 2.0 * displacement[..., dim] / \
             float(displacement.shape[-dim - 2] - 1)
 
-    return displacement
-
-
-def unit_displacement_to_displacement(displacement):
-
-    for dim in range(displacement.shape[-1]):
-        displacement[..., dim] = float(
-            displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
-
-    return displacement
+    return disp
 
 
 def unit_displacement_to_displacement(displacement: torch.Tensor) -> torch.Tensor:
 
+    disp = torch.zeros_like(displacement)
+
     for dim in range(displacement.shape[-1]):
-        displacement[..., dim] = float(
+        disp[..., dim] = float(
             displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
 
-    return displacement
+    return disp
 
 
 def deform_image(image: torch.Tensor,
@@ -595,11 +590,11 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
 
     if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 0], moving_keypoints.transpose(0, 1))
+            displacement[:, :, :, 2], moving_keypoints.transpose(0, 1))
         mov_lms_disp_y = map_coordinates(
             displacement[:, :, :, 1], moving_keypoints.transpose(0, 1))
         mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 2], moving_keypoints.transpose(0, 1))
+            displacement[:, :, :, 0], moving_keypoints.transpose(0, 1))
         mov_lms_disp = torch.tensor(
             (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose(0, 1)
     elif moving_keypoints.shape[-1] == 2:
@@ -612,6 +607,34 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
     else:
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
+
+    """
+    ######################################################################################################
+    ###### TEMPORARY  ################
+    ######################################################################################################
+    # Step 2: Get the integer coordinates of landmarks
+    moving_coords = moving_keypoints.long()
+
+    # Ensure the coordinates are within the valid range
+    moving_coords[:, 0] = torch.clamp(
+        moving_coords[:, 0], 0, displacement.shape[1] - 1)
+    moving_coords[:, 1] = torch.clamp(
+        moving_coords[:, 1], 0, displacement.shape[2] - 1)
+    moving_coords[:, 2] = torch.clamp(
+        moving_coords[:, 2], 0, displacement.shape[3] - 1)
+
+    displacement = unit_displacement_to_displacement(displacement)
+
+    # Step 3: Extract the displacements for each landmark
+    displacements = displacement[moving_coords[:, 0],
+                                 moving_coords[:, 1],
+                                 moving_coords[:, 2], :]
+
+    # Step 4: Apply the displacements
+    displaced_landmarks_zyx = moving_coords.float() - displacements
+
+    return displaced_landmarks_zyx
+    """
 
     deformed_keypoints = moving_keypoints - mov_lms_disp  # pull
     return deformed_keypoints
