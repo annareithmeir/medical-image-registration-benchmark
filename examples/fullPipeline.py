@@ -54,7 +54,7 @@ def main() -> None:
 
     machine_name = socket.gethostname()
     if machine_name == "fryderyk":
-        path_data = Path("/home/fryderyk/Documents/data/ACDC/")
+        path_data = Path("/home/fryderyk/Documents/data/LungCT_preprocessed/")
     elif machine_name == "janus":
         path_data = Path("/data/LungCT_preprocessed")
     else:
@@ -73,7 +73,7 @@ def main() -> None:
     registration._create_result_directories(method)
 
     for item in loader_data:
-        # break
+        break
         fixed = item["fixed_image"]
         moving = item["moving_image"]
         registration.register(fixed, moving)
@@ -92,7 +92,7 @@ def main() -> None:
                             method,
                             loader_data,
                             loader_transformations)
-    evaluation.evaluate()
+    # evaluation.evaluate()
     print("\nplot...")
 
     evaluation.visualize()
