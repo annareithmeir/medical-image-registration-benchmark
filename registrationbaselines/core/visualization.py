@@ -319,7 +319,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 kp_slice = moving_keypoints[np.where(
                     abs(moving_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("M")
             plt.axis('off')
@@ -331,7 +331,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 kp_slice = fixed_keypoints[np.where(
                     abs(fixed_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("F")
             plt.axis('off')
@@ -343,7 +343,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 kp_slice = pred_keypoints[np.where(
                     abs(pred_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("warped M")
             plt.axis('off')
