@@ -440,11 +440,11 @@ semi_axes = np.asarray([80, 80, 80])
 displacement_size = np.asarray([90, 90, 90])
 max_displacement = 20
 
-image = create_concentric_cuboids(shape,
-                                  semi_axes/2,
-                                  thickness,
-                                  sphere_spacing,
-                                  num_ellipsoids + 1)
+# image = create_concentric_cuboids(shape,
+#                                   semi_axes/2,
+#                                   thickness,
+#                                   sphere_spacing,
+#                                   num_ellipsoids + 1)
 # image = create_concentric_ellipsoids(shape,
 #                                      semi_axes,
 #                                      thickness,
@@ -468,7 +468,7 @@ image = create_concentric_cuboids(shape,
 
 image, keypoints = create_rectangle_and_keypoints(
     shape=(201, 201, 201), rect_shape=(100, 50, 24))
-displacement = create_displacement_field_constant(shape, vector=(0, 0, -10))
+displacement = create_displacement_field_constant(shape, vector=(-10, 0, 0))
 
 displacement_unit = utils.displacement_to_unit_displacement(
     displacement.detach().clone())
