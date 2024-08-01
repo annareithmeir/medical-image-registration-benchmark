@@ -174,6 +174,10 @@ def create_rectangle_and_keypoints(shape: Tuple[int, int, int] = (201, 201, 201)
                rect_shape[1], shape_slices[2]])
     kps.append([start_x, start_y++rect_shape[1], shape_slices[2]])
 
+    # kps.append([5,10, shape_slices[2]])
+    # kps.append([5,shape_slices[1],10])
+    # kps.append([shape_slices[0],5,10])
+
     return volume, torch.tensor(kps, device="cpu")
 
 
@@ -182,7 +186,8 @@ def create_concentric_spheres(shape: Tuple[int, int, int] = (200, 200, 200),
                               sphere_spacing: float = 10.0,
                               num_spheres: int = 5) -> torch.Tensor:
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
 
     # Create coordinate grid
     z, y, x = torch.meshgrid(torch.arange(shape[0]), torch.arange(
@@ -258,7 +263,7 @@ def create_sphere_keypoints(shape: Tuple[int, int, int] = (200, 200, 200),
                             sphere_spacing: float = 10.0,
                             num_spheres: int = 5) -> torch.Tensor:
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
 
     center = torch.tensor([(s - 1) / 2 for s in shape], device=device)
     keypoints = []
@@ -346,7 +351,7 @@ def create_cuboid_keypoints(
     cuboid_spacing: float = 4.0,
     num_cuboids: int = 3
 ) -> torch.Tensor:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
     center = torch.tensor([(s - 1) / 2 for s in shape], device=device)
     keypoints = []
 
@@ -381,7 +386,7 @@ def create_concentric_cuboids(shape: Tuple[int, int, int],
                               cuboid_spacing: float = 10.0,
                               num_cuboids: int = 5) -> torch.Tensor:
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
 
     # Create coordinate grid
     z, y, x = torch.meshgrid(torch.arange(shape[0]), torch.arange(
@@ -438,37 +443,37 @@ sphere_spacing = 30
 num_ellipsoids = 3
 semi_axes = np.asarray([80, 80, 80])
 displacement_size = np.asarray([90, 90, 90])
-max_displacement = 20
+max_displacement = -20
 
-# image = create_concentric_cuboids(shape,
-#                                   semi_axes/2,
-#                                   thickness,
-#                                   sphere_spacing,
-#                                   num_ellipsoids + 1)
+image = create_concentric_cuboids(shape,
+                                  semi_axes/2,
+                                  thickness,
+                                  sphere_spacing,
+                                  num_ellipsoids + 1)
 # image = create_concentric_ellipsoids(shape,
 #                                      semi_axes,
 #                                      thickness,
 #                                      sphere_spacing,
 #                                      num_ellipsoids + 1)
 
-# keypoints = create_cube_keypoints(shape,
-#                                   semi_axes,
-#                                   thickness,
-#                                   sphere_spacing,
-#                                   num_ellipsoids + 1)
+keypoints = create_cuboid_keypoints(shape,
+                                  semi_axes/2,
+                                  thickness,
+                                  sphere_spacing,
+                                  num_ellipsoids)
 # keypoints = create_ellipsoid_keypoints(shape,
 #                                        semi_axes,
 #                                        thickness,
 #                                        sphere_spacing,
 #                                        num_ellipsoids + 1)
 
-# displacement = create_displacement_field(shape,
-#                                          semi_axes,
-#                                          -max_displacement)
+displacement = create_displacement_field_sphere(shape,
+                                         semi_axes,
+                                         -max_displacement)
 
-image, keypoints = create_rectangle_and_keypoints(
-    shape=(201, 201, 201), rect_shape=(100, 50, 24))
-displacement = create_displacement_field_constant(shape, vector=(-10, 0, 0))
+# image, keypoints = create_rectangle_and_keypoints(
+#     shape=(201, 201, 201), rect_shape=(100, 50, 24))
+# displacement = create_displacement_field_constant(shape, vector=(-10, 0, 0))
 
 displacement_unit = utils.displacement_to_unit_displacement(
     displacement.detach().clone())
