@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Union, Tuple
 
 from scipy.ndimage import map_coordinates
+from sympy import true
 import yaml
 import numpy as np
 import SimpleITK as sitk
@@ -537,7 +538,7 @@ def deform_image(image: torch.Tensor,
 
     # warp image
     warped_image = F.grid_sample(
-        image, displacement + grid, mode=mode).squeeze()
+        image, displacement + grid, mode=mode, align_corners=True).squeeze()
 
     if warped_image.ndim != image.squeeze().ndim:
         raise ValueError(
@@ -576,6 +577,47 @@ def normalize_tensor_to_0_1(tensor: torch.Tensor) -> torch.Tensor:
 
 def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> torch.Tensor:
     """
+    Deforms keypoints according to the pull convention using grid_sample.
+
+    @param moving_keypoints: Tensor of shape (N, 3) where N is the number of keypoints (18 in this case).
+    @param displacement: Tensor of shape (201, 201, 201, 3) containing the displacement field.
+    @return: Deformed keypoints as a Tensor of shape (N, 3).
+    """
+
+    if displacement.min() >= -1 and displacement.max() <= 1:
+        displacement = unit_displacement_to_displacement(displacement)
+
+    N = moving_keypoints.shape[0]
+
+    # Normalize moving_keypoints to the range [-1, 1] for grid_sample
+    grid = moving_keypoints.unsqueeze(0)  # Shape (1, N, 3)
+
+    # Normalize the grid to [-1, 1] based on the displacement field size
+    grid = (grid - torch.tensor([displacement.shape[0] / 2, displacement.shape[1] / 2, displacement.shape[2] / 2], device=grid.device)) \
+        / torch.tensor([displacement.shape[0] / 2, displacement.shape[1] / 2, displacement.shape[2] / 2], device=grid.device)
+
+    # Reshape the grid to the correct shape for grid_sample
+    grid = grid.view(1, 1, 1, N, 3)  # Shape (1, 1, 1, N, 3)
+
+    # Prepare displacement field for grid_sample
+    displacement = displacement.permute(3, 0, 1, 2).unsqueeze(
+        0)  # Shape (1, 3, 201, 201, 201)
+
+    # Use grid_sample to sample the displacement field at the keypoints' locations
+    sampled_displacement = F.grid_sample(
+        displacement, grid, mode='bilinear', padding_mode='border', align_corners=True)
+
+    # Reshape the sampled displacement to match the original keypoints shape
+    sampled_displacement = sampled_displacement.squeeze().transpose(0, 1)  # Shape (N, 3)
+
+    # Apply the displacement to the keypoints
+    deformed_keypoints = moving_keypoints - sampled_displacement  # Pull convention
+
+    return deformed_keypoints
+
+
+def deform_keypointsOLD(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> torch.Tensor:
+    """
     Deforms keypoints according to the pull convention
 
     Map the moving keypoints to the fixed keypoints using the displacement field
@@ -593,11 +635,11 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
 
     if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 2], moving_keypoints_t)
+            displacement[:, :, :, 0], moving_keypoints_t)
         mov_lms_disp_y = map_coordinates(
             displacement[:, :, :, 1], moving_keypoints_t)
         mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 0], moving_keypoints_t)
+            displacement[:, :, :, 2], moving_keypoints_t)
         mov_lms_disp = torch.tensor(
             (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose(0, 1)
     elif moving_keypoints.shape[-1] == 2:
