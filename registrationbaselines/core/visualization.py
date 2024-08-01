@@ -7,6 +7,7 @@ import matplotlib.colors as colors
 from scipy.ndimage import binary_erosion
 from matplotlib.colors import Normalize
 from matplotlib.colors import ListedColormap
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pandas as pd
 import wandb
 from pathlib import Path
@@ -173,6 +174,9 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
                            color: Optional[str] = 'cornflowerblue') -> None:
     """
     Plots 2d warped grid from a displacement field to a given matplotlib axis. source: https://github.com/qiuhuaqi/midir
+
+    Bugfix: this now uses the pull convention to correctly display the deformation.
+
     :param ax: axis of a plt plot
     :param disp: displacement field of size (2,H,W)
     :param background:
@@ -181,32 +185,26 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
     :param color: color of grid lines
     :return: None
     """
-    if background is not None:
-        background = background
-    else:
+    if background is None:
         background = np.zeros(disp.shape[1:])
 
-    assert disp.shape[0] == 2, "Displacement field should have shape (H, W, 2)"
+    assert disp.shape[0] == 2, "Displacement field should have shape (2, H, W)"
 
     # convert displacement from unit
-    disp[0, ...] = float(disp.shape[1] - 1) * disp[0, ...] / 2.0
-    disp[1, ...] = float(disp.shape[2] - 1) * disp[1, ...] / 2.0
+    if disp.min() >= -1.0 and disp.max() <= 1.0:
+        disp[0, ...] = float(disp.shape[1] - 1) * disp[0, ...] / 2.0
+        disp[1, ...] = float(disp.shape[2] - 1) * disp[1, ...] / 2.0
 
-    id_grid_H, id_grid_W = np.meshgrid(range(0, background.shape[0] - 1, interval),
-                                       range(
-                                           0, background.shape[1] - 1, interval),
-                                       indexing='ij')
+    H, W = background.shape
+    y, x = np.meshgrid(np.arange(H), np.arange(W), indexing='ij')
 
-    new_grid_H = id_grid_H + disp[0, id_grid_H, id_grid_W]
-    new_grid_W = id_grid_W + disp[1, id_grid_H, id_grid_W]
+    # Create sampling grid
+    sample_y = y[::interval, ::interval] - disp[0, ::interval, ::interval]
+    sample_x = x[::interval, ::interval] - disp[1, ::interval, ::interval]
 
-    kwargs = {"linewidth": 0.34, "color": color}
-    for i in range(new_grid_H.shape[0]):
-        ax.plot(new_grid_W[i, :], new_grid_H[i, :], **
-                kwargs)  # each draws a horizontal line
-    for i in range(new_grid_H.shape[1]):
-        ax.plot(new_grid_W[:, i], new_grid_H[:, i], **
-                kwargs)  # each draws a vertical line
+    # Plot deformed grid
+    ax.plot(sample_x, sample_y, color=color, linewidth=0.34)
+    ax.plot(sample_x.T, sample_y.T, color=color, linewidth=0.34)
 
     ax.set_title(title)
     ax.imshow(background, cmap='gray')
@@ -244,14 +242,17 @@ def multilabel_to_boundary(label_map: np.ndarray):
     return boundary_label_map
 
 
-def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch.Tensor, pred_image: torch.Tensor,
-                                  displacement: torch.Tensor, fixed_segmentations: Optional[np.array] = None,
-                                  pred_segmentations: Optional[np.array] = None,
-                                  moving_keypoints: Optional[np.array] = None,
-                                  fixed_keypoints: Optional[np.array] = None,
+def plot_all_registration_results(moving_image: torch.Tensor,
+                                  fixed_image: torch.Tensor,
+                                  pred_image: torch.Tensor,
+                                  displacement: torch.Tensor,
+                                  fixed_segmentations: Optional[torch.Tensor] = None,
+                                  pred_segmentations: Optional[torch.Tensor] = None,
+                                  moving_keypoints: Optional[torch.Tensor] = None,
+                                  fixed_keypoints: Optional[torch.Tensor] = None,
                                   pred_keypoints: Optional[torch.Tensor] = None,
                                   title: Optional[str] = None,
-                                  save_path: Path=None) -> plt.Figure:
+                                  save_path: Path = None) -> plt.Figure:
     """
     plots a figure with 9x3 subplots. Half-slices used for plots in each dimension.
     rows: dims
@@ -269,19 +270,19 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
     @param title:
     @return: plot
     """
-    moving_image=moving_image.numpy().squeeze()
-    fixed_image=fixed_image.numpy().squeeze()
-    pred_image=pred_image.numpy().squeeze()
+    moving_image = moving_image.numpy().squeeze()
+    fixed_image = fixed_image.numpy().squeeze()
+    pred_image = pred_image.numpy().squeeze()
     if fixed_segmentations is not None:
-        fixed_segmentations=fixed_segmentations.numpy().squeeze()
+        fixed_segmentations = fixed_segmentations.numpy().squeeze()
     if pred_segmentations is not None:
-        pred_segmentations=pred_segmentations.numpy().squeeze()
+        pred_segmentations = pred_segmentations.numpy().squeeze()
     if moving_keypoints is not None:
-        moving_keypoints=moving_keypoints.numpy().squeeze()
+        moving_keypoints = moving_keypoints.numpy().squeeze()
     if fixed_keypoints is not None:
-        fixed_keypoints=fixed_keypoints.numpy().squeeze()
+        fixed_keypoints = fixed_keypoints.numpy().squeeze()
     if pred_keypoints is not None:
-        pred_keypoints=pred_keypoints.numpy().squeeze()
+        pred_keypoints = pred_keypoints.numpy().squeeze()
     displacement = displacement.numpy().squeeze()
 
     assert displacement.ndim in [
@@ -318,7 +319,7 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
                 kp_slice = moving_keypoints[np.where(
                     abs(moving_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("M")
             plt.axis('off')
@@ -330,7 +331,7 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
                 kp_slice = fixed_keypoints[np.where(
                     abs(fixed_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("F")
             plt.axis('off')
@@ -342,7 +343,7 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
                 kp_slice = pred_keypoints[np.where(
                     abs(pred_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("warped M")
             plt.axis('off')
@@ -353,7 +354,7 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
             axes.remove(d)
             # print(displacement.shape, displacement[..., axes].take(half_slice_idx[d], axis=d).transpose(2, 0, 1).shape, pred_image.take(half_slice_idx[d], axis=d).shape)
             fieldAx = displacement[..., axes].take(half_slice_idx[d], axis=d)
-            #plot_quiverplot(fieldAx, ax=ax)
+            # plot_quiverplot(fieldAx, ax=ax)
             plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(
                 half_slice_idx[d], axis=d), interval=8, color="white")
             ax.set_frame_on(False)
@@ -408,7 +409,7 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
                 ax.title.set_text("segmentations")
 
             # jacobian determinant, negative values shown in red
-            ax = fig.add_subplot(3, 9, (9 * d) + 8)
+            ax = fig.add_subplot(3, 9, (9 * d) + 9)
             jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
             jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
             norm = colors.TwoSlopeNorm(
@@ -418,7 +419,14 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
             if toprow:
                 ax.title.set_text("jac det")
             plt.axis('off')
-            plt.colorbar(im1, ax=ax)
+
+            # Add a colorbar with adjusted size
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            cbar = plt.colorbar(im1, cax=cax)
+            # Adjust the colorbar tick label size if needed
+            cbar.ax.tick_params(labelsize=6)
+
     elif image_dim == 2:
         toprow = True
 
@@ -533,7 +541,6 @@ def plot_all_registration_results(moving_image: torch.Tensor, fixed_image: torch
 
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.01, hspace=0.01)
-
 
     if save_path is not None:
         fig.savefig(save_path)

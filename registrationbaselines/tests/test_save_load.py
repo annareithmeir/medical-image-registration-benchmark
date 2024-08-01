@@ -5,6 +5,7 @@ import sys
 import numpy as np
 import torch
 import SimpleITK as sitk
+import torchio as tio
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
@@ -14,7 +15,7 @@ import registrationbaselines.core.utils_nifti as utils_nifti
 
 class TestSaveLoad(unittest.TestCase):
 
-    def test_repeatedly_save_and_load(self):
+    def test_repeatedly_save_and_load(self) -> None:
 
         image_to_save = torch.rand(10, 10, 10)
         spacing = (1, 1, 1)
@@ -36,7 +37,7 @@ class TestSaveLoad(unittest.TestCase):
 
         file_path.unlink()
 
-    def test_load_image_interface(self):
+    def test_load_image_interface(self) -> None:
 
         # check that load_image returns a tensor
         file_path = Path(
@@ -80,7 +81,7 @@ class TestSaveLoad(unittest.TestCase):
 
         file_path_wrong_dtype.unlink()
 
-    def test_load_displacement_interface(self):
+    def test_load_displacement_interface(self) -> None:
 
         # check that it raises if file is not nifti but file exists
         file_path = Path(
@@ -132,7 +133,7 @@ class TestSaveLoad(unittest.TestCase):
         self.assertEqual(displacement.shape[-1], 3)
         self.assertEqual(len(displacement.shape), 4)
 
-    def test_save_image_interface(self):
+    def test_save_image_interface(self) -> None:
 
         file_wrong_dim = torch.rand(10, 10, 10, 10)
 
@@ -163,7 +164,7 @@ class TestSaveLoad(unittest.TestCase):
 
         file_path_correct.unlink()
 
-    def test_save_displacement_interface(self):
+    def test_save_displacement_interface(self) -> None:
 
         # raises when not nifti
         dummy_path = Path("dummy.txt")
@@ -219,3 +220,58 @@ class TestSaveLoad(unittest.TestCase):
         self.assertTrue(dummy_path.exists())
 
         dummy_path.unlink()
+
+    def test_load_keypoints(self) -> None:
+
+        # fails with non-existing path
+        self.assertRaises(FileNotFoundError,
+                          utils.load_keypoints, Path("dummy.txt"))
+
+        # fails with 2D array with more than 3 columns
+        array_2d = np.zeros((5, 5))
+        path_2d = Path(
+            "registrationbaselines/tests/test_files/keypoints_tmp.txt")
+        np.savetxt(path_2d, array_2d, delimiter=',')
+
+        self.assertRaises(ValueError, utils.load_keypoints, path_2d)
+        path_2d.unlink()
+
+        # switches x and y columns
+        keypoints = np.random.rand(5, 3).astype(np.float32)
+        path = Path(
+            "registrationbaselines/tests/test_files/keypoints_tmp.txt")
+        np.savetxt(path, keypoints, delimiter=',')
+
+        loaded_keypoints = utils.load_keypoints(path)
+        keypoints_torch = torch.from_numpy(keypoints)
+
+        self.assertEqual(loaded_keypoints.shape, (5, 3))
+        self.assertTrue(torch.equal(
+            loaded_keypoints[:, 0], keypoints_torch[:, 2]))
+        self.assertTrue(torch.equal(
+            loaded_keypoints[:, 1], keypoints_torch[:, 1]))
+        self.assertTrue(torch.equal(
+            loaded_keypoints[:, 2], keypoints_torch[:, 0]))
+
+        path.unlink()
+
+    def test_load_torchio_vs_sitk(self) -> None:
+
+        # loading with torchio vs loading with sitk and extracting np.array
+        # results in a transpose of x and z
+
+        path = Path(
+            r"registrationbaselines/tests/test_files/LungCT_0001_0000_preprocessed_segmentation.nii.gz")
+
+        image_array_tio = tio.ScalarImage(path).data.squeeze()
+
+        image_array_sitk = sitk.GetArrayFromImage(sitk.ReadImage(path))
+
+        shape_tio = tuple(image_array_tio.shape)
+        shape_sitk = image_array_sitk.shape
+
+        self.assertEqual(shape_tio[0], shape_sitk[2])
+        self.assertEqual(shape_tio[1], shape_sitk[1])
+        self.assertEqual(shape_tio[2], shape_sitk[0])
+
+        self.assertNotEqual(shape_tio, shape_sitk)
