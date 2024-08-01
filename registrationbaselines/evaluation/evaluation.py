@@ -219,15 +219,14 @@ class Evaluation():
         hausdorff95_mean = 0
 
         for path in [path_displacement, path_segmentation_fixed, path_segmentation_moving]:
-            utils.is_nifti_and_exists(path)
+            utils.is_nifti(path)
 
         displacement = utils.load_displacement(path_displacement)
         segmentation_fixed = utils.load_image(path_segmentation_fixed)
         segmentation_moving = utils.load_image(path_segmentation_moving)
 
         warped = utils.deform_image(segmentation_moving,
-                                    displacement,
-                                    mode='nearest')
+                                    displacement)
 
         deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
                                                                    path_segmentation_moving.name,
@@ -292,8 +291,8 @@ class Evaluation():
                     f"File {path.as_posix()} does not exist.")
 
         displacement = utils.load_displacement(path_displacement)
-        keypoints_fixed =utils.load_keypoints(path_fixed_keypoints)
-        keypoints_moving =utils.load_keypoints(path_moving_keypoints)
+        keypoints_fixed = utils.load_keypoints(path_fixed_keypoints)
+        keypoints_moving = utils.load_keypoints(path_moving_keypoints)
 
         keypoints_moving_warped = utils.deform_keypoints(keypoints_moving,
                                                          displacement.detach().cpu().numpy())
