@@ -589,6 +589,8 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
 
     N = moving_keypoints.shape[0]
 
+    moving_keypoints = moving_keypoints[:, [2, 1, 0]]
+
     # Normalize moving_keypoints to the range [-1, 1] for grid_sample
     grid = moving_keypoints.unsqueeze(0)  # Shape (1, N, 3)
 
@@ -612,6 +614,8 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
 
     # Apply the displacement to the keypoints
     deformed_keypoints = moving_keypoints - sampled_displacement  # Pull convention
+
+    deformed_keypoints = deformed_keypoints[:, [2, 1, 0]]
 
     return deformed_keypoints
 

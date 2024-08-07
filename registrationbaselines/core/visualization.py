@@ -295,6 +295,11 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     elif displacement.shape[-1] != 2 and displacement.shape[0] == 2:
         displacement = displacement.transpose(1, 2, 0)
 
+
+    # BUGFIX: we need to swap the vector components to be (z,y,x) since this is torch convention. (x,y,z, [x,y,z]) -> (x,y,z, [z,y,x])
+    displacement = displacement[..., [2, 1, 0]]
+
+
     fig = plt.figure(figsize=(40, 7))
     if title:
         fig.suptitle(title)
