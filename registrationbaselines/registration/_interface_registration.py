@@ -50,8 +50,8 @@ class RegistrationInterface(ABC):
 
     @abstractmethod
     def _register(self,
-                 fixed_image_path: Path,
-                 moving_image_path: Path) -> None:
+                  fixed_image_path: Path,
+                  moving_image_path: Path) -> None:
         """
         Register moving_image to fixed_image.
 
@@ -74,10 +74,12 @@ class RegistrationInterface(ABC):
         """
 
         if self.use_wandb is False:
-            self.configuration = self.convert_to_non_wandb_config(self.configuration)
+            self.configuration = self.convert_to_non_wandb_config(
+                self.configuration)
             result_path = Path(self.configuration["result_path"])
         else:
-            result_path = Path(self.configuration["parameters"]["result_path"]["values"][0])
+            result_path = Path(
+                self.configuration["parameters"]["result_path"]["values"][0])
 
         self._create_result_directories(self.method_name)
 
@@ -88,9 +90,9 @@ class RegistrationInterface(ABC):
             self.method_dir)
 
         self.evaluator = Evaluation(result_path,
-                                self.method_dir.name,
-                                self.dataloader,
-                                loader_transformations)
+                                    self.method_dir.name,
+                                    self.dataloader,
+                                    loader_transformations)
 
         self.evaluator.evaluate()
 
@@ -140,10 +142,10 @@ class RegistrationInterface(ABC):
                                     project="reg_baselines")
 
         wandb.agent(self.sweep_id,
-                        function=lambda: self._perform_wandb_run(),
-                        entity=None,
-                        project="reg_baselines",
-                        count=None)
+                    function=lambda: self._perform_wandb_run(),
+                    entity=None,
+                    project="reg_baselines",
+                    count=None)
 
     def get_transformation_path(self):
         """
