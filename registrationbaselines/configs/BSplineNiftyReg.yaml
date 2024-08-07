@@ -3,9 +3,9 @@ name:   BSplineNiftyReg
 
 parameters:
   result_path:
-    values:            [/home/koeglf/Documents/code/registrationbaselines/tmp/neck]
+    values:            [/home/fryderyk/Documents/code/registrationbaselines/tmp/reg_interface_rewrite]
   similarity_metric:
-    values:           ["--lncc 3", "--lncc 7"]
+    values:           ["--lncc 7", "--lncc 3"]
 
 
 
