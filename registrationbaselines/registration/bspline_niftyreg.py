@@ -1,7 +1,6 @@
 from pathlib import Path
-from tqdm import tqdm
 
-from typing import List, Dict, Any
+from typing import List, Any
 
 import wandb
 

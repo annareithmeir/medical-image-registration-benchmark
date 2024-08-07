@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 import yaml
 import torch
@@ -20,7 +20,7 @@ class RegistrationInterface(ABC):
 
     method_name: str = ""
 
-    configuration: Dict[str, Any] = {}
+    configuration: Dict[str, Union[str, int, float, bool]] = {}
 
     dataloader: data_loaders.GenericDataset
 
@@ -75,16 +75,19 @@ class RegistrationInterface(ABC):
 
         if self.use_wandb is False:
             self.configuration = self.convert_to_non_wandb_config(self.configuration)
+            result_path = Path(self.configuration["result_path"])
+        else:
+            result_path = Path(self.configuration["parameters"]["result_path"]["values"][0])
 
         self._create_result_directories(self.method_name)
 
         for item in tqdm(self.dataloader):
-            self.register(item["fixed_image"], item["moving_image"])
+            self._register(item["fixed_image"], item["moving_image"])
 
         loader_transformations = data_loaders.BaselineTransformations(
             self.method_dir)
 
-        self.evaluator = Evaluation(self.configuration["parameters"]["result_path"],
+        self.evaluator = Evaluation(result_path,
                                 self.method_dir.name,
                                 self.dataloader,
                                 loader_transformations)
@@ -117,8 +120,7 @@ class RegistrationInterface(ABC):
 
         buffer_ori_name = self.method_name
 
-        self.method_name = self.method_name + \
-            f"_sim{wandb.config.similarity_metric.replace('-', '').replace(' ', '_')}"
+        self.method_name = self.create_method_name_for_wandb(wandb.config)
 
         self.register_dataset()
 
@@ -189,7 +191,7 @@ class RegistrationInterface(ABC):
         """
 
         self.path_results = Path(self.configuration["result_path"]) if not self.use_wandb else Path(
-            self.configuration["parameters"]["result_path"]["value"])
+            self.configuration["parameters"]["result_path"]["values"][0])
 
         # create directory in base_dir called method
         self.method_dir = self.path_results / \
@@ -252,6 +254,23 @@ class RegistrationInterface(ABC):
 
         return new_config
 
+    def create_method_name_for_wandb(self, wandb_config: Dict[str, Union[str, int, float, bool]]) -> str:
+        """
+        Create the method name for wandb.
+        """
+
+        method_name = self.method_name
+
+        for key, value in wandb_config.items():
+
+            if key not in ['result_path', 'method_name']:
+                if isinstance(value, bool) or isinstance(value, int) or isinstance(value, float):
+                    method_name += f"___{key}_{str(value).lower()}"
+                else:
+                    beautified_param = value.replace('-', '').replace(' ', '_')
+                    method_name += f"___{key}_{beautified_param}"
+
+        return method_name
 
     @staticmethod
     def read_config(file_path: Path):
