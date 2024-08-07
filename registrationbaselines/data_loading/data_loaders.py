@@ -352,6 +352,21 @@ class MNISTDataset(GenericDataset):
 Medical datasets
 """
 
+class ImagePairDataset(GenericDataset):
+    def __init__(self, 
+                 image_pairs: List[Tuple[Path, Path]],
+                 segmentation_pairs: List[Tuple[Path, Path]],
+                 keypoint_pairs: List[Tuple[Path, Path]],
+                 return_type: str = ""):
+        super().__init__("image_pairs", return_type, None)
+        
+        self.images_list = image_pairs
+
+        self.spacing = sitk.ReadImage(
+            self.images_list[0][0]).GetSpacing()
+        self.image_shape = sitk.GetArrayFromImage(self.images_list[0][0].shape)
+
+        pass
 
 class L2RLungCTDataset(GenericDataset):
     """
