@@ -46,6 +46,8 @@ class GenericDataset(Dataset[datasetReturnType]):
         if return_type is None:
             self.return_type = "torch_tensor_dict"
         self.images_list = list()
+        self.segmentations_list = list()
+        self.keypoints_list = list()
 
         self.has_segmentations = False
         self.has_keypoints = False
@@ -82,10 +84,15 @@ class GenericDataset(Dataset[datasetReturnType]):
         return self.images_path / self.segmentations_list[idx][0], self.images_path / self.segmentations_list[idx][1]
 
     def _get_keypoint_pair_as_tensors(self, idx):
-        pass
+        keypoints_f = utils.load_keypoints(
+            self.images_path / self.keypoints_list[idx][0])
+
+        keypoints_m = utils.load_keypoints(
+            self.images_path / self.keypoints_list[idx][1])
+        return keypoints_f, keypoints_m
 
     def _get_keypoint_pair_as_paths(self, idx):
-        pass
+        return self.images_path / self.keypoints_list[idx][0], self.images_path / self.keypoints_list[idx][1]
 
     def __getitem__(self, idx):
         if (self.has_keypoints is False) and (self.has_segmentations is False):
@@ -380,14 +387,11 @@ class L2RLungCTDataset(GenericDataset):
         self.has_segmentations = True
         self.has_keypoints = True
 
-        self.segmentation_segmentations = {
+        self.segmentation_labels = {
             0: "background",
             1: "lung"
         }
 
-        self.images_list = None
-        self.segmentations_list = None
-        self.keypoints_list = None
         self._load_images_list()
         self._load_segmentations_list()
         self._load_keypoints_list()
@@ -396,17 +400,6 @@ class L2RLungCTDataset(GenericDataset):
             self.segmentations_list = [
                 self.segmentations_list[i] for i in indices]
             self.keypoints_list = [self.keypoints_list[i] for i in indices]
-
-    def _get_keypoint_pair_as_tensors(self, idx):
-        keypoints_f = utils.load_keypoints(
-            self.images_path / self.keypoints_list[idx][0])
-
-        keypoints_m = utils.load_keypoints(
-            self.images_path / self.keypoints_list[idx][1])
-        return keypoints_f, keypoints_m
-
-    def _get_keypoint_pair_as_paths(self, idx) -> Tuple[Path, Path]:
-        return self.images_path / self.keypoints_list[idx][0], self.images_path / self.keypoints_list[idx][1]
 
     def preprocess(self, save_path: Path) -> None:
         """
@@ -549,7 +542,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         self.has_segmentations = True
         self.has_keypoints = False
 
-        self.segmentation_segmentations = {
+        self.segmentation_labels = {
             0: "background",
             1: "liver",
             2: "spleen",
@@ -557,8 +550,6 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             4: "left kidney"
         }
 
-        self.images_list = None
-        self.segmentations_list = None
         self._load_images_list()
         self._load_segmentations_list()
         if indices is not None:  # create subsets for e.g. validation and training
@@ -693,8 +684,6 @@ class L2RAbdominalCTCTDataset(GenericDataset):
                         12: "left adrenal gland",
                         13: "right adrenal gland"}
 
-        self.images_list = None
-        self.segmentations_list = None
         self._load_images_list()
         self._load_segmentations_list()
         if indices is not None:  # create subsets for e.g. validation and training
@@ -1063,8 +1052,6 @@ class FIREDataset(GenericDataset):
         self.has_segmentations = False
 
         self.images_path = dataset_path
-        self.images_list = None
-        self.keypoints_list = None
         self.__load_imgs_list__()
         self.__load_kps_list__()
 
