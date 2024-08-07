@@ -42,7 +42,7 @@ def main() -> None:
     # registration.register_dataset()
 
     # WANDB SWEEP
-    registration.perform_wandb_sweep()
+    # registration.perform_wandb_sweep()
 
     ######
     loader_data = data_loaders.L2RLungCTDataset(path_data,
