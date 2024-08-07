@@ -2,10 +2,9 @@ import glob
 import random
 from itertools import combinations
 from pathlib import Path
-from typing import List, Union, Tuple
 import shutil
 
-from typing import Dict, Union
+from typing import List, Dict, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -87,7 +86,7 @@ class GenericDataset(Dataset[datasetReturnType]):
     def _get_keypoint_pair_as_paths(self, idx):
         pass
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> datasetReturnType:
         if (self.has_keypoints is False) and (self.has_segmentations is False):
             if self.return_type == "path_dict":
                 fixed_image, moving_image = self._get_image_pair_as_paths(idx)
@@ -352,21 +351,30 @@ class MNISTDataset(GenericDataset):
 Medical datasets
 """
 
+
 class ImagePairDataset(GenericDataset):
-    def __init__(self, 
-                 image_pairs: List[Tuple[Path, Path]],
-                 segmentation_pairs: List[Tuple[Path, Path]],
-                 keypoint_pairs: List[Tuple[Path, Path]],
+    def __init__(self,
+                 image_pairs: List[List[Path]],
+                 segmentation_pairs: Optional[List[List[Path]]] = None,
+                 keypoint_pairs: Optional[List[List[Path]]] = None,
                  return_type: str = ""):
-        super().__init__("image_pairs", return_type, None)
-        
+        super().__init__("image_pairs", return_type, [])
+
+        self.images_path = image_pairs[0][0].parent
+
         self.images_list = image_pairs
+        self.segmentations_list = segmentation_pairs
+        self.keypoints_list = keypoint_pairs
 
-        self.spacing = sitk.ReadImage(
-            self.images_list[0][0]).GetSpacing()
-        self.image_shape = sitk.GetArrayFromImage(self.images_list[0][0].shape)
+        if self.segmentations_list:
+            self.has_segmentations = True
+        if self.keypoints_list:
+            self.has_keypoints = True
 
-        pass
+        image = sitk.ReadImage(self.images_list[0][0])
+        self.spacing = image.GetSpacing()
+        self.image_shape = sitk.GetArrayFromImage(image).shape
+
 
 class L2RLungCTDataset(GenericDataset):
     """
