@@ -272,6 +272,9 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     @param title:
     @return: plot
     """
+
+    assert displacement.min() >= -1 and displacement.max()<=1
+
     moving_image = moving_image.numpy().squeeze()
     fixed_image = fixed_image.numpy().squeeze()
     pred_image = pred_image.numpy().squeeze()
@@ -428,13 +431,13 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             field[shrinking_mask] = 0
             field[jacdet_d == 1 ] = 1
             field[jacdet_d > 1 ] = 2
-            cmap = mcolors.ListedColormap(['red', 'orange', 'black', 'green'])
+            cmap = mcolors.ListedColormap(['red', 'orange', 'black', 'blue'])
             bounds = [-1.5, 0, 0, 1.01, 2.5]
             norm = mcolors.BoundaryNorm(bounds, cmap.N)
             im1 = ax.imshow(jacdet_d, cmap=cmap, norm=norm)
             ax.set_frame_on(False)
             if toprow:
-                ax.title.set_text("jac det (folding:red, shrink:orange, vp:black, exp:green)")
+                ax.title.set_text("jac det (folding:red, shrink:orange, vp:black, exp:blue)")
             plt.axis('off')
 
             # boundaries
