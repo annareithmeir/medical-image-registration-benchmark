@@ -71,14 +71,14 @@ class Evaluation():
                                         path_moving,
                                         fixed_name)
 
-            if self.dataset_data.has_keypoints:
-                path_fixed_keypoints = item["fixed_keypoints"]
-                path_moving_keypoints = item["moving_keypoints"]
-
-                self._evaluate_keypoints(path_displacement,
-                                         path_fixed_keypoints,
-                                         path_moving_keypoints,
-                                         fixed_name)
+            # if self.dataset_data.has_keypoints:
+            #     path_fixed_keypoints = item["fixed_keypoints"]
+            #     path_moving_keypoints = item["moving_keypoints"]
+            #
+            #     self._evaluate_keypoints(path_displacement,
+            #                              path_fixed_keypoints,
+            #                              path_moving_keypoints,
+            #                              fixed_name)
 
         self.results.calculate_mean()
         self.results.calculate_stddev()

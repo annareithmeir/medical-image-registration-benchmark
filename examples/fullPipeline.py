@@ -21,6 +21,7 @@ from registrationbaselines.core import utils  # nopep8
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.evaluation.evaluation import Evaluation  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
 
 
 def get_non_wand_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -74,10 +75,11 @@ def main() -> None:
                                        loader_data,
                                        use_wandb=False)
     elif method == "SyNANTs":
-        registration = SyNANTs(config, loader_data)
+        registration = SyNANTs(config,
+                               loader_data,
+                               use_wandb=False)
     else:
         raise ValueError("Method not implemented")
-
 
     registration._create_result_directories(method)
 
@@ -100,7 +102,7 @@ def main() -> None:
                             method,
                             loader_data,
                             loader_transformations)
-    # evaluation.evaluate()
+    evaluation.evaluate()
     print("\nplot...")
 
     evaluation.visualize()

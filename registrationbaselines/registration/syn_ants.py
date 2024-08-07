@@ -19,12 +19,15 @@ class SyNANTs(RegistrationInterface):
 
     def __init__(self,
                  configuration: Dict[str, Any],
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 dataloader: data_loaders.GenericDataset,
+                 use_wandb: bool) -> None:
         """
         Initialize the registration model.
 
         NOTE: the displacement field won't work in slicer correctly if the correct itent code is set - the original should be left.
         """
+
+        self.use_wandb = use_wandb
 
         self.method_name = "SyNANTs"
         self.method_name_ori = self.method_name
@@ -64,9 +67,9 @@ class SyNANTs(RegistrationInterface):
             flow_sigma = wandb.config.flow_sigma
             total_sigma = wandb.config.total_sigma
         else:
-            grad_step = self.configuration["parameters"]["grad_step"]["values"]
-            flow_sigma = self.configuration["parameters"]["flow_sigma"]["values"]
-            total_sigma = self.configuration["parameters"]["total_sigma"]["values"]
+            grad_step = self.configuration["grad_step"]
+            flow_sigma = self.configuration["flow_sigma"]
+            total_sigma = self.configuration["total_sigma"]
 
         # Perform registration
         registration = ants.registration(
