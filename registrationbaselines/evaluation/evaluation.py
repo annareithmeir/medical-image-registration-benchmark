@@ -137,7 +137,7 @@ class Evaluation():
                     path_segmentation_moving)
 
                 deformed_segmentation = utils.deform_image(moving_segmentation,
-                                                           displacement, mode='nearest')
+                                                           displacement)
 
             fixed_image = fixed_image.to(displacement.device)
             moving_image = moving_image.to(displacement.device)
@@ -146,19 +146,24 @@ class Evaluation():
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
 
-                fixed_keypoints, moving_keypoints = metrics.read_lanmdarks(
-                    path_fixed_keypoints, path_moving_keypoints)
+                fixed_keypoints = utils.load_keypoints(path_fixed_keypoints)
+                moving_keypoints = utils.load_keypoints(path_moving_keypoints)
 
                 assert moving_keypoints.shape == moving_keypoints.shape
                 assert fixed_keypoints.shape[-1] == 3 or fixed_keypoints.shape[-1] == 2
 
                 deformed_keypoints = utils.deform_keypoints(
                     moving_keypoints, displacement)
-
-            displacement = utils.displacement_to_unit_displacement(displacement)
-            visualization.plot_all_registration_results(plots_path, moving_image.numpy(), fixed_image.numpy(), deformed_image.numpy(),
-                                                        displacement.numpy(), fixed_labels=fixed_segmentation.numpy(), pred_labels=deformed_segmentation.numpy(),
-                                                        fixed_keypoints=fixed_keypoints, moving_keypoints=moving_keypoints, pred_keypoints=deformed_keypoints)
+            visualization.plot_all_registration_results(moving_image,
+                                                        fixed_image,
+                                                        deformed_image,
+                                                        displacement,
+                                                        fixed_segmentations=fixed_segmentation,
+                                                        pred_segmentations=deformed_segmentation,
+                                                        fixed_keypoints=fixed_keypoints,
+                                                        moving_keypoints=moving_keypoints,
+                                                        pred_keypoints=deformed_keypoints,
+                                                        save_path=plots_path)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
         """
@@ -214,15 +219,14 @@ class Evaluation():
         hausdorff95_mean = 0
 
         for path in [path_displacement, path_segmentation_fixed, path_segmentation_moving]:
-            utils.is_nifti_and_exists(path)
+            utils.is_nifti(path)
 
         displacement = utils.load_displacement(path_displacement)
         segmentation_fixed = utils.load_image(path_segmentation_fixed)
         segmentation_moving = utils.load_image(path_segmentation_moving)
 
         warped = utils.deform_image(segmentation_moving,
-                                    displacement,
-                                    mode='nearest')
+                                    displacement)
 
         deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
                                                                    path_segmentation_moving.name,
@@ -287,8 +291,8 @@ class Evaluation():
                     f"File {path.as_posix()} does not exist.")
 
         displacement = utils.load_displacement(path_displacement)
-        keypoints_fixed, keypoints_moving = metrics.read_lanmdarks(path_fixed_keypoints,
-                                                                   path_moving_keypoints)
+        keypoints_fixed = utils.load_keypoints(path_fixed_keypoints)
+        keypoints_moving = utils.load_keypoints(path_moving_keypoints)
 
         keypoints_moving_warped = utils.deform_keypoints(keypoints_moving,
                                                          displacement.detach().cpu().numpy())

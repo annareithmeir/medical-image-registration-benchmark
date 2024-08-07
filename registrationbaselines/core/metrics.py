@@ -168,10 +168,10 @@ def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: O
     return scores
 
 
-def tre(keypoints_fixed: floatArray2Dor3D,
-        keypoints_moving: floatArray2Dor3D,
-        keypoints_moving_warped: floatArray2Dor3D,
-        spacing_moving: list[float],
+def tre(keypoints_fixed: torch.Tensor,
+        keypoints_moving: torch.Tensor,
+        keypoints_moving_warped: torch.Tensor,
+        spacing_moving: Tuple[float, ...],
         percentile: Optional[float] = None) -> float:
     """
     Calculate the Target Registration Error (TRE) between two sets of keypoints.
@@ -189,11 +189,11 @@ def tre(keypoints_fixed: floatArray2Dor3D,
     @return: The mean TRE.
     """
     # Calculate the TRE
-    all_errors = np.linalg.norm(
-        (keypoints_moving_warped - keypoints_fixed) * spacing_moving, axis=1)
+    all_errors = torch.norm(
+        (keypoints_moving_warped - keypoints_fixed) * torch.tensor(spacing_moving), dim=1)
     # original TRE
-    ori_tre = np.linalg.norm(
-        (keypoints_moving - keypoints_fixed) * spacing_moving, axis=1).mean()
+    ori_tre = torch.norm(
+        (keypoints_moving - keypoints_fixed) * torch.tensor(spacing_moving), dim=1).mean()
 
     print("\n")
     if all_errors.mean() < ori_tre:
@@ -203,35 +203,9 @@ def tre(keypoints_fixed: floatArray2Dor3D,
         print(
             f"TRE is larger than original TRE by % {100*(all_errors.mean() - ori_tre)/ori_tre:2f}. \nFrom {ori_tre} to {all_errors.mean()}")
 
-    if percentile is not None:
-        result = np.percentile(all_errors, percentile)
+    if percentile:
+        result = torch.quantile(all_errors, percentile/100)
     else:
         result = all_errors.mean()
 
-    return result
-
-
-def read_lanmdarks(keypoints_fixed_path: Path, keypoints_moving_path: Path) -> Tuple[floatArray2Dor3D, floatArray2Dor3D]:
-    # hacky but if both paths are the same we are dealign iwth 2d keypoints stored in one file
-
-    # assert that all paths are valid
-    assert keypoints_fixed_path.exists(
-    ), f"{keypoints_fixed_path} does not exist"
-    assert keypoints_moving_path.exists(
-    ), f"{keypoints_moving_path} does not exist"
-
-    if keypoints_fixed_path != keypoints_moving_path:
-        fixed = np.genfromtxt(keypoints_fixed_path, delimiter=',')
-        moving = np.genfromtxt(keypoints_moving_path, delimiter=',')
-    else:
-        values = np.genfromtxt(keypoints_fixed_path)
-
-        fixed = values[:, 0:2]
-        moving = values[:, 2:4]
-
-    assert moving.shape == fixed.shape, \
-        "Fixed and moving keypoints should have the same shape"
-    assert fixed.shape[-1] == 3 or fixed.shape[-1] == 2, \
-        "keypoints should have shape (N,3) or (N,2)"
-
-    return fixed, moving
+    return result.item()

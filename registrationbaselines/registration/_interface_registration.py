@@ -33,10 +33,13 @@ class RegistrationInterface(ABC):
     path_result_deformation: Path = Path()
     path_result_deformed: Path = Path()
 
+    use_wandb: bool
+
     @abstractmethod
     def __init__(self,
                  configuration: Dict[str, Any],
-                 dataloader: GenericDataset):
+                 dataloader: GenericDataset,
+                 use_wandb: bool):
         """
         Initialize the registration model.
         """
@@ -140,7 +143,7 @@ class RegistrationInterface(ABC):
         Create the directories to save the results.
         """
 
-        self.path_results = Path(
+        self.path_results = Path(self.configuration["result_path"]) if not self.use_wandb else Path(
             self.configuration["parameters"]["result_path"]["value"])
 
         # create directory in base_dir called method

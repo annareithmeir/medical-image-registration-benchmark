@@ -7,11 +7,15 @@ import matplotlib.colors as colors
 from scipy.ndimage import binary_erosion
 from matplotlib.colors import Normalize
 from matplotlib.colors import ListedColormap
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pandas as pd
 import wandb
 from pathlib import Path
+import matplotlib.colors as mcolors
 from typing import Optional
 import os
+import registrationbaselines.core.utils as utils
+import torch
 os.environ['NEURITE_BACKEND'] = "pytorch"
 # plt.switch_backend('agg')
 
@@ -172,6 +176,9 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
                            color: Optional[str] = 'cornflowerblue') -> None:
     """
     Plots 2d warped grid from a displacement field to a given matplotlib axis. source: https://github.com/qiuhuaqi/midir
+
+    Bugfix: this now uses the pull convention to correctly display the deformation.
+
     :param ax: axis of a plt plot
     :param disp: displacement field of size (2,H,W)
     :param background:
@@ -180,32 +187,26 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
     :param color: color of grid lines
     :return: None
     """
-    if background is not None:
-        background = background
-    else:
+    if background is None:
         background = np.zeros(disp.shape[1:])
 
-    assert disp.shape[0] == 2, "Displacement field should have shape (H, W, 2)"
+    assert disp.shape[0] == 2, "Displacement field should have shape (2, H, W)"
 
     # convert displacement from unit
-    disp[0, ...] = float(disp.shape[1] - 1) * disp[0, ...] / 2.0
-    disp[1, ...] = float(disp.shape[2] - 1) * disp[1, ...] / 2.0
+    if disp.min() >= -1.0 and disp.max() <= 1.0:
+        disp[0, ...] = float(disp.shape[1] - 1) * disp[0, ...] / 2.0
+        disp[1, ...] = float(disp.shape[2] - 1) * disp[1, ...] / 2.0
 
-    id_grid_H, id_grid_W = np.meshgrid(range(0, background.shape[0] - 1, interval),
-                                       range(
-                                           0, background.shape[1] - 1, interval),
-                                       indexing='ij')
+    H, W = background.shape
+    y, x = np.meshgrid(np.arange(H), np.arange(W), indexing='ij')
 
-    new_grid_H = id_grid_H + disp[0, id_grid_H, id_grid_W]
-    new_grid_W = id_grid_W + disp[1, id_grid_H, id_grid_W]
+    # Create sampling grid
+    sample_y = y[::interval, ::interval] - disp[0, ::interval, ::interval]
+    sample_x = x[::interval, ::interval] - disp[1, ::interval, ::interval]
 
-    kwargs = {"linewidth": 0.34, "color": color}
-    for i in range(new_grid_H.shape[0]):
-        ax.plot(new_grid_W[i, :], new_grid_H[i, :], **
-                kwargs)  # each draws a horizontal line
-    for i in range(new_grid_H.shape[1]):
-        ax.plot(new_grid_W[:, i], new_grid_H[:, i], **
-                kwargs)  # each draws a vertical line
+    # Plot deformed grid
+    ax.plot(sample_x, sample_y, color=color, linewidth=0.34)
+    ax.plot(sample_x.T, sample_y.T, color=color, linewidth=0.34)
 
     ax.set_title(title)
     ax.imshow(background, cmap='gray')
@@ -243,14 +244,17 @@ def multilabel_to_boundary(label_map: np.ndarray):
     return boundary_label_map
 
 
-def plot_all_registration_results(save_path: Path,
-                                  moving_image: np.ndarray, fixed_image: np.ndarray, pred_image: np.ndarray,
-                                  displacement: np.ndarray, fixed_labels: Optional[np.array] = None,
-                                  pred_labels: Optional[np.array] = None,
-                                  moving_keypoints: Optional[np.array] = None,
-                                  fixed_keypoints: Optional[np.array] = None,
-                                  pred_keypoints: Optional[np.ndarray] = None,
-                                  title: Optional[str] = None) -> plt.Figure:
+def plot_all_registration_results(moving_image: torch.Tensor,
+                                  fixed_image: torch.Tensor,
+                                  pred_image: torch.Tensor,
+                                  displacement: torch.Tensor,
+                                  fixed_segmentations: Optional[torch.Tensor] = None,
+                                  pred_segmentations: Optional[torch.Tensor] = None,
+                                  moving_keypoints: Optional[torch.Tensor] = None,
+                                  fixed_keypoints: Optional[torch.Tensor] = None,
+                                  pred_keypoints: Optional[torch.Tensor] = None,
+                                  title: Optional[str] = None,
+                                  save_path: Path = None) -> plt.Figure:
     """
     plots a figure with 9x3 subplots. Half-slices used for plots in each dimension.
     rows: dims
@@ -259,16 +263,35 @@ def plot_all_registration_results(save_path: Path,
     @param moving_image:
     @param fixed_image:
     @param pred_image:
-    @param displacement: (h,w,d,3)
-    @param fixed_labels:
-    @param pred_labels:
+    @param displacement: (h,w,d,3) unit-displacement
+    @param fixed_segmentations:
+    @param pred_segmentations:
     @param moving_keypoints:
     @param fixed_keypoints:
     @param pred_keypoints:
     @param title:
     @return: plot
     """
-    displacement = displacement.squeeze()
+
+    assert displacement.min() >= -1 and displacement.max()<=1
+
+    moving_image = moving_image.numpy().squeeze()
+    fixed_image = fixed_image.numpy().squeeze()
+    pred_image = pred_image.numpy().squeeze()
+    if fixed_segmentations is not None:
+        fixed_segmentations = fixed_segmentations.numpy().squeeze()
+    if pred_segmentations is not None:
+        pred_segmentations = pred_segmentations.numpy().squeeze()
+    if moving_keypoints is not None:
+        moving_keypoints = moving_keypoints.numpy().squeeze()
+    if fixed_keypoints is not None:
+        fixed_keypoints = fixed_keypoints.numpy().squeeze()
+    if pred_keypoints is not None:
+        pred_keypoints = pred_keypoints.numpy().squeeze()
+
+    displacement_denorm = utils.unit_displacement_to_displacement(
+        displacement.detach().clone()).numpy().squeeze()
+    displacement = displacement.numpy().squeeze()
 
     assert displacement.ndim in [
         3, 4], "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
@@ -280,14 +303,25 @@ def plot_all_registration_results(save_path: Path,
     elif displacement.shape[-1] != 2 and displacement.shape[0] == 2:
         displacement = displacement.transpose(1, 2, 0)
 
+    jacobian_determinant = metrics.jacobian_determinant_from_displacement(
+        -displacement_denorm) # we are pull convention, sitk function is push
+
+    # BUGFIX: we need to swap the vector components to be (z,y,x) since this is torch convention. (x,y,z, [x,y,z]) -> (x,y,z, [z,y,x])
+    displacement = displacement[..., [2, 1, 0]]
+
     fig = plt.figure(figsize=(40, 7))
     if title:
         fig.suptitle(title)
     image_size = moving_image.shape
     image_dim = displacement.shape[-1]
 
-    jacobian_determinant = metrics.jacobian_determinant_from_displacement(
-        displacement)
+    # jacobian_determinant = metrics.jacobian_determinant_from_displacement(
+    #     displacement_denorm)
+
+    if (fixed_segmentations is not None) and (pred_segmentations is not None):
+        num_cols = 9
+    else:
+        num_cols = 8
 
     if image_dim == 3:
         half_slice_idx = [int(s / 2) for s in image_size]
@@ -297,51 +331,49 @@ def plot_all_registration_results(save_path: Path,
             dim_ls.remove(d)
 
             # moving image
-            ax = fig.add_subplot(3, 9, (9 * d) + 1)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 1)
             ax.imshow(moving_image.take(
                 half_slice_idx[d], axis=d), cmap='gray')
             if moving_keypoints is not None:
                 kp_slice = moving_keypoints[np.where(
                     abs(moving_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("M")
             plt.axis('off')
 
             # fixed image
-            ax = fig.add_subplot(3, 9, (9 * d) + 2)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 2)
             ax.imshow(fixed_image.take(half_slice_idx[d], axis=d), cmap='gray')
             if fixed_keypoints is not None:
                 kp_slice = fixed_keypoints[np.where(
                     abs(fixed_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("F")
             plt.axis('off')
 
             # deformed image
-            ax = fig.add_subplot(3, 9, (9 * d) + 3)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 3)
             ax.imshow(pred_image.take(half_slice_idx[d], axis=d), cmap='gray')
             if pred_keypoints is not None:
                 kp_slice = pred_keypoints[np.where(
                     abs(pred_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
                 kp_slice = kp_slice[:, dim_ls]
-                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='x', c='red')
+                ax.scatter(kp_slice[:, 1], kp_slice[:, 0], marker='.', c='red')
             if toprow:
                 ax.title.set_text("warped M")
             plt.axis('off')
 
             # displacement field
-
-            #displacement = np.zeros(displacement.shape)
-            ax = fig.add_subplot(3, 9, (9 * d) + 4)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 4)
             axes = [0, 1, 2]
             axes.remove(d)
             # print(displacement.shape, displacement[..., axes].take(half_slice_idx[d], axis=d).transpose(2, 0, 1).shape, pred_image.take(half_slice_idx[d], axis=d).shape)
             fieldAx = displacement[..., axes].take(half_slice_idx[d], axis=d)
-            #plot_quiverplot(fieldAx, ax=ax)
+            # plot_quiverplot(fieldAx, ax=ax)
             plot_deformation_field(ax, 1 * fieldAx.transpose(2, 0, 1), pred_image.take(
                 half_slice_idx[d], axis=d), interval=8, color="white")
             ax.set_frame_on(False)
@@ -351,7 +383,7 @@ def plot_all_registration_results(save_path: Path,
             # fig.tight_layout()
 
             # difference image before registration
-            ax = fig.add_subplot(3, 9, (9 * d) + 5)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 5)
             diff_image = fixed_image.take(
                 half_slice_idx[d], axis=d) - moving_image.take(half_slice_idx[d], axis=d)
             ax.imshow(diff_image, cmap='gray')
@@ -362,7 +394,7 @@ def plot_all_registration_results(save_path: Path,
             # fig.tight_layout()
 
             # difference image after registration
-            ax = fig.add_subplot(3, 9, (9 * d) + 6)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 6)
             diff_image = fixed_image.take(
                 half_slice_idx[d], axis=d) - pred_image.take(half_slice_idx[d], axis=d)
             ax.imshow(diff_image, cmap='gray')
@@ -371,11 +403,48 @@ def plot_all_registration_results(save_path: Path,
                 ax.title.set_text("diff image after")
             plt.axis('off')
 
+            # jacobian determinant, negative values shown in red
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 7)
+            jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
+            #jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
+            tmp = np.max(np.array([np.max(jacdet_d), -np.min(jacdet_d)]))
+            norm = colors.TwoSlopeNorm(
+               vmin=-tmp, vmax=tmp, vcenter=0)
+            im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
+            ax.set_frame_on(False)
+            if toprow:
+                ax.title.set_text("jac det")
+            plt.axis('off')
+
+            # Add a colorbar with adjusted size
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            cbar = plt.colorbar(im1, cax=cax)
+            # Adjust the colorbar tick label size if needed
+            cbar.ax.tick_params(labelsize=6)
+
+            # negative jacobian determinants
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 8)
+            field = np.zeros_like(jacdet_d)
+            field[jacdet_d < 0] = -1
+            shrinking_mask = (jacdet_d >= 0) & (jacdet_d <1)
+            field[shrinking_mask] = 0
+            field[jacdet_d == 1 ] = 1
+            field[jacdet_d > 1 ] = 2
+            cmap = mcolors.ListedColormap(['red', 'orange', 'black', 'blue'])
+            bounds = [-1.5, 0, 0, 1.01, 2.5]
+            norm = mcolors.BoundaryNorm(bounds, cmap.N)
+            im1 = ax.imshow(jacdet_d, cmap=cmap, norm=norm)
+            ax.set_frame_on(False)
+            if toprow:
+                ax.title.set_text("jac det (folding:red, shrink:orange, vp:black, exp:blue)")
+            plt.axis('off')
+
             # boundaries
-            ax = fig.add_subplot(3, 9, (9 * d) + 7)
-            if (fixed_labels is not None) and (pred_labels is not None):
-                fixed_boundary = multilabel_to_boundary(fixed_labels)
-                pred_boundary = multilabel_to_boundary(pred_labels)
+            if (fixed_segmentations is not None) and (pred_segmentations is not None):
+                ax = fig.add_subplot(3, num_cols, (num_cols * d) + 9)
+                fixed_boundary = multilabel_to_boundary(fixed_segmentations)
+                pred_boundary = multilabel_to_boundary(pred_segmentations)
                 fixed_boundary = fixed_boundary.astype(np.int8)
                 pred_boundary = pred_boundary.astype(np.int8)
                 fixed_boundary[fixed_boundary > 0] = 1
@@ -392,26 +461,15 @@ def plot_all_registration_results(save_path: Path,
                 ax.set_frame_on(False)
                 ax.title.set_text("diff image after")
                 plt.axis('off')
-            if toprow:
-                ax.title.set_text("segmentations")
+                if toprow:
+                    ax.title.set_text("segmentations")
+            toprow=False
 
-            # jacobian determinant, negative values shown in red
-            ax = fig.add_subplot(3, 9, (9 * d) + 8)
-            jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
-            jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
-            norm = colors.TwoSlopeNorm(
-                vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
-            im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
-            ax.set_frame_on(False)
-            if toprow:
-                ax.title.set_text("jac det")
-            plt.axis('off')
-            plt.colorbar(im1, ax=ax)
     elif image_dim == 2:
         toprow = True
 
         # moving image
-        ax = fig.add_subplot(3, 9, 1)
+        ax = fig.add_subplot(3, num_cols, 1)
         ax.imshow(moving_image.squeeze(), cmap='gray')
         if moving_keypoints is not None:
             ax.scatter(
@@ -421,7 +479,7 @@ def plot_all_registration_results(save_path: Path,
         plt.axis('off')
 
         # fixed image
-        ax = fig.add_subplot(3, 9, 2)
+        ax = fig.add_subplot(3, num_cols, 2)
         ax.imshow(fixed_image.squeeze(), cmap='gray')
         if fixed_keypoints is not None:
             ax.scatter(fixed_keypoints[:, 0],
@@ -431,7 +489,7 @@ def plot_all_registration_results(save_path: Path,
         plt.axis('off')
 
         # deformed image
-        ax = fig.add_subplot(3, 9, 3)
+        ax = fig.add_subplot(3, num_cols, 3)
         ax.imshow(pred_image.squeeze(), cmap='gray')
         if pred_keypoints is not None:
             ax.scatter(pred_keypoints[:, 0],
@@ -441,7 +499,7 @@ def plot_all_registration_results(save_path: Path,
         plt.axis('off')
 
         # displacement field
-        ax = fig.add_subplot(3, 9, 4)
+        ax = fig.add_subplot(3, num_cols, 4)
         fieldAx = displacement.squeeze()
         # plot_quiverplot(fieldAx, ax=ax)
         # neurite.plot.flow([displacement], show=False)
@@ -454,7 +512,7 @@ def plot_all_registration_results(save_path: Path,
         fig.tight_layout()
 
         # difference image before registration
-        ax = fig.add_subplot(3, 9, 5)
+        ax = fig.add_subplot(3, num_cols, 5)
         diff_image = fixed_image.squeeze() - moving_image.squeeze()
         ax.imshow(diff_image, cmap='gray')
         ax.set_frame_on(False)
@@ -464,7 +522,7 @@ def plot_all_registration_results(save_path: Path,
         # fig.tight_layout()
 
         # difference image after registration
-        ax = fig.add_subplot(3, 9, 6)
+        ax = fig.add_subplot(3, num_cols, 6)
         diff_image = fixed_image.squeeze() - pred_image.squeeze()
         ax.imshow(diff_image, cmap='gray')
         ax.set_frame_on(False)
@@ -472,14 +530,27 @@ def plot_all_registration_results(save_path: Path,
             ax.title.set_text("diff image after")
         plt.axis('off')
 
-        # boundaries
-        ax = fig.add_subplot(3, 9,  7)
-        if (fixed_labels is not None) and (pred_labels is not None):
-            fixed_labels = fixed_labels.squeeze()
-            pred_labels = pred_labels.squeeze()
+        # jacobian determinant, negative values shown in red
+        ax = fig.add_subplot(3, num_cols,  8)
+        jacdet_d = jacobian_determinant
+        jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
+        norm = colors.TwoSlopeNorm(
+            vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
+        im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
+        ax.set_frame_on(False)
+        if toprow:
+            ax.title.set_text("jac det")
+        plt.axis('off')
+        plt.colorbar(im1, ax=ax)
 
-            fixed_boundary = multilabel_to_boundary(fixed_labels)
-            pred_boundary = multilabel_to_boundary(pred_labels)
+        # boundaries
+        ax = fig.add_subplot(3, num_cols,  7)
+        if (fixed_segmentations is not None) and (pred_segmentations is not None):
+            fixed_segmentations = fixed_segmentations.squeeze()
+            pred_segmentations = pred_segmentations.squeeze()
+
+            fixed_boundary = multilabel_to_boundary(fixed_segmentations)
+            pred_boundary = multilabel_to_boundary(pred_segmentations)
             fixed_boundary = fixed_boundary.astype(np.int8)
             pred_boundary = pred_boundary.astype(np.int8)
             fixed_boundary[fixed_boundary > 0] = 1
@@ -503,29 +574,17 @@ def plot_all_registration_results(save_path: Path,
         if toprow:
             ax.title.set_text("segmentations")
 
-        # jacobian determinant, negative values shown in red
-        ax = fig.add_subplot(3, 9,  8)
-        jacdet_d = jacobian_determinant
-        jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
-        norm = colors.TwoSlopeNorm(
-            vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
-        im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
-        ax.set_frame_on(False)
-        if toprow:
-            ax.title.set_text("jac det")
-        plt.axis('off')
-        plt.colorbar(im1, ax=ax)
-
     else:
         print("Not implemented")
 
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.01, hspace=0.01)
 
-    # fig.show()
     if save_path is not None:
         fig.savefig(save_path)
         plt.close(fig)
+    else:
+        fig.show()
     return fig
 
 
