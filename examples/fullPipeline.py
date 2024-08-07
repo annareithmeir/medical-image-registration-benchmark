@@ -23,80 +23,30 @@ from registrationbaselines.evaluation.evaluation import Evaluation  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
 
 
-def get_non_wand_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Get the config without the wandb config.
-    """
-
-    config = config["parameters"]
-
-    new_config: Dict[str, str] = {}
-
-    for key, value in config.items():
-        new_config[key] = value["values"][0]
-
-    return new_config
-
-
 def main() -> None:
     """
     Main function to run the full registration and evaluation pipeline.
     """
 
-    base_dir = Path(__file__).parent.parent.absolute()
+    path_config = Path(__file__).parent.parent.absolute() / f"registrationbaselines/configs/BSplineNiftyReg.yaml"
 
-    method = "BSplineNiftyReg"
-
-    path_config = base_dir / f"registrationbaselines/configs/{method}.yaml"
-    config = utils.read_config(path_config)
-
-    config = get_non_wand_config(config)
-
-    machine_name = socket.gethostname()
-    if machine_name == "fryderyk":
-        path_data = Path("/home/fryderyk/Documents/data/LungCT_preprocessed/")
-    elif machine_name == "janus":
-        path_data = Path("/data/LungCT_preprocessed")
-    else:
-        path_data = Path("/home/anna/datasets/LungCT_preprocessed")
-        # path_data = Path("/home/anna/datasets/FIRE")
+    path_data = Path("/home/anna/datasets/LungCT_preprocessed")
 
     loader_data = data_loaders.L2RLungCTDataset(path_data,
                                                 return_type="path_dict",
                                                 indices=[0])
-    # loader_data.preprocess(Path("/home/anna/datasets/LungCT_preprocessed"))
-    use_wandb = False
-    registration = BSplineNiftyReg(config,
-                                   loader_data,
-                                   use_wandb=False)
+    
+    registration = BSplineNiftyReg(path_config,
+                                   loader_data)
 
-    registration._create_result_directories(method)
+    ##### WANDB SWEEP
+    registration.perform_wandb_sweep()
 
-    for item in loader_data:
-        break
-        fixed = item["fixed_image"]
-        moving = item["moving_image"]
-        registration.register(fixed, moving)
+    #### Register a dataset - can be image pair dataset
+    registration.register_dataset()
 
-    # registration.register_all_parametr_sets(loader_data)
+    
 
-    print("\nevaluate...")
-
-    result_path = Path(config["parameters"]["result_path"]
-                       ["value"]) if use_wandb else Path(config["result_path"])
-
-    loader_transformations = data_loaders.BaselineTransformations(
-        registration.method_dir)
-
-    evaluation = Evaluation(result_path,
-                            method,
-                            loader_data,
-                            loader_transformations)
-    # evaluation.evaluate()
-    print("\nplot...")
-
-    evaluation.visualize()
-    print("\ndone\n\n")
 
 
 if __name__ == "__main__":

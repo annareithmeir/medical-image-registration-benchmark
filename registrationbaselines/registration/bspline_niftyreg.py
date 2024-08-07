@@ -6,9 +6,9 @@ from typing import List, Dict, Any
 import wandb
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
+from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti, utils
 from registrationbaselines.data_loading import data_loaders
-from registrationbaselines.evaluation.evaluation import Evaluation
+
 
 
 class BSplineNiftyReg(RegistrationInterface):
@@ -18,15 +18,12 @@ class BSplineNiftyReg(RegistrationInterface):
     """
 
     def __init__(self,
-                 configuration: Dict[str, Any],
-                 dataloader: data_loaders.GenericDataset,
-                 use_wandb: bool) -> None:
-
-        self.use_wandb = use_wandb
+                 path_configuration: Path,
+                 dataloader: data_loaders.GenericDataset) -> None:
 
         self.method_name = "BSplineNiftyReg"
 
-        self.configuration = configuration
+        self.configuration = utils.read_config(path_configuration)
 
         self.dataloader = dataloader
 
@@ -40,7 +37,7 @@ class BSplineNiftyReg(RegistrationInterface):
         # command to call NiftyReg
         self.command: List[str] = []
 
-    def register(self,
+    def _register(self,
                  fixed_image_path: Path,
                  moving_image_path: Path) -> None:
         """
@@ -69,39 +66,6 @@ class BSplineNiftyReg(RegistrationInterface):
         # assign intent code to the displacement field
         utils_nifti.set_intent_code(
             self.path_result_deformation, "NIFTI_INTENT_DISPVECT")
-
-    def _register_wandb_wrapper(self) -> None:
-        """
-        Register and evaluate all files and log to wand.
-
-        @return: None
-        """
-
-        # IMPORTANT: this has to be called after creating wandb.agent()
-        wandb.init(mode="offline")
-
-        method_name_encoded = self.method_name + \
-            f"_sim{wandb.config.similarity_metric.replace('-', '').replace(' ', '_')}"
-
-        self._create_result_directories(method_name_encoded)
-
-        for item in tqdm(self.dataloader):
-            # break
-            self.register(item["fixed_image"], item["moving_image"])
-
-        loader_transformations = data_loaders.BaselineTransformations(
-            self.method_dir)
-
-        evaluation = Evaluation(Path(wandb.config.result_path),
-                                self.method_dir.name,
-                                self.dataloader,
-                                loader_transformations)
-
-        evaluation.evaluate()
-
-        evaluation.visualize()
-
-        evaluation.wandb_log()
 
     def __create_registration_command_list(self):
         """

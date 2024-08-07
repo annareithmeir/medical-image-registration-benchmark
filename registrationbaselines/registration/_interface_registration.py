@@ -6,9 +6,11 @@ from typing import Dict, Any
 import yaml
 import torch
 import wandb
+from tqdm import tqdm
 
 from registrationbaselines.core import utils
-from registrationbaselines.data_loading.data_loaders import GenericDataset
+from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.evaluation.evaluation import Evaluation
 
 
 class RegistrationInterface(ABC):
@@ -20,7 +22,7 @@ class RegistrationInterface(ABC):
 
     configuration: Dict[str, Any] = {}
 
-    dataloader: GenericDataset
+    dataloader: data_loaders.GenericDataset
 
     path_fixed: Path = Path()
     path_moving: Path = Path()
@@ -33,19 +35,21 @@ class RegistrationInterface(ABC):
     path_result_deformation: Path = Path()
     path_result_deformed: Path = Path()
 
-    use_wandb: bool
+    use_wandb: bool = False
+
+    evaluator: Evaluation
 
     @abstractmethod
     def __init__(self,
                  configuration: Dict[str, Any],
-                 dataloader: GenericDataset,
+                 dataloader: data_loaders.GenericDataset,
                  use_wandb: bool):
         """
         Initialize the registration model.
         """
 
     @abstractmethod
-    def register(self,
+    def _register(self,
                  fixed_image_path: Path,
                  moving_image_path: Path) -> None:
         """
@@ -62,8 +66,34 @@ class RegistrationInterface(ABC):
         @return: None
         """
 
-    @abstractmethod
-    def _register_wandb_wrapper(self) -> None:
+    def register_dataset(self) -> None:
+        """
+        Register and evaluate all files and log to wand.
+
+        @return: None
+        """
+
+        if self.use_wandb is False:
+            self.configuration = self.convert_to_non_wandb_config(self.configuration)
+
+        self._create_result_directories(self.method_name)
+
+        for item in tqdm(self.dataloader):
+            self.register(item["fixed_image"], item["moving_image"])
+
+        loader_transformations = data_loaders.BaselineTransformations(
+            self.method_dir)
+
+        self.evaluator = Evaluation(self.configuration["parameters"]["result_path"],
+                                self.method_dir.name,
+                                self.dataloader,
+                                loader_transformations)
+
+        self.evaluator.evaluate()
+
+        self.evaluator.visualize()
+
+    def _perform_wandb_run(self) -> None:
         """
         This wraps register() and is used by wandb.agent.
         This has to (in order)
@@ -82,21 +112,36 @@ class RegistrationInterface(ABC):
             wandb.config doesn't reflect the entire config file,
             just the config for the current run
         """
+        # IMPORTANT: this has to be called after creating wandb.agent()
+        wandb.init(mode="offline")
 
-    def register_all_parametr_sets(self) -> None:
+        buffer_ori_name = self.method_name
+
+        self.method_name = self.method_name + \
+            f"_sim{wandb.config.similarity_metric.replace('-', '').replace(' ', '_')}"
+
+        self.register_dataset()
+
+        self.evaluator.wandb_log()
+
+        self.method_name = buffer_ori_name
+
+    def perform_wandb_sweep(self) -> None:
         """
         Register all parameter sets.
         """
+
+        self.use_wandb = True
 
         self.sweep_id = wandb.sweep(self.configuration,
                                     entity=None,
                                     project="reg_baselines")
 
         wandb.agent(self.sweep_id,
-                    function=lambda: self._register_wandb_wrapper(),
-                    entity=None,
-                    project="reg_baselines",
-                    count=None)
+                        function=lambda: self._perform_wandb_run(),
+                        entity=None,
+                        project="reg_baselines",
+                        count=None)
 
     def get_transformation_path(self):
         """
@@ -191,6 +236,22 @@ class RegistrationInterface(ABC):
             path_deformation.as_posix() + extension_transformation)
 
         return Path(path_dir_deformed), Path(path_deformation)
+
+    @staticmethod
+    def convert_to_non_wandb_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get the config without the wandb config.
+        """
+
+        config = config["parameters"]
+
+        new_config: Dict[str, str] = {}
+
+        for key, value in config.items():
+            new_config[key] = value["values"][0]
+
+        return new_config
+
 
     @staticmethod
     def read_config(file_path: Path):
