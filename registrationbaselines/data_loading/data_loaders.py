@@ -357,8 +357,9 @@ class ImagePairDataset(GenericDataset):
                  image_pairs: List[List[Path]],
                  segmentation_pairs: Optional[List[List[Path]]] = None,
                  keypoint_pairs: Optional[List[List[Path]]] = None,
-                 return_type: str = ""):
-        super().__init__("image_pairs", return_type, [])
+                 return_type: str = "",
+                 name: str = "image_pairs") -> None:
+        super().__init__(name, return_type, [])
 
         self.images_path = image_pairs[0][0].parent
 
