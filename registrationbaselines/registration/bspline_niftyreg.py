@@ -19,7 +19,10 @@ class BSplineNiftyReg(RegistrationInterface):
 
     def __init__(self,
                  configuration: Dict[str, Any],
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 dataloader: data_loaders.GenericDataset,
+                 use_wandb: bool) -> None:
+
+        self.use_wandb = use_wandb
 
         self.method_name = "BSplineNiftyReg"
 
@@ -121,8 +124,10 @@ class BSplineNiftyReg(RegistrationInterface):
                         '-res', self.path_result_deformed.as_posix(),
                         '-cpp', self.result_control_grid_path.as_posix()]
 
+        config: Any = self.configuration if not self.use_wandb else wandb.config
+
         self.command = utils_commandline.add_configuration_to_command(self.command,
-                                                                      wandb.config,
+                                                                      config,
                                                                       only_value=True)
 
     def __outputs_exist(self):

@@ -1,4 +1,3 @@
-import copy
 import glob
 import random
 from itertools import combinations
@@ -16,10 +15,11 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 from tqdm import tqdm
+import SimpleITK as sitk
 
-from . import utils
-
-from registrationbaselines.core.types import datasetReturnType
+from . import utils as dataloader_utils
+import registrationbaselines.core.utils as utils
+from registrationbaselines.core.types import datasetReturnType, floatArray2D
 
 # global clipping [min,max] values
 # todo verify clipping parameters
@@ -57,31 +57,26 @@ class GenericDataset(Dataset[datasetReturnType]):
     def __len__(self):
         return len(self.images_list)
 
-    def _get_image_pair_as_tensors(self, idx):
-        subject_dict = {
-            "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
-            "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1])
-        }
-        subject = tio.Subject(subject_dict)
+    def _get_image_pair_as_tensors(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        utils.check_isotropic_and_identity(subject, self.spacing[0])
+        image_fixed = utils.load_image(
+            self.images_path / self.images_list[idx][0])
+        image_moving = utils.load_image(
+            self.images_path / self.images_list[idx][1])
 
-        image_m = subject["image_m"].data
-        image_f = subject["image_f"].data
-        return image_f.squeeze(), image_m.squeeze()
+        return image_fixed, image_moving
 
     def _get_image_pair_as_paths(self, idx):
         return self.images_path / self.images_list[idx][0], self.images_path / self.images_list[idx][1]
 
-    def _get_segmentation_pair_as_tensors(self, idx):
-        subject_dict = {
-            "segmentation_f": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
-            "segmentation_m": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1]),
-        }
-        subject = tio.Subject(subject_dict)
-        segmentation_m = subject["segmentation_m"].data
-        segmentation_f = subject["segmentation_f"].data
-        return segmentation_f.squeeze(), segmentation_m.squeeze()
+    def _get_segmentation_pair_as_tensors(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        segmentation_fixed = utils.load_image(
+            self.images_path / self.segmentations_list[idx][0])
+        segmentation_moving = utils.load_image(
+            self.images_path / self.segmentations_list[idx][1])
+
+        return segmentation_fixed, segmentation_moving
 
     def _get_segmentation_pair_as_paths(self, idx):
         return self.images_path / self.segmentations_list[idx][0], self.images_path / self.segmentations_list[idx][1]
@@ -95,11 +90,14 @@ class GenericDataset(Dataset[datasetReturnType]):
     def __getitem__(self, idx):
         if (self.has_keypoints is False) and (self.has_segmentations is False):
             if self.return_type == "path_dict":
-                image_f, image_m = self._get_image_pair_as_paths(idx)
-                item = {"moving_image": image_m, "fixed_image": image_f}
+                fixed_image, moving_image = self._get_image_pair_as_paths(idx)
+                item = {"moving_image": moving_image,
+                        "fixed_image": fixed_image}
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
-                image_f, image_m = self._get_image_pair_as_tensors(idx)
-                item = {"moving_image": image_m, "fixed_image": image_f}
+                fixed_image, moving_image = self._get_image_pair_as_tensors(
+                    idx)
+                item = {"moving_image": moving_image,
+                        "fixed_image": fixed_image}
 
         elif (self.has_keypoints is False) and (self.has_segmentations is True):
             if self.return_type == "path_dict":
@@ -109,10 +107,11 @@ class GenericDataset(Dataset[datasetReturnType]):
                 item = {"fixed_image": path_f, "moving_image": path_m,
                         "fixed_segmentations": path_segmentations_f, "moving_segmentations": path_segmentations_m}
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
-                image_f, image_m = self._get_image_pair_as_tensors(idx)
+                fixed_image, moving_image = self._get_image_pair_as_tensors(
+                    idx)
                 segmentations_f, segmentations_m = self._get_segmentation_pair_as_tensors(
                     idx)
-                item = {"moving_image": image_m, "fixed_image": image_f,
+                item = {"moving_image": moving_image, "fixed_image": fixed_image,
                         "moving_segmentations": segmentations_m, "fixed_segmentations": segmentations_f}
 
         elif (self.has_keypoints is True) and (self.has_segmentations is False):
@@ -123,10 +122,11 @@ class GenericDataset(Dataset[datasetReturnType]):
                 item = {"fixed_image": path_f, "moving_image": path_m, "fixed_keypoints": path_keypoints_f,
                         "moving_keypoints": path_keypoints_m}
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
-                image_f, image_m = self._get_image_pair_as_tensors(idx)
+                fixed_image, moving_image = self._get_image_pair_as_tensors(
+                    idx)
                 keypoints_f, keypoints_m = self._get_keypoint_pair_as_tensors(
                     idx)
-                item = {"moving_image": image_m, "fixed_image": image_f, "moving_keypoints": keypoints_m,
+                item = {"moving_image": moving_image, "fixed_image": fixed_image, "moving_keypoints": keypoints_m,
                         "fixed_keypoints": keypoints_f}
 
         elif (self.has_keypoints is True) and (self.has_segmentations is True):
@@ -139,12 +139,13 @@ class GenericDataset(Dataset[datasetReturnType]):
                 item = {"fixed_image": path_f, "moving_image": path_m, "fixed_segmentations": path_segmentations_f,
                         "moving_segmentations": path_segmentations_m, "fixed_keypoints": path_keypoint_f, "moving_keypoints": path_keypoint_m}
             elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
-                image_f, image_m = self._get_image_pair_as_tensors(idx)
+                fixed_image, moving_image = self._get_image_pair_as_tensors(
+                    idx)
                 segmentations_f, segmentations_m = self._get_segmentation_pair_as_tensors(
                     idx)
                 keypoint_f, keypoint_m = self._get_keypoint_pair_as_tensors(
                     idx)
-                item = {"moving_image": image_m, "fixed_image": image_f, "moving_segmentations": segmentations_m,
+                item = {"moving_image": moving_image, "fixed_image": fixed_image, "moving_segmentations": segmentations_m,
                         "fixed_segmentations": segmentations_f, "fixed_keypoints": keypoint_f, "moving_keypoints": keypoint_m}
         return item
 
@@ -155,22 +156,22 @@ class GenericDataset(Dataset[datasetReturnType]):
 
         rand_idx = random.randint(0, len(self) - 1)
 
-        image_f, image_m = self._get_image_pair_as_tensors(rand_idx)
+        fixed_image, moving_image = self._get_image_pair_as_tensors(rand_idx)
         if self.has_segmentations:
             segmentation_f, segmentation_m = self._get_segmentation_pair_as_tensors(
                 rand_idx)
         if self.has_keypoints:
             keypoints_f, keypoints_m = self._get_keypoint_pair_as_tensors(
                 rand_idx)
-        image_f = image_f.numpy()
-        image_m = image_m.numpy()
+        fixed_image = fixed_image.numpy()
+        moving_image = moving_image.numpy()
 
         fig = plt.figure(figsize=(20, 12))
 
         if self.ndim == 2:
             # moving image
             ax = fig.add_subplot(1, 2, 1)
-            plt.imshow(image_m, cmap='gray')
+            plt.imshow(moving_image, cmap='gray')
             if self.has_segmentations:
                 plt.imshow(segmentation_m, alpha=0.3)
             if self.has_keypoints:
@@ -181,7 +182,7 @@ class GenericDataset(Dataset[datasetReturnType]):
 
             # fixed image
             ax = fig.add_subplot(1, 2, 2)
-            plt.imshow(image_f, cmap='gray')
+            plt.imshow(fixed_image, cmap='gray')
             if self.has_segmentations:
                 plt.imshow(segmentation_f, alpha=0.3)
             if self.has_keypoints:
@@ -198,7 +199,7 @@ class GenericDataset(Dataset[datasetReturnType]):
                 # moving image
                 ax = fig.add_subplot(2, 3, a + 1)
                 if a == 0:
-                    slice_image_m = image_m[slices[a], :, :]
+                    slice_moving_image = moving_image[slices[a], :, :]
                     if self.has_segmentations:
                         slice_segmentation_m = segmentation_m[slices[a], :, :]
                     if self.has_keypoints:
@@ -206,7 +207,7 @@ class GenericDataset(Dataset[datasetReturnType]):
                             abs(keypoints_m[:, 0] - slices[a]) <= 0.5)]
                         slice_keypoints_m = slice_keypoints_m[:, 1:]
                 if a == 1:
-                    slice_image_m = image_m[:, slices[a], :]
+                    slice_moving_image = moving_image[:, slices[a], :]
                     if self.has_segmentations:
                         slice_segmentation_m = segmentation_m[:, slices[a], :]
                     if self.has_keypoints:
@@ -214,7 +215,7 @@ class GenericDataset(Dataset[datasetReturnType]):
                             abs(keypoints_m[:, 1] - slices[a]) <= 0.5)]
                         slice_keypoints_m = slice_keypoints_m[:, [0, 2]]
                 if a == 2:
-                    slice_image_m = image_m[:, :, slices[a]]
+                    slice_moving_image = moving_image[:, :, slices[a]]
                     if self.has_segmentations:
                         slice_segmentation_m = segmentation_m[:, :, slices[a]]
                     if self.has_keypoints:
@@ -222,7 +223,7 @@ class GenericDataset(Dataset[datasetReturnType]):
                             abs(keypoints_m[:, 2] - slices[a]) <= 0.5)]
                         slice_keypoints_m = slice_keypoints_m[:, :-1]
 
-                plt.imshow(slice_image_m, cmap='gray')
+                plt.imshow(slice_moving_image, cmap='gray')
                 plt.colorbar()
                 if self.has_segmentations:
                     plt.imshow(slice_segmentation_m, alpha=0.3)
@@ -234,7 +235,7 @@ class GenericDataset(Dataset[datasetReturnType]):
                 # fixed image
                 ax = fig.add_subplot(2, 3, a + 4)
                 if a == 0:
-                    slice_image_f = image_f[slices[a], :, :]
+                    slice_fixed_image = fixed_image[slices[a], :, :]
                     if self.has_segmentations:
                         slice_segmentation_f = segmentation_f[slices[a], :, :]
                     if self.has_keypoints:
@@ -242,7 +243,7 @@ class GenericDataset(Dataset[datasetReturnType]):
                             abs(keypoints_f[:, 0] - slices[a]) <= 0.5)]
                         slice_keypoints_f = slice_keypoints_f[:, 1:]
                 if a == 1:
-                    slice_image_f = image_f[:, slices[a], :]
+                    slice_fixed_image = fixed_image[:, slices[a], :]
                     if self.has_segmentations:
                         slice_segmentation_f = segmentation_f[:, slices[a], :]
                     if self.has_keypoints:
@@ -250,7 +251,7 @@ class GenericDataset(Dataset[datasetReturnType]):
                             abs(keypoints_f[:, 1] - slices[a]) <= 0.5)]
                         slice_keypoints_f = slice_keypoints_f[:, [0, 2]]
                 if a == 2:
-                    slice_image_f = image_f[:, :, slices[a]]
+                    slice_fixed_image = fixed_image[:, :, slices[a]]
                     if self.has_segmentations:
                         slice_segmentation_f = segmentation_f[:, :, slices[a]]
                     if self.has_keypoints:
@@ -258,7 +259,7 @@ class GenericDataset(Dataset[datasetReturnType]):
                             abs(keypoints_f[:, 2] - slices[a]) <= 0.5)]
                         slice_keypoints_f = slice_keypoints_f[:, :-1]
 
-                plt.imshow(slice_image_f, cmap='gray')
+                plt.imshow(slice_fixed_image, cmap='gray')
                 plt.colorbar()
                 if self.has_segmentations:
                     plt.imshow(slice_segmentation_f, alpha=0.3)
@@ -335,16 +336,16 @@ class MNISTDataset(GenericDataset):
         @return: fixed image, moving image of shape (32,32)
         """
 
-        image_f, _ = self.dataset[self.images_list[idx][0]]
-        image_m, _ = self.dataset[self.images_list[idx][1]]
+        fixed_image, _ = self.dataset[self.images_list[idx][0]]
+        moving_image, _ = self.dataset[self.images_list[idx][1]]
 
-        image_f = self.transforms(image_f)
-        image_m = self.transforms(image_m)
+        fixed_image = self.transforms(fixed_image)
+        moving_image = self.transforms(moving_image)
 
-        image_m = utils.normalize_tensor_to_0_1(image_m)
-        image_f = utils.normalize_tensor_to_0_1(image_f)
+        moving_image = dataloader_utils.normalize_tensor_to_0_1(moving_image)
+        fixed_image = dataloader_utils.normalize_tensor_to_0_1(fixed_image)
 
-        return image_f.squeeze(), image_m.squeeze()
+        return fixed_image.squeeze(), moving_image.squeeze()
 
 
 """
@@ -375,10 +376,6 @@ class L2RLungCTDataset(GenericDataset):
         self.images_path = dataset_path
         self.images_path_preprocessed = None
         self.ndim = 3
-        self.spacing = (1.75, 1.75, 1.75)
-        # self.spacing = (1.75, 1.25, 1.75)
-        self.image_shape = (192, 138, 208)
-        # self.image_shape = (192, 192, 208)
 
         self.has_segmentations = True
         self.has_keypoints = True
@@ -401,14 +398,14 @@ class L2RLungCTDataset(GenericDataset):
             self.keypoints_list = [self.keypoints_list[i] for i in indices]
 
     def _get_keypoint_pair_as_tensors(self, idx):
-        keypoints_f = np.genfromtxt(self.images_path / self.keypoints_list[idx][0],
-                                    delimiter=',')
+        keypoints_f = utils.load_keypoints(
+            self.images_path / self.keypoints_list[idx][0])
 
-        keypoints_m = np.genfromtxt(self.images_path / self.keypoints_list[idx][1],
-                                    delimiter=',')
-        return torch.from_numpy(keypoints_f), torch.from_numpy(keypoints_m)
+        keypoints_m = utils.load_keypoints(
+            self.images_path / self.keypoints_list[idx][1])
+        return keypoints_f, keypoints_m
 
-    def _get_keypoint_pair_as_paths(self, idx):
+    def _get_keypoint_pair_as_paths(self, idx) -> Tuple[Path, Path]:
         return self.images_path / self.keypoints_list[idx][0], self.images_path / self.keypoints_list[idx][1]
 
     def preprocess(self, save_path: Path) -> None:
@@ -425,16 +422,16 @@ class L2RLungCTDataset(GenericDataset):
         (save_path / "keypointsTr").mkdir(parents=True, exist_ok=True)
 
         for idx in tqdm(range(len(self)), desc="Preprocessing", unit="iteration"):
-            file_image_m = self.images_list[idx][0]
-            file_image_f = self.images_list[idx][1]
+            file_moving_image = self.images_list[idx][0]
+            file_fixed_image = self.images_list[idx][1]
             file_segmentation_m = self.segmentations_list[idx][0]
             file_segmentation_f = self.segmentations_list[idx][1]
             file_keypoints_m = self.keypoints_list[idx][0]
             file_keypoints_f = self.keypoints_list[idx][1]
 
             subject_dict = {
-                "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
-                "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
+                "moving_image": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
+                "fixed_image": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
                 "segmentation_m": tio.LabelMap(self.images_path / self.segmentations_list[idx][0]),
                 "segmentation_f": tio.LabelMap(self.images_path / self.segmentations_list[idx][1]),
             }
@@ -450,16 +447,16 @@ class L2RLungCTDataset(GenericDataset):
             subject = clip(subject)
 
             rescale_x = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                subject["image_m"].numpy().min(), subject["image_m"].numpy().max()))
+                subject["moving_image"].numpy().min(), subject["moving_image"].numpy().max()))
             rescale_y = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                subject["image_f"].numpy().min(), subject["image_f"].numpy().max()))
+                subject["fixed_image"].numpy().min(), subject["fixed_image"].numpy().max()))
 
-            subject["image_m"] = rescale_x(subject["image_m"])
-            subject["image_f"] = rescale_y(subject["image_f"])
+            subject["moving_image"] = rescale_x(subject["moving_image"])
+            subject["fixed_image"] = rescale_y(subject["fixed_image"])
 
             resample = tio.Resample(1.75)
             subject = resample(subject)
-            self.image_shape = subject["image_m"].data.shape[1:]
+            self.image_shape = subject["moving_image"].data.shape[1:]
             self.spacing = (1.75, 1.75, 1.75)
 
             # after resmpling, the keypoints coordinates need to be adapted
@@ -467,8 +464,8 @@ class L2RLungCTDataset(GenericDataset):
             keypoints_f[:, 1] = keypoints_f[:, 1] * 1.25 / 1.75
 
             # save preprocessed images
-            subject["image_m"].save(save_path / file_image_m)
-            subject["image_f"].save(save_path / file_image_f)
+            subject["moving_image"].save(save_path / file_moving_image)
+            subject["fixed_image"].save(save_path / file_fixed_image)
             subject["segmentation_m"].save(save_path / file_segmentation_m)
             subject["segmentation_f"].save(save_path / file_segmentation_f)
             np.savetxt(save_path / file_keypoints_m,
@@ -484,12 +481,19 @@ class L2RLungCTDataset(GenericDataset):
         Initializes the image list from the given dataset path and indices
         @return:
         """
+
         self.images_list = list()
         for i in range(1, 21):
             file_str = "LungCT_" + str(i).zfill(4)
             file_m = Path("imagesTr/" + file_str + "_0001.nii.gz")
             file_f = Path("imagesTr/" + file_str + "_0000.nii.gz")
             self.images_list.append([file_f, file_m])
+
+        import SimpleITK as sitk
+        self.spacing = sitk.ReadImage(
+            self.images_path / self.images_list[0][0]).GetSpacing()
+        self.image_shape = sitk.GetArrayFromImage(
+            sitk.ReadImage(self.images_path / self.images_list[0][0])).shape
 
     def _load_segmentations_list(self) -> None:
         """
@@ -541,8 +545,6 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         self.images_path = dataset_path
         self.images_path_preprocessed = None
         self.ndim = 3
-        self.spacing = (2, 2, 2)
-        self.image_shape = (192, 160, 192)
 
         self.has_segmentations = True
         self.has_keypoints = False
@@ -577,14 +579,14 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         (save_path / "labelsTr").mkdir(parents=True, exist_ok=True)
 
         for idx in tqdm(range(len(self)), desc="Preprocessing", unit="iteration"):
-            file_image_m = self.images_list[idx][1]
-            file_image_f = self.images_list[idx][0]
+            file_moving_image = self.images_list[idx][1]
+            file_fixed_image = self.images_list[idx][0]
             file_segmentation_m = self.segmentations_list[idx][1]
             file_segmentation_f = self.segmentations_list[idx][0]
 
             subject_dict = {
-                "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
-                "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
+                "fixed_image": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
+                "moving_image": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
                 "segmentation_f": tio.LabelMap(self.images_path / self.segmentations_list[idx][0]),
                 "segmentation_m": tio.LabelMap(self.images_path / self.segmentations_list[idx][1])
             }
@@ -594,19 +596,19 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             #     out_min=WINDOW_BONES[0], out_max=WINDOW_BONES[1])
             clip = tio.Clamp(
                 out_min=WINDOW_SOFT_TISSUE[0], out_max=WINDOW_SOFT_TISSUE[1])
-            subject["image_m"] = clip(subject["image_m"])
+            subject["moving_image"] = clip(subject["moving_image"])
 
             rescale_x = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                subject["image_m"].numpy().min(), subject["image_m"].numpy().max()))
+                subject["moving_image"].numpy().min(), subject["moving_image"].numpy().max()))
             rescale_y = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                subject["image_f"].numpy().min(), subject["image_f"].numpy().max()))
+                subject["fixed_image"].numpy().min(), subject["fixed_image"].numpy().max()))
 
-            subject["image_m"] = rescale_x(subject["image_m"])
-            subject["image_f"] = rescale_y(subject["image_f"])
+            subject["moving_image"] = rescale_x(subject["moving_image"])
+            subject["fixed_image"] = rescale_y(subject["fixed_image"])
 
             # save preprocessed images
-            subject["image_m"].save(save_path / file_image_m)
-            subject["image_f"].save(save_path / file_image_f)
+            subject["moving_image"].save(save_path / file_moving_image)
+            subject["fixed_image"].save(save_path / file_fixed_image)
             subject["segmentation_m"].save(save_path / file_segmentation_m)
             subject["segmentation_f"].save(save_path / file_segmentation_f)
 
@@ -626,6 +628,12 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             file_m = "imagesTr/" + file_str + "_0001.nii.gz"
             file_f = "imagesTr/" + file_str + "_0000.nii.gz"
             self.images_list.append([file_f, file_m])
+
+        import SimpleITK as sitk
+        self.spacing = sitk.ReadImage(
+            self.images_path / self.images_list[0][0]).GetSpacing()
+        self.image_shape = sitk.GetArrayFromImage(
+            sitk.ReadImage(self.images_path / self.images_list[0][0])).shape
 
     def _load_segmentations_list(self) -> None:
         """
@@ -666,8 +674,6 @@ class L2RAbdominalCTCTDataset(GenericDataset):
         self.images_path = dataset_path
         self.images_path_preprocessed = None
         self.ndim = 3
-        self.spacing = (2, 2, 2)
-        self.image_shape = (192, 160, 256)
 
         self.has_segmentations = True
         self.has_keypoints = False
@@ -720,11 +726,11 @@ class L2RAbdominalCTCTDataset(GenericDataset):
         for idx in tqdm(range(len(files_images)), desc="Preprocessing",
                         unit="iteration"):
             # since inter-patient, pairs not given
-            file_image_m = files_images[idx]
+            file_moving_image = files_images[idx]
             file_segmentation_m = files_segmentations[idx]
 
             subject_dict = {
-                "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
+                "moving_image": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
                 "segmentation_m": tio.LabelMap(self.images_path / self.segmentations_list[idx][1])
             }
             subject = tio.Subject(subject_dict)
@@ -736,12 +742,12 @@ class L2RAbdominalCTCTDataset(GenericDataset):
             subject = clip(subject)
 
             rescale_x = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                subject["image_m"].numpy().min(), subject["image_m"].numpy().max()))
+                subject["moving_image"].numpy().min(), subject["moving_image"].numpy().max()))
 
-            subject["image_m"] = rescale_x(subject["image_m"])
+            subject["moving_image"] = rescale_x(subject["moving_image"])
 
             # save preprocessed images
-            subject["image_m"].save(save_path / file_image_m)
+            subject["moving_image"].save(save_path / file_moving_image)
             subject["segmentation_m"].save(save_path / file_segmentation_m)
 
         self.images_path = save_path
@@ -762,6 +768,12 @@ class L2RAbdominalCTCTDataset(GenericDataset):
 
         self.images_list = [(x, y)
                             for x, y in combinations(files, 2) if x != y]
+
+        import SimpleITK as sitk
+        self.spacing = sitk.ReadImage(
+            self.images_path / self.images_list[0][0]).GetSpacing()
+        self.image_shape = sitk.GetArrayFromImage(
+            sitk.ReadImage(self.images_path / self.images_list[0][0])).shape
 
     def _load_segmentations_list(self) -> None:
         """
@@ -939,14 +951,14 @@ class ACDCDataset(GenericDataset):
             (save_path / "testing").mkdir(parents=True, exist_ok=True)
 
         for idx in tqdm(range(len(self)), desc="Preprocessing", unit="iteration"):
-            file_image_m = self.images_list[idx][1]
-            file_image_f = self.images_list[idx][0]
+            file_moving_image = self.images_list[idx][1]
+            file_fixed_image = self.images_list[idx][0]
             file_segmentation_m = self.segmentations_list[idx][1]
             file_segmentation_f = self.segmentations_list[idx][0]
 
             subject_dict = {
-                "image_f": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
-                "image_m": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
+                "fixed_image": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
+                "moving_image": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
                 "segmentation_f": tio.ScalarImage(self.images_path / self.segmentations_list[idx][0]),
                 "segmentation_m": tio.ScalarImage(self.images_path / self.segmentations_list[idx][1])
             }
@@ -958,7 +970,7 @@ class ACDCDataset(GenericDataset):
                 (128, 128, 128), mask_name="segmentations_y")
             subject = crop_roi(subject)
 
-            slice = subject["image_m"].numpy().shape[-1] // 2
+            slice = subject["moving_image"].numpy().shape[-1] // 2
             segmentations_x_tmp = subject["segmentation_m"].numpy(
             )[..., slice, np.newaxis]
             segmentations_y_tmp = subject["segmentation_f"].numpy(
@@ -966,22 +978,22 @@ class ACDCDataset(GenericDataset):
             if len(np.unique(segmentations_x_tmp)) < 4 or len(np.unique(segmentations_y_tmp)) < 4:
                 print("not all segmentations present in slice.")
 
-            subject["image_m"] = tio.ScalarImage(
-                tensor=subject["image_m"].numpy()[..., slice, np.newaxis])
-            subject["image_f"] = tio.ScalarImage(
-                tensor=subject["image_f"].numpy()[..., slice, np.newaxis])
+            subject["moving_image"] = tio.ScalarImage(
+                tensor=subject["moving_image"].numpy()[..., slice, np.newaxis])
+            subject["fixed_image"] = tio.ScalarImage(
+                tensor=subject["fixed_image"].numpy()[..., slice, np.newaxis])
             subject["segmentation_m"] = tio.ScalarImage(
                 tensor=segmentations_x_tmp)
             subject["segmentation_f"] = tio.ScalarImage(
                 tensor=segmentations_y_tmp)
 
             rescale_x = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                subject["image_m"].numpy().min(), subject["image_m"].numpy().max()))
+                subject["moving_image"].numpy().min(), subject["moving_image"].numpy().max()))
             rescale_y = tio.RescaleIntensity(out_min_max=(0, 1), percentiles=(0, 100), in_min_max=(
-                subject["image_f"].numpy().min(), subject["image_f"].numpy().max()))
+                subject["fixed_image"].numpy().min(), subject["fixed_image"].numpy().max()))
 
-            subject["image_m"] = rescale_x(subject["image_m"])
-            subject["image_f"] = rescale_y(subject["image_f"])
+            subject["moving_image"] = rescale_x(subject["moving_image"])
+            subject["fixed_image"] = rescale_y(subject["fixed_image"])
 
             # rescale = tio.RescaleIntensity(out_min_max=(0, 1))
             # subject = rescale(subject)
@@ -989,16 +1001,16 @@ class ACDCDataset(GenericDataset):
             # save preprocessed images
             if "train" in self.return_mode:
                 save_path.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(self.images_path / "training" / file_image_m.parent.name /
-                                "Info.cfg", save_path / "training" / file_image_m.parent.name / "Info.cfg")
+                shutil.copyfile(self.images_path / "training" / file_moving_image.parent.name /
+                                "Info.cfg", save_path / "training" / file_moving_image.parent.name / "Info.cfg")
                 (save_path / "training" /
-                 file_image_m.parent.name).mkdir(parents=True, exist_ok=True)
+                 file_moving_image.parent.name).mkdir(parents=True, exist_ok=True)
                 (save_path / "training" /
-                 file_image_m.parent.name).mkdir(parents=True, exist_ok=True)
-                subject["image_m"].save(
-                    save_path / "training" / file_image_m.parent.name / file_image_m.name)
-                subject["image_f"].save(
-                    save_path / "training" / file_image_f.parent.name / file_image_f.name)
+                 file_moving_image.parent.name).mkdir(parents=True, exist_ok=True)
+                subject["moving_image"].save(
+                    save_path / "training" / file_moving_image.parent.name / file_moving_image.name)
+                subject["fixed_image"].save(
+                    save_path / "training" / file_fixed_image.parent.name / file_fixed_image.name)
                 subject["segmentation_m"].save(
                     save_path / "training" / file_segmentation_m.parent.name / file_segmentation_m.name)
                 subject["segmentation_f"].save(
@@ -1006,16 +1018,16 @@ class ACDCDataset(GenericDataset):
             else:
 
                 save_path.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(self.images_path / "testing" / file_image_m.parent.name / "Info.cfg",
-                                save_path / "testing" / file_image_m.parent.name / "Info.cfg")
+                shutil.copyfile(self.images_path / "testing" / file_moving_image.parent.name / "Info.cfg",
+                                save_path / "testing" / file_moving_image.parent.name / "Info.cfg")
                 (save_path / "testing" /
-                 file_image_m.parent.name).mkdir(parents=True, exist_ok=True)
+                 file_moving_image.parent.name).mkdir(parents=True, exist_ok=True)
                 (save_path / "testing" /
-                 file_image_m.parent.name).mkdir(parents=True, exist_ok=True)
-                subject["image_m"].save(
-                    save_path / "testing" / file_image_m.parent.name / file_image_m.name)
-                subject["image_f"].save(
-                    save_path / "testing" / file_image_f.parent.name / file_image_f.name)
+                 file_moving_image.parent.name).mkdir(parents=True, exist_ok=True)
+                subject["moving_image"].save(
+                    save_path / "testing" / file_moving_image.parent.name / file_moving_image.name)
+                subject["fixed_image"].save(
+                    save_path / "testing" / file_fixed_image.parent.name / file_fixed_image.name)
                 subject["segmentation_m"].save(
                     save_path / "testing" / file_segmentation_m.parent.name / file_segmentation_m.name)
                 subject["segmentation_f"].save(
@@ -1106,23 +1118,24 @@ class FIREDataset(GenericDataset):
     def _get_image_pair_as_tensors(self, idx: int):
         path_fixed = self.images_list[idx][0]
         path_moving = self.images_list[idx][1]
-        image_fixed = Image.open(path_fixed)
-        # image_fixed = Image.open(path_fixed).resize((256, 256))
-        image_moving = Image.open(path_moving)
-        # image_moving = Image.open(path_moving).resize((256, 256))
+        fixed_imageixed = Image.open(path_fixed)
+        # fixed_imageixed = Image.open(path_fixed).resize((256, 256))
+        moving_imageoving = Image.open(path_moving)
+        # moving_imageoving = Image.open(path_moving).resize((256, 256))
         if not self.rgb:
-            image_fixed = image_fixed.convert('L')
-            image_moving = image_moving.convert('L')
-            image_fixed = torch.from_numpy(np.array(image_fixed))
-            image_moving = torch.tensor(np.array(image_moving))
-            image_fixed = utils.normalize_tensor_to_0_1(image_fixed)
-            image_moving = utils.normalize_tensor_to_0_1(image_moving)
+            fixed_imageixed = fixed_imageixed.convert('L')
+            moving_imageoving = moving_imageoving.convert('L')
+            fixed_imageixed = torch.from_numpy(np.array(fixed_imageixed))
+            moving_imageoving = torch.tensor(np.array(moving_imageoving))
+            fixed_imageixed = utils.normalize_tensor_to_0_1(fixed_imageixed)
+            moving_imageoving = utils.normalize_tensor_to_0_1(
+                moving_imageoving)
 
         if self.rgb:
-            image_fixed = torch.from_numpy(np.array(image_fixed))
-            image_moving = torch.tensor(np.array(image_moving))
+            fixed_imageixed = torch.from_numpy(np.array(fixed_imageixed))
+            moving_imageoving = torch.tensor(np.array(moving_imageoving))
 
-        return image_fixed, image_moving
+        return fixed_imageixed, moving_imageoving
 
     def _get_image_pair_as_paths(self, idx):
         return self.images_path / self.images_list[idx][0], self.images_path / self.images_list[idx][1]
@@ -1135,25 +1148,27 @@ class FIREDataset(GenericDataset):
         """
         path_fixed = self.images_list[idx][0]
         path_moving = self.images_list[idx][1]
-        image_fixed = Image.open(path_fixed)
-        # image_fixed = Image.open(path_fixed).resize((256, 256))
-        image_moving = Image.open(path_moving)
-        # image_moving = Image.open(path_moving).resize((256, 256))
+        fixed_imageixed = Image.open(path_fixed)
+        # fixed_imageixed = Image.open(path_fixed).resize((256, 256))
+        moving_imageoving = Image.open(path_moving)
+        # moving_imageoving = Image.open(path_moving).resize((256, 256))
         if not self.rgb:
-            image_fixed = image_fixed.convert('L')
-            image_moving = image_moving.convert('L')
-            image_fixed = torch.tensor(image_fixed)
-            image_moving = torch.tensor(image_moving)
-            image_fixed = utils.normalize_tensor_to_0_1(image_fixed)
-            image_moving = utils.normalize_tensor_to_0_1(image_moving)
+            fixed_imageixed = fixed_imageixed.convert('L')
+            moving_imageoving = moving_imageoving.convert('L')
+            fixed_imageixed = torch.tensor(fixed_imageixed)
+            moving_imageoving = torch.tensor(moving_imageoving)
+            fixed_imageixed = dataloader_utils.normalize_tensor_to_0_1(
+                fixed_imageixed)
+            moving_imageoving = dataloader_utils.normalize_tensor_to_0_1(
+                moving_imageoving)
 
         if self.rgb:
-            image_fixed = torch.tensor(image_fixed)
-            image_moving = torch.tensor(image_moving)
-            # image_fixed = image_fixed.movedim(2, 0)
-            # image_moving = image_moving.movedim(2, 0)
+            fixed_imageixed = torch.tensor(fixed_imageixed)
+            moving_imageoving = torch.tensor(moving_imageoving)
+            # fixed_imageixed = fixed_imageixed.movedim(2, 0)
+            # moving_imageoving = moving_imageoving.movedim(2, 0)
 
-        return image_fixed, image_moving
+        return fixed_imageixed, moving_imageoving
 
 
 """
