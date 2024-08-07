@@ -11,8 +11,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import pandas as pd
 import wandb
 from pathlib import Path
+import matplotlib.colors as mcolors
 from typing import Optional
 import os
+import registrationbaselines.core.utils as utils
 import torch
 os.environ['NEURITE_BACKEND'] = "pytorch"
 # plt.switch_backend('agg')
@@ -283,6 +285,9 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         fixed_keypoints = fixed_keypoints.numpy().squeeze()
     if pred_keypoints is not None:
         pred_keypoints = pred_keypoints.numpy().squeeze()
+
+    displacement_denorm = utils.unit_displacement_to_displacement(
+        displacement.detach().clone()).numpy().squeeze()
     displacement = displacement.numpy().squeeze()
 
     assert displacement.ndim in [
@@ -295,10 +300,11 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     elif displacement.shape[-1] != 2 and displacement.shape[0] == 2:
         displacement = displacement.transpose(1, 2, 0)
 
+    jacobian_determinant = metrics.jacobian_determinant_from_displacement(
+        -displacement_denorm) # we are pull convention, sitk function is push
 
     # BUGFIX: we need to swap the vector components to be (z,y,x) since this is torch convention. (x,y,z, [x,y,z]) -> (x,y,z, [z,y,x])
     displacement = displacement[..., [2, 1, 0]]
-
 
     fig = plt.figure(figsize=(40, 7))
     if title:
@@ -306,8 +312,13 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     image_size = moving_image.shape
     image_dim = displacement.shape[-1]
 
-    jacobian_determinant = metrics.jacobian_determinant_from_displacement(
-        displacement)
+    # jacobian_determinant = metrics.jacobian_determinant_from_displacement(
+    #     displacement_denorm)
+
+    if (fixed_segmentations is not None) and (pred_segmentations is not None):
+        num_cols = 9
+    else:
+        num_cols = 8
 
     if image_dim == 3:
         half_slice_idx = [int(s / 2) for s in image_size]
@@ -317,7 +328,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             dim_ls.remove(d)
 
             # moving image
-            ax = fig.add_subplot(3, 9, (9 * d) + 1)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 1)
             ax.imshow(moving_image.take(
                 half_slice_idx[d], axis=d), cmap='gray')
             if moving_keypoints is not None:
@@ -330,7 +341,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             plt.axis('off')
 
             # fixed image
-            ax = fig.add_subplot(3, 9, (9 * d) + 2)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 2)
             ax.imshow(fixed_image.take(half_slice_idx[d], axis=d), cmap='gray')
             if fixed_keypoints is not None:
                 kp_slice = fixed_keypoints[np.where(
@@ -342,7 +353,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             plt.axis('off')
 
             # deformed image
-            ax = fig.add_subplot(3, 9, (9 * d) + 3)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 3)
             ax.imshow(pred_image.take(half_slice_idx[d], axis=d), cmap='gray')
             if pred_keypoints is not None:
                 kp_slice = pred_keypoints[np.where(
@@ -354,7 +365,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             plt.axis('off')
 
             # displacement field
-            ax = fig.add_subplot(3, 9, (9 * d) + 4)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 4)
             axes = [0, 1, 2]
             axes.remove(d)
             # print(displacement.shape, displacement[..., axes].take(half_slice_idx[d], axis=d).transpose(2, 0, 1).shape, pred_image.take(half_slice_idx[d], axis=d).shape)
@@ -369,7 +380,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             # fig.tight_layout()
 
             # difference image before registration
-            ax = fig.add_subplot(3, 9, (9 * d) + 5)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 5)
             diff_image = fixed_image.take(
                 half_slice_idx[d], axis=d) - moving_image.take(half_slice_idx[d], axis=d)
             ax.imshow(diff_image, cmap='gray')
@@ -380,7 +391,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             # fig.tight_layout()
 
             # difference image after registration
-            ax = fig.add_subplot(3, 9, (9 * d) + 6)
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 6)
             diff_image = fixed_image.take(
                 half_slice_idx[d], axis=d) - pred_image.take(half_slice_idx[d], axis=d)
             ax.imshow(diff_image, cmap='gray')
@@ -389,9 +400,46 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 ax.title.set_text("diff image after")
             plt.axis('off')
 
+            # jacobian determinant, negative values shown in red
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 7)
+            jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
+            #jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
+            tmp = np.max(np.array([np.max(jacdet_d), -np.min(jacdet_d)]))
+            norm = colors.TwoSlopeNorm(
+               vmin=-tmp, vmax=tmp, vcenter=0)
+            im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
+            ax.set_frame_on(False)
+            if toprow:
+                ax.title.set_text("jac det")
+            plt.axis('off')
+
+            # Add a colorbar with adjusted size
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            cbar = plt.colorbar(im1, cax=cax)
+            # Adjust the colorbar tick label size if needed
+            cbar.ax.tick_params(labelsize=6)
+
+            # negative jacobian determinants
+            ax = fig.add_subplot(3, num_cols, (num_cols * d) + 8)
+            field = np.zeros_like(jacdet_d)
+            field[jacdet_d < 0] = -1
+            shrinking_mask = (jacdet_d >= 0) & (jacdet_d <1)
+            field[shrinking_mask] = 0
+            field[jacdet_d == 1 ] = 1
+            field[jacdet_d > 1 ] = 2
+            cmap = mcolors.ListedColormap(['red', 'orange', 'black', 'green'])
+            bounds = [-1.5, 0, 0, 1.01, 2.5]
+            norm = mcolors.BoundaryNorm(bounds, cmap.N)
+            im1 = ax.imshow(jacdet_d, cmap=cmap, norm=norm)
+            ax.set_frame_on(False)
+            if toprow:
+                ax.title.set_text("jac det (folding:red, shrink:orange, vp:black, exp:green)")
+            plt.axis('off')
+
             # boundaries
-            ax = fig.add_subplot(3, 9, (9 * d) + 7)
             if (fixed_segmentations is not None) and (pred_segmentations is not None):
+                ax = fig.add_subplot(3, num_cols, (num_cols * d) + 9)
                 fixed_boundary = multilabel_to_boundary(fixed_segmentations)
                 pred_boundary = multilabel_to_boundary(pred_segmentations)
                 fixed_boundary = fixed_boundary.astype(np.int8)
@@ -410,33 +458,15 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 ax.set_frame_on(False)
                 ax.title.set_text("diff image after")
                 plt.axis('off')
-            if toprow:
-                ax.title.set_text("segmentations")
-
-            # jacobian determinant, negative values shown in red
-            ax = fig.add_subplot(3, 9, (9 * d) + 9)
-            jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
-            jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
-            norm = colors.TwoSlopeNorm(
-                vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
-            im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
-            ax.set_frame_on(False)
-            if toprow:
-                ax.title.set_text("jac det")
-            plt.axis('off')
-
-            # Add a colorbar with adjusted size
-            divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size="5%", pad=0.05)
-            cbar = plt.colorbar(im1, cax=cax)
-            # Adjust the colorbar tick label size if needed
-            cbar.ax.tick_params(labelsize=6)
+                if toprow:
+                    ax.title.set_text("segmentations")
+            toprow=False
 
     elif image_dim == 2:
         toprow = True
 
         # moving image
-        ax = fig.add_subplot(3, 9, 1)
+        ax = fig.add_subplot(3, num_cols, 1)
         ax.imshow(moving_image.squeeze(), cmap='gray')
         if moving_keypoints is not None:
             ax.scatter(
@@ -446,7 +476,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         plt.axis('off')
 
         # fixed image
-        ax = fig.add_subplot(3, 9, 2)
+        ax = fig.add_subplot(3, num_cols, 2)
         ax.imshow(fixed_image.squeeze(), cmap='gray')
         if fixed_keypoints is not None:
             ax.scatter(fixed_keypoints[:, 0],
@@ -456,7 +486,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         plt.axis('off')
 
         # deformed image
-        ax = fig.add_subplot(3, 9, 3)
+        ax = fig.add_subplot(3, num_cols, 3)
         ax.imshow(pred_image.squeeze(), cmap='gray')
         if pred_keypoints is not None:
             ax.scatter(pred_keypoints[:, 0],
@@ -466,7 +496,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         plt.axis('off')
 
         # displacement field
-        ax = fig.add_subplot(3, 9, 4)
+        ax = fig.add_subplot(3, num_cols, 4)
         fieldAx = displacement.squeeze()
         # plot_quiverplot(fieldAx, ax=ax)
         # neurite.plot.flow([displacement], show=False)
@@ -479,7 +509,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         fig.tight_layout()
 
         # difference image before registration
-        ax = fig.add_subplot(3, 9, 5)
+        ax = fig.add_subplot(3, num_cols, 5)
         diff_image = fixed_image.squeeze() - moving_image.squeeze()
         ax.imshow(diff_image, cmap='gray')
         ax.set_frame_on(False)
@@ -489,7 +519,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         # fig.tight_layout()
 
         # difference image after registration
-        ax = fig.add_subplot(3, 9, 6)
+        ax = fig.add_subplot(3, num_cols, 6)
         diff_image = fixed_image.squeeze() - pred_image.squeeze()
         ax.imshow(diff_image, cmap='gray')
         ax.set_frame_on(False)
@@ -497,8 +527,21 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             ax.title.set_text("diff image after")
         plt.axis('off')
 
+        # jacobian determinant, negative values shown in red
+        ax = fig.add_subplot(3, num_cols,  8)
+        jacdet_d = jacobian_determinant
+        jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
+        norm = colors.TwoSlopeNorm(
+            vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
+        im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
+        ax.set_frame_on(False)
+        if toprow:
+            ax.title.set_text("jac det")
+        plt.axis('off')
+        plt.colorbar(im1, ax=ax)
+
         # boundaries
-        ax = fig.add_subplot(3, 9,  7)
+        ax = fig.add_subplot(3, num_cols,  7)
         if (fixed_segmentations is not None) and (pred_segmentations is not None):
             fixed_segmentations = fixed_segmentations.squeeze()
             pred_segmentations = pred_segmentations.squeeze()
@@ -527,19 +570,6 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             ax.legend(handles=legend_elements, loc='upper right')
         if toprow:
             ax.title.set_text("segmentations")
-
-        # jacobian determinant, negative values shown in red
-        ax = fig.add_subplot(3, 9,  8)
-        jacdet_d = jacobian_determinant
-        jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
-        norm = colors.TwoSlopeNorm(
-            vmin=-np.max(jacdet_d), vmax=np.max(jacdet_d), vcenter=0)
-        im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
-        ax.set_frame_on(False)
-        if toprow:
-            ax.title.set_text("jac det")
-        plt.axis('off')
-        plt.colorbar(im1, ax=ax)
 
     else:
         print("Not implemented")
