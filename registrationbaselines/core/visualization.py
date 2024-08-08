@@ -427,14 +427,12 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 8)
             field = np.zeros_like(jacdet_d)
             field[jacdet_d < 0] = -1
-            shrinking_mask = (jacdet_d >= 0) & (jacdet_d <1)
+            shrinking_mask = (jacdet_d >= 0) & (jacdet_d < 1)
             field[shrinking_mask] = 0
             field[np.isclose(jacdet_d, 1, atol=1e-1)] = 1
-            field[jacdet_d > 1 ] = 2
+            field[jacdet_d > 1] = 2
             cmap = mcolors.ListedColormap(['red', 'orange', 'black', 'blue'])
-            bounds = [-1.5, 0, 1.0, 1.01, 2.5]
-            norm = mcolors.BoundaryNorm(bounds, cmap.N)
-            im1 = ax.imshow(field, cmap=cmap, norm=norm)
+            im1 = ax.imshow(field, cmap=cmap)
             ax.set_frame_on(False)
             if toprow:
                 ax.title.set_text("jac det (folding:red, shrink:orange, vp:black, exp:blue)")
