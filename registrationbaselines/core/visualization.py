@@ -273,7 +273,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     @return: plot
     """
 
-    assert displacement.min() >= -1 and displacement.max()<=1
+    assert displacement.min() >= -1 and displacement.max() <= 1
 
     moving_image = moving_image.numpy().squeeze()
     fixed_image = fixed_image.numpy().squeeze()
@@ -304,7 +304,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         displacement = displacement.transpose(1, 2, 0)
 
     jacobian_determinant = metrics.jacobian_determinant_from_displacement(
-        -displacement_denorm) # we are pull convention, sitk function is push
+        -displacement_denorm)  # we are pull convention, sitk function is push
 
     # BUGFIX: we need to swap the vector components to be (z,y,x) since this is torch convention. (x,y,z, [x,y,z]) -> (x,y,z, [z,y,x])
     displacement = displacement[..., [2, 1, 0]]
@@ -406,10 +406,10 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             # jacobian determinant, negative values shown in red
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 7)
             jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
-            #jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
+            # jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
             tmp = np.max(np.array([np.max(jacdet_d), -np.min(jacdet_d)]))
             norm = colors.TwoSlopeNorm(
-               vmin=-tmp, vmax=tmp, vcenter=0)
+                vmin=-tmp, vmax=tmp, vcenter=0)
             im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
             ax.set_frame_on(False)
             if toprow:
@@ -435,7 +435,8 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             im1 = ax.imshow(field, cmap=cmap)
             ax.set_frame_on(False)
             if toprow:
-                ax.title.set_text("jac det (folding:red, shrink:orange, vp:black, exp:blue)")
+                ax.title.set_text(
+                    "jac det (folding:red, shrink:orange, vp:black, exp:blue)")
             plt.axis('off')
 
             # boundaries
@@ -461,7 +462,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 plt.axis('off')
                 if toprow:
                     ax.title.set_text("segmentations")
-            toprow=False
+            toprow = False
 
     elif image_dim == 2:
         toprow = True
