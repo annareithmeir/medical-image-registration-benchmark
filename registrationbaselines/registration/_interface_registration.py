@@ -118,7 +118,7 @@ class RegistrationInterface(ABC):
             just the config for the current run
         """
         # IMPORTANT: this has to be called after creating wandb.agent()
-        wandb.init(mode="offline")
+        wandb.init(mode="online")
 
         buffer_ori_name = self.method_name
 
@@ -144,8 +144,7 @@ class RegistrationInterface(ABC):
         wandb.agent(self.sweep_id,
                     function=lambda: self._perform_wandb_run(),
                     entity=None,
-                    project="reg_baselines",
-                    count=None)
+                    project="reg_baselines")
 
     def get_transformation_path(self):
         """
