@@ -1,14 +1,16 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 import yaml
 import torch
 import wandb
+from tqdm import tqdm
 
 from registrationbaselines.core import utils
-from registrationbaselines.data_loading.data_loaders import GenericDataset
+from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.evaluation.evaluation import Evaluation
 
 
 class RegistrationInterface(ABC):
@@ -18,9 +20,9 @@ class RegistrationInterface(ABC):
 
     method_name: str = ""
 
-    configuration: Dict[str, Any] = {}
+    configuration: Dict[str, Union[str, int, float, bool]] = {}
 
-    dataloader: GenericDataset
+    dataloader: data_loaders.GenericDataset
 
     path_fixed: Path = Path()
     path_moving: Path = Path()
@@ -33,18 +35,23 @@ class RegistrationInterface(ABC):
     path_result_deformation: Path = Path()
     path_result_deformed: Path = Path()
 
+    use_wandb: bool = False
+
+    evaluator: Evaluation
+
     @abstractmethod
     def __init__(self,
                  configuration: Dict[str, Any],
-                 dataloader: GenericDataset):
+                 dataloader: data_loaders.GenericDataset,
+                 use_wandb: bool):
         """
         Initialize the registration model.
         """
 
     @abstractmethod
-    def register(self,
-                 fixed_image_path: Path,
-                 moving_image_path: Path) -> None:
+    def _register(self,
+                  fixed_image_path: Path,
+                  moving_image_path: Path) -> None:
         """
         Register moving_image to fixed_image.
 
@@ -59,8 +66,39 @@ class RegistrationInterface(ABC):
         @return: None
         """
 
-    @abstractmethod
-    def _register_wandb_wrapper(self) -> None:
+    def register_dataset(self) -> None:
+        """
+        Register and evaluate all files and log to wand.
+
+        @return: None
+        """
+
+        if self.use_wandb is False:
+            self.configuration = self.convert_to_non_wandb_config(
+                self.configuration)
+            result_path = Path(self.configuration["result_path"])
+        else:
+            result_path = Path(
+                self.configuration["parameters"]["result_path"]["values"][0])
+
+        self._create_result_directories(self.method_name)
+
+        for item in tqdm(self.dataloader):
+            self._register(item["fixed_image"], item["moving_image"])
+
+        loader_transformations = data_loaders.BaselineTransformations(
+            self.method_dir)
+
+        self.evaluator = Evaluation(result_path,
+                                    self.method_dir.name,
+                                    self.dataloader,
+                                    loader_transformations)
+
+        self.evaluator.evaluate()
+
+        self.evaluator.visualize()
+
+    def _perform_wandb_run(self) -> None:
         """
         This wraps register() and is used by wandb.agent.
         This has to (in order)
@@ -79,21 +117,34 @@ class RegistrationInterface(ABC):
             wandb.config doesn't reflect the entire config file,
             just the config for the current run
         """
+        # IMPORTANT: this has to be called after creating wandb.agent()
+        wandb.init(mode="online")
 
-    def register_all_parametr_sets(self) -> None:
+        buffer_ori_name = self.method_name
+
+        self.method_name = self.create_method_name_for_wandb(wandb.config)
+
+        self.register_dataset()
+
+        self.evaluator.wandb_log()
+
+        self.method_name = buffer_ori_name
+
+    def perform_wandb_sweep(self) -> None:
         """
         Register all parameter sets.
         """
+
+        self.use_wandb = True
 
         self.sweep_id = wandb.sweep(self.configuration,
                                     entity=None,
                                     project="reg_baselines")
 
         wandb.agent(self.sweep_id,
-                    function=lambda: self._register_wandb_wrapper(),
+                    function=lambda: self._perform_wandb_run(),
                     entity=None,
-                    project="reg_baselines",
-                    count=None)
+                    project="reg_baselines")
 
     def get_transformation_path(self):
         """
@@ -140,8 +191,8 @@ class RegistrationInterface(ABC):
         Create the directories to save the results.
         """
 
-        self.path_results = Path(
-            self.configuration["parameters"]["result_path"]["value"])
+        self.path_results = Path(self.configuration["result_path"]) if not self.use_wandb else Path(
+            self.configuration["parameters"]["result_path"]["values"][0])
 
         # create directory in base_dir called method
         self.method_dir = self.path_results / \
@@ -188,6 +239,39 @@ class RegistrationInterface(ABC):
             path_deformation.as_posix() + extension_transformation)
 
         return Path(path_dir_deformed), Path(path_deformation)
+
+    @staticmethod
+    def convert_to_non_wandb_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get the config without the wandb config.
+        """
+
+        config = config["parameters"]
+
+        new_config: Dict[str, str] = {}
+
+        for key, value in config.items():
+            new_config[key] = value["values"][0]
+
+        return new_config
+
+    def create_method_name_for_wandb(self, wandb_config: Dict[str, Union[str, int, float, bool]]) -> str:
+        """
+        Create the method name for wandb.
+        """
+
+        method_name = self.method_name
+
+        for key, value in wandb_config.items():
+
+            if key not in ['result_path', 'method_name']:
+                if isinstance(value, bool) or isinstance(value, int) or isinstance(value, float):
+                    method_name += f"___{key}_{str(value).lower()}"
+                else:
+                    beautified_param = value.replace('-', '').replace(' ', '_')
+                    method_name += f"___{key}_{beautified_param}"
+
+        return method_name
 
     @staticmethod
     def read_config(file_path: Path):

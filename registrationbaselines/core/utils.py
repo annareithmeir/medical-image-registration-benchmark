@@ -1,8 +1,10 @@
+import pandas as pd
 from pathlib import Path
 
 from typing import Any, Union, Tuple
 
 from scipy.ndimage import map_coordinates
+from sympy import true
 import yaml
 import numpy as np
 import SimpleITK as sitk
@@ -14,7 +16,7 @@ from registrationbaselines.core import utils_metrics
 from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D, floatArray2Dor3D
 
 
-def is_nifti_and_exists(path: Path) -> None:
+def is_nifti(path: Path) -> None:
     """
     Function to check if a file is a nifti and exists.
 
@@ -49,10 +51,17 @@ def is_isotropic(image: sitk.Image) -> None:
 
     spacing = np.array(image.GetSpacing(), np.float64)
 
-    if not np.allclose(spacing, spacing[0]):
+    if len(spacing) == 3:
+        if not np.allclose(spacing, spacing[0]):
+            raise ValueError(
+                f"Voxel size is not isotropic: {tuple(spacing)}")
+    elif len(spacing) == 5:
+        if not np.allclose(spacing[:3], spacing[0]) and not np.all(spacing[3:] == [1.0, 1.0]):
+            raise ValueError(
+                f"Voxel size is not isotropic: {tuple(spacing)}")
+    else:
         raise ValueError(
-            f"Voxel size is not isotropic: {tuple(spacing)}"
-        )
+            f"Spacing has to be elngth 3 (image/segmentation) or 5 (displacement)")
 
 
 def is_direction_identity(image: sitk.Image) -> None:
@@ -77,9 +86,58 @@ def is_direction_identity(image: sitk.Image) -> None:
         )
 
 
+def are_offdiagonal_direction_elements_zero(image: sitk.Image) -> None:
+
+    dir = np.abs(np.array(image.GetDirection(), np.float64))
+
+    if len(dir) == 9:
+        dir_offdiagonal = list(dir[1:4]) + list(dir[5:8])
+        zeros = [0.0 for _ in range(6)]
+    elif len(dir) == 25:
+        dir_offdiagonal = list(dir[1:6]) + list(dir[7:12]) + \
+            list(dir[13:18]) + list(dir[19:24])
+        zeros = [0.0 for _ in range(20)]
+    else:
+        raise ValueError(
+            f"Direction has to be elngth 9 (image/segmentation) or 25 (displacement)")
+
+    if dir_offdiagonal != zeros:
+        raise ValueError("Off-diagonal elements are not zero")
+
+
+def flip(x: torch.Tensor, dim: int):
+    """
+    Flip order of a specific dimension dim
+
+    x (Tensor): input tensor
+    dim (int): axis which should be flipped
+    return (Tensor): returns the tensor with the specified axis flipped
+    """
+    indices = [slice(None)] * x.dim()
+    indices[dim] = torch.arange(x.size(dim) - 1, -1, -1,
+                                dtype=torch.long, device=x.device)
+    return x[tuple(indices)]
+
+
+def reverse_axis(image: torch.Tensor) -> torch.Tensor:
+    """
+    Flips the order of the axis representing the space dimensions (preceeding dimensions are ignored).
+    Respectively, the axis holding the vectors is flipped as well
+
+    Note: the method is inplace
+    """
+    # reverse order of axis to follow the convention of SimpleITK
+    order = list(reversed(range(image.ndim-1)))
+    order.append(len(order))
+    image = image.squeeze_().permute(tuple(order))
+    image = flip(image, image.ndim-1)
+
+    return image
+
+
 def load_displacement(path: Path) -> torch.Tensor:
     """
-    Load a displacement field from a file and return it as a numpy array.
+    Load a displacement field from a file and return it as a torch tensor in the shape H,W,D,3
 
     @param path: The path to the displacement field file.
 
@@ -89,9 +147,14 @@ def load_displacement(path: Path) -> torch.Tensor:
     @raise ValueError: If the displacement field has wrong dimensions.
     """
 
-    is_nifti_and_exists(path)
+    is_nifti(path)
 
     displacement_sitk: sitk.Image = sitk.ReadImage(path)
+
+    is_isotropic(displacement_sitk)
+    is_direction_identity(displacement_sitk)
+    are_offdiagonal_direction_elements_zero(displacement_sitk)
+
     displacement_array: floarArray4Dor5D = sitk.GetArrayFromImage(
         displacement_sitk)
 
@@ -101,15 +164,13 @@ def load_displacement(path: Path) -> torch.Tensor:
         raise ValueError(
             "The intent code of the displacement field should be NIFTI_INTENT_DISPVECT.")
 
-    # is_isotropic(displacement_sitk)
-
     # check dimensions
     shape = displacement_array.shape
 
-    # check that it is 4D or 5D
-    if len(shape) not in [4, 5]:
+    # check that it is 5D
+    if len(shape) != 5:
         raise ValueError(
-            f"Dimension is not 4D, 5D: {len(shape)}"
+            f"Dimension is not 5D: {len(shape)}"
         )
 
     separating_dimension_correct = shape[1] == 1  # dim 1 is dummy
@@ -121,7 +182,11 @@ def load_displacement(path: Path) -> torch.Tensor:
             "The displacement field should have spatial dimensions as the last dimensions \
                 and a vector dimension as the first dimension and separated by a dummy dimension.")
 
-    displacement_tensor = torch.Tensor(displacement_array)
+    displacement_tensor = torch.from_numpy(displacement_array)
+    if displacement_tensor.dtype != torch.float32:
+        raise TypeError(
+            f"Dsiplacement is not torch.float32: {displacement_tensor.dtype}"
+        )
 
     # remove separating dummy dimension
     displacement_tensor = displacement_tensor.squeeze()
@@ -130,7 +195,11 @@ def load_displacement(path: Path) -> torch.Tensor:
     new_order = list(range(1, displacement_tensor.dim())) + [0]
     displacement_tensor = displacement_tensor.permute(new_order)
 
-    displacement_tensor = displacement_tensor.permute(2, 1, 0, 3)
+    # should be unit displacement
+    displacement_tensor = displacement_to_unit_displacement(
+        displacement_tensor)
+
+    displacement_tensor = reverse_axis(displacement_tensor)
 
     return displacement_tensor
 
@@ -152,33 +221,68 @@ def load_image(image_path: Path) -> torch.Tensor:
     @rtype: floatArray2Dor3Dor4D
     """
 
-    is_nifti_and_exists(image_path)
+    is_nifti(image_path)
 
     image_sitk: sitk.Image = sitk.ReadImage(image_path)
+
+    is_isotropic(image_sitk)
+    is_direction_identity(image_sitk)
+    are_offdiagonal_direction_elements_zero(image_sitk)
+
     image_array: array2Dor3D = sitk.GetArrayFromImage(image_sitk)
 
     dimension = image_array.ndim
 
-    # check that it is 2D, 3D or 4D
-    if dimension not in [2, 3]:
+    # check that it 3D
+    if dimension != 3:
         raise ValueError(
-            f"Dimension of {image_path} is not 2D, 3D: {dimension}"
+            f"Dimension of {image_path} is not 3D: {dimension}"
         )
 
-    # check that spacing is isotropic
-    # is_isotropic(image_sitk)
-
-    # check that direction is identity
-    is_direction_identity(image_sitk)
-
-    return_tensor = torch.Tensor(image_array).squeeze()
+    return_tensor = torch.from_numpy(image_array).squeeze()
+    # check that image is float or int
+    if not (return_tensor.dtype == torch.uint8 or return_tensor.dtype == torch.float32):
+        raise TypeError(
+            f"Image is not float or int: {return_tensor.dtype}"
+        )
 
     return_tensor = return_tensor.permute(2, 1, 0)
 
     return return_tensor
 
 
-def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int, ...]) -> None:
+def load_keypoints(keypoints_path: Path) -> torch.Tensor:
+    """
+    Load keypoints from a csv file to a torch tensor of shape [N,3].
+
+    dtype: float32
+
+    The keypoints have to be in x,y,z order and they will be converted to z,y,x.
+    The switch happens because extracting a np array from an sitk image does that too.
+
+    @param keypoints_path: Path to the .txt keypoints file
+    @return: Keypoints as a torch tensor of shape [N,3].
+    """
+
+    if not keypoints_path.exists():
+        raise FileNotFoundError(f"Keypoints file not found: {keypoints_path}")
+
+    keypoints = np.loadtxt(keypoints_path, delimiter=',', dtype=np.float32)
+    keypoints = torch.from_numpy(keypoints)
+
+    if keypoints.ndim != 2:  # this is enforced by numpy, but let's keep it here
+        raise ValueError(f"Keypoints should be 2D: {keypoints.ndim}")
+    if keypoints.shape[1] != 3:
+        raise ValueError(
+            f"Keypoints should have 3 columns: {keypoints.shape[1]}")
+
+    # switch x and z
+    # keypoints[:, [0, 2]] = keypoints[:, [2, 0]]
+
+    return keypoints
+
+
+def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]) -> None:
     """
     Save a numpy array as a nifti image.
 
@@ -192,10 +296,16 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int, ...]) 
         raise ValueError(
             "The path should be in .nii or .nii.gz format.")
 
-    # check that it is 2D, 3D or 4D
-    if image.ndim not in [2, 3, 4]:
+    # check that it is 3D
+    if image.ndim != 3:
         raise ValueError(
-            f"Dimension of image is not 2D, 3D or 4D: {image.ndim}"
+            f"Dimension of image is not 3D: {image.ndim}"
+        )
+
+    # spacing has to match the image
+    if len(spacing) != image.ndim:
+        raise ValueError(
+            "The spacing does not match the image dimensions."
         )
 
     sitk_image = sitk.GetImageFromArray(image.detach().cpu().numpy())
@@ -206,6 +316,65 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[int, ...]) 
     # check that file was written
     if not image_path.exists():
         raise FileNotFoundError(f"File {image_path} was not written.")
+
+
+def save_displacement(displacement: torch.Tensor,
+                      image_path: Path,
+                      spacing: Tuple[float, ...]) -> None:
+    """
+    Save a displacement field as a nifti image.
+
+    The voxel size will be isotropic.
+    The direction will be identity.
+    """
+    from registrationbaselines.core import utils_nifti
+
+    # check that file is .nii or .nii.gz
+    if not image_path.suffix == '.nii' and not image_path.suffixes == ['.nii', '.gz']:
+        raise ValueError(
+            "The path should be in .nii or .nii.gz format.")
+
+    # check dimensions
+    shape = displacement.shape
+
+    # check that it is 4D
+    if len(shape) != 4:
+        raise ValueError(f"Dimension of displacement is not 4D: {len(shape)}")
+    if shape[-1] != 3:
+        raise ValueError(
+            "The displacement field should have the vector dimension as the last dimension.")
+
+    if displacement.dtype != torch.float32:
+        raise TypeError(
+            f"Dsiplacement is not torch.float32: {displacement.dtype}"
+        )
+
+    # spacing has to match the image
+    if len(spacing) != len(shape):
+        raise ValueError(
+            "The spacing does not match the image dimensions."
+        )
+
+    # should be unit displacement
+    displacement = unit_displacement_to_displacement(displacement)
+
+    # move vector dimension from back to front
+    displacement = displacement.permute(3, 0, 1, 2)
+    spacing = (spacing[-1],) + spacing[:-1]
+
+    # insert separating dimension
+    displacement = displacement.unsqueeze(1)
+
+    # add dummy spacing
+    spacing = (spacing[0], 1) + spacing[1:]
+
+    sitk_displacement = sitk.GetImageFromArray(
+        displacement.detach().cpu().numpy())
+    sitk_displacement.SetSpacing(spacing)
+
+    sitk.WriteImage(sitk_displacement, image_path)
+
+    utils_nifti.set_intent_code(image_path, 'NIFTI_INTENT_DISPVECT')
 
 
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:
@@ -304,23 +473,38 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
 def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tensor:
     """
     Convert a displacement field to a unit displacement field.
+    The standard unit of displacement is a half-image, so a displacement vector of magnitude 2 
+    means that the displacement distance is equal to the side length of the displaced image.
     """
 
+    disp = torch.zeros_like(displacement)
+
     for dim in range(displacement.shape[-1]):
-        displacement[..., dim] = 2.0 * displacement[..., dim] / \
+        disp[..., dim] = 2.0 * displacement[..., dim] / \
             float(displacement.shape[-dim - 2] - 1)
 
-    return displacement
+    return disp
+
+
+def unit_displacement_to_displacement(displacement: torch.Tensor) -> torch.Tensor:
+
+    disp = torch.zeros_like(displacement)
+
+    for dim in range(displacement.shape[-1]):
+        disp[..., dim] = float(
+            displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
+
+    return disp
 
 
 def deform_image(image: torch.Tensor,
-                 displacement: torch.Tensor,
-                 mode: str) -> torch.Tensor:
+                 displacement: torch.Tensor) -> torch.Tensor:
     """
     Apply a deformation to an image using the provided deformation.
-    @param image_fixed:
-    @param image_moving:
-    @param displacement_field:
+    If the image is of type uint8 ie a segmentation map,
+    it automatically uses mode='nearest' and returns an image of type uint8
+    @param image: if label map then dtype must be torch.uint8, else torch.float
+    @param displacement:
     @return:
     """
 
@@ -336,6 +520,15 @@ def deform_image(image: torch.Tensor,
         raise ValueError(
             "The displacement field should have one more dimension than the image.")
 
+    if image.dtype == torch.uint8:
+        mode = 'nearest'
+        image = image.float()
+    elif image.dtype == torch.float32:
+        mode = 'bilinear'
+    else:
+        raise ValueError(
+            "The image should be either uint8 or float32.")
+
     grid = utils_metrics.compute_grid(
         image.shape, dtype=image.dtype, device=image.device)
 
@@ -345,13 +538,15 @@ def deform_image(image: torch.Tensor,
 
     # warp image
     warped_image = F.grid_sample(
-        image, displacement + grid, mode=mode).squeeze()
+        image, displacement + grid, mode=mode, align_corners=True).squeeze()
 
     if warped_image.ndim != image.squeeze().ndim:
         raise ValueError(
             "The warped image should have the same number of dimensions as the original image. \
                 Something wen wrong with deforming")
 
+    if mode == 'nearest':
+        warped_image = warped_image.to(dtype=torch.uint8)
     return warped_image.squeeze()
 
 
@@ -376,41 +571,143 @@ def rgb_to_grayscale(rgb_image):
     return grayscale_image
 
 
-def normalize_tensor_to_0_1(tensor: torch.tensor) -> torch.Tensor:
+def normalize_tensor_to_0_1(tensor: torch.Tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
 
 
-def deform_keypoints(moving_keypoints: floatArray2Dor3D, displacement: floatArray3Dor4D) -> floatArray2D:
+def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> torch.Tensor:
     """
-    This works intyuitively, that is if at displacemente[10,10] you have a positive value, eg. 8,
-    then the landmark at moving_keypoints[10,10] will be moved (or PUSHED, that's why intuitive) 8 units
-    in the direction of the displacement. On the other hand, F.grid_sample works non-intuitively, that is
-    it pulls - so 
+    Deforms keypoints according to the pull convention using grid_sample.
+
+    @param moving_keypoints: Tensor of shape (N, 3) where N is the number of keypoints (18 in this case).
+    @param displacement: Tensor of shape (201, 201, 201, 3) containing the displacement field.
+    @return: Deformed keypoints as a Tensor of shape (N, 3).
+    """
+
+    if displacement.min() >= -1 and displacement.max() <= 1:
+        displacement = unit_displacement_to_displacement(displacement)
+
+    N = moving_keypoints.shape[0]
+
+    moving_keypoints = moving_keypoints[:, [2, 1, 0]]
+
+    # Normalize moving_keypoints to the range [-1, 1] for grid_sample
+    grid = moving_keypoints.unsqueeze(0)  # Shape (1, N, 3)
+
+    # Normalize the grid to [-1, 1] based on the displacement field size
+    grid = (grid - torch.tensor([displacement.shape[0] / 2, displacement.shape[1] / 2, displacement.shape[2] / 2], device=grid.device)) \
+        / torch.tensor([displacement.shape[0] / 2, displacement.shape[1] / 2, displacement.shape[2] / 2], device=grid.device)
+
+    # Reshape the grid to the correct shape for grid_sample
+    grid = grid.view(1, 1, 1, N, 3)  # Shape (1, 1, 1, N, 3)
+
+    # Prepare displacement field for grid_sample
+    displacement = displacement.permute(3, 0, 1, 2).unsqueeze(
+        0)  # Shape (1, 3, 201, 201, 201)
+
+    # Use grid_sample to sample the displacement field at the keypoints' locations
+    sampled_displacement = F.grid_sample(
+        displacement, grid, mode='bilinear', padding_mode='border', align_corners=True)
+
+    # Reshape the sampled displacement to match the original keypoints shape
+    sampled_displacement = sampled_displacement.squeeze().transpose(0, 1)  # Shape (N, 3)
+
+    # Apply the displacement to the keypoints
+    deformed_keypoints = moving_keypoints - sampled_displacement  # Pull convention
+
+    deformed_keypoints = deformed_keypoints[:, [2, 1, 0]]
+
+    return deformed_keypoints
+
+
+def deform_keypointsOLD(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> torch.Tensor:
+    """
+    Deforms keypoints according to the pull convention
 
     Map the moving keypoints to the fixed keypoints using the displacement field
+    The displacement field should be pixel-based for this to work, so in case it is a unit-displacement field, it is first converted...
+    @param moving_keypoints:
+    @param displacement: of shape (...,3) and optimally non-unit displacement (will be converted otherwise)
+    @return:
     """
+
+    if displacement.min() >= -1 and displacement.max() <= 1:
+        displacement = unit_displacement_to_displacement(displacement)
+
+    # Transpose the keypoints to match the shape for map_coordinates (3, N)
+    moving_keypoints_t = moving_keypoints.transpose(0, 1)
 
     if moving_keypoints.shape[-1] == 3:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 0], moving_keypoints.transpose())
+            displacement[:, :, :, 0], moving_keypoints_t)
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, :, 1], moving_keypoints.transpose())
+            displacement[:, :, :, 1], moving_keypoints_t)
         mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 2], moving_keypoints.transpose())
-        mov_lms_disp = np.array(
-            (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose()
+            displacement[:, :, :, 2], moving_keypoints_t)
+        mov_lms_disp = torch.tensor(
+            (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose(0, 1)
     elif moving_keypoints.shape[-1] == 2:
         mov_lms_disp_x = map_coordinates(
-            displacement[:, :, 0], moving_keypoints.transpose())
+            displacement[:, :, 0], moving_keypoints_t)
         mov_lms_disp_y = map_coordinates(
-            displacement[:, :, 1], moving_keypoints.transpose())
-        mov_lms_disp = np.array((mov_lms_disp_x, mov_lms_disp_y)).transpose()
+            displacement[:, :, 1], moving_keypoints_t)
+        mov_lms_disp = torch.tensor(
+            (mov_lms_disp_x, mov_lms_disp_y)).transpose(0, 1)
     else:
         raise ValueError(
             "The landmark shape is not supported. It should be either 2 or 3.")
 
-    deformed_keypoints = moving_keypoints - mov_lms_disp
+    """
+    ######################################################################################################
+    ###### TEMPORARY  ################
+    ######################################################################################################
+    # Step 2: Get the integer coordinates of landmarks
+    moving_coords = moving_keypoints.long()
 
-    assert isinstance(deformed_keypoints, np.ndarray)
+    # Ensure the coordinates are within the valid range
+    moving_coords[:, 0] = torch.clamp(
+        moving_coords[:, 0], 0, displacement.shape[1] - 1)
+    moving_coords[:, 1] = torch.clamp(
+        moving_coords[:, 1], 0, displacement.shape[2] - 1)
+    moving_coords[:, 2] = torch.clamp(
+        moving_coords[:, 2], 0, displacement.shape[3] - 1)
 
+    displacement = unit_displacement_to_displacement(displacement)
+
+    # Step 3: Extract the displacements for each landmark
+    displacements = displacement[moving_coords[:, 0],
+                                 moving_coords[:, 1],
+                                 moving_coords[:, 2], :]
+
+    # Step 4: Apply the displacements
+    displaced_landmarks_zyx = moving_coords.float() - displacements
+
+    return displaced_landmarks_zyx
+    """
+
+    deformed_keypoints = moving_keypoints - mov_lms_disp  # pull
     return deformed_keypoints
+
+
+def transform_csv(input_csv: Path, output_csv: Path):
+    # Load the CSV file using np.genfromtxt
+    coords = np.genfromtxt(input_csv, delimiter=',')
+
+    # Prepare the data for the new format
+    data = {
+        'label': [f'F-{i+1}' for i in range(coords.shape[0])],
+        'l': coords[:, 0],
+        'p': coords[:, 1],
+        's': coords[:, 2],
+        'defined': [1] * coords.shape[0],
+        'selected': [1] * coords.shape[0],
+        'visible': [1] * coords.shape[0],
+        'locked': [0] * coords.shape[0],
+        'description': [''] * coords.shape[0]
+    }
+
+    # Create a DataFrame
+    df = pd.DataFrame(data)
+
+    # Save to the output CSV file
+    df.to_csv(output_csv, index=False)
