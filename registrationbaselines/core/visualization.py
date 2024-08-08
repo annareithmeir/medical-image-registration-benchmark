@@ -427,10 +427,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
 
             # discrete jacobian determinants
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 8)
-            dicrete_jacobian_det = create_discrete_jacobian_det_map(
-                jacdet_d, 0.05)
-            cmap = colors.ListedColormap(['red', 'orange', 'black', 'blue'])
-            im1 = ax.imshow(dicrete_jacobian_det, cmap=cmap)
+            im1 = plot_jacobian_discrete_map(jacdet_d, 0.05, ax)
             ax.set_frame_on(False)
             if toprow:
                 ax.title.set_text(
@@ -582,6 +579,31 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     else:
         fig.show()
     return fig
+
+
+def plot_jacobian_discrete_map(jacdet: floatArray2D, tolerance: float, ax: plt.Axes):
+    discrete_jacobian_det = create_discrete_jacobian_det_map(jacdet, tolerance)
+
+    # Find unique values in the discrete map
+    unique_values = np.unique(discrete_jacobian_det)
+
+    # Define the colors corresponding to the possible unique values
+    value_to_color = {
+        -1: 'red',     # folding
+        0: 'orange',   # shrinking
+        1: 'black',    # constant volume
+        2: 'blue'      # expansion
+    }
+
+    # Create a colormap and norm based on the unique values
+    colors_list = [value_to_color[val] for val in unique_values]
+    cmap = colors.ListedColormap(colors_list)
+    bounds = np.arange(min(unique_values)-0.5, max(unique_values)+1.5)
+    norm = colors.BoundaryNorm(bounds, cmap.N)
+
+    # Plot the map
+    im1 = ax.imshow(discrete_jacobian_det, cmap=cmap, norm=norm)
+    return im1
 
 
 def create_discrete_jacobian_det_map(jacdet: floatArray2D, tolerance: float) -> np.ndarray[Tuple[int, int],
