@@ -32,30 +32,43 @@ def main() -> None:
     else:
         path_data = Path("/home/anna/datasets/LungCT_preprocessed")
 
-    loader_data = data_loaders.ImagePairDataset([[Path("/home/fryderyk/Documents/data/LungCT_preprocessed/imagesTr/LungCT_0001_0000.nii.gz"),
-                                                  Path("/home/fryderyk/Documents/data/LungCT_preprocessed/imagesTr/LungCT_0001_0001.nii.gz")]],
+    #####################################################################################################
+    # REGISTER AN IMAGE PAIR DATASET
+    #####################################################################################################
+    loader_data = data_loaders.ImagePairDataset([[path_data / "imagesTr/LungCT_0001_0000.nii.gz",
+                                                  path_data / "imagesTr/LungCT_0001_0001.nii.gz"]],
                                                 return_type="path_dict")
-
+    #############################
+    # with register_dataset()
+    #############################
     registration = BSplineNiftyReg(path_config, loader_data)
+    registration.register_dataset()
 
-    # Register a dataset - can be image pair dataset
-    # registration.register_dataset()
+    #############################
+    # with perform_wandb_sweep()
+    #############################
+    registration = BSplineNiftyReg(path_config, loader_data)
+    registration.perform_wandb_sweep()
 
-    # WANDB SWEEP
-    # registration.perform_wandb_sweep()
-
-    ######
+    #####################################################################################################
+    # REGISTER A REAL DATASET
+    #####################################################################################################
     loader_data = data_loaders.L2RLungCTDataset(path_data,
                                                 return_type="path_dict",
                                                 indices=[1, 2])
 
+    #############################
+    # with register_dataset()
+    #############################
     registration = BSplineNiftyReg(path_config,
                                    loader_data)
-
-    # Register a dataset - can be image pair dataset
     registration.register_dataset()
 
-    # WANDB SWEEP
+    #############################
+    # with perform_wandb_sweep()
+    #############################
+    registration = BSplineNiftyReg(path_config,
+                                   loader_data)
     registration.perform_wandb_sweep()
 
 
