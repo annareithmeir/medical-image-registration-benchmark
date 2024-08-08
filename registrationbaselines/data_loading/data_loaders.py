@@ -2,10 +2,9 @@ import glob
 import random
 from itertools import combinations
 from pathlib import Path
-from typing import List, Union, Tuple
 import shutil
 
-from typing import Dict, Union
+from typing import List, Dict, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -94,7 +93,7 @@ class GenericDataset(Dataset[datasetReturnType]):
     def _get_keypoint_pair_as_paths(self, idx):
         return self.images_path / self.keypoints_list[idx][0], self.images_path / self.keypoints_list[idx][1]
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> datasetReturnType:
         if (self.has_keypoints is False) and (self.has_segmentations is False):
             if self.return_type == "path_dict":
                 fixed_image, moving_image = self._get_image_pair_as_paths(idx)
@@ -358,6 +357,31 @@ class MNISTDataset(GenericDataset):
 """
 Medical datasets
 """
+
+
+class ImagePairDataset(GenericDataset):
+    def __init__(self,
+                 image_pairs: List[List[Path]],
+                 segmentation_pairs: Optional[List[List[Path]]] = None,
+                 keypoint_pairs: Optional[List[List[Path]]] = None,
+                 return_type: str = "",
+                 name: str = "image_pairs") -> None:
+        super().__init__(name, return_type, [])
+
+        self.images_path = image_pairs[0][0].parent
+
+        self.images_list = image_pairs
+        self.segmentations_list = segmentation_pairs
+        self.keypoints_list = keypoint_pairs
+
+        if self.segmentations_list:
+            self.has_segmentations = True
+        if self.keypoints_list:
+            self.has_keypoints = True
+
+        image = sitk.ReadImage(self.images_list[0][0])
+        self.spacing = image.GetSpacing()
+        self.image_shape = sitk.GetArrayFromImage(image).shape
 
 
 class L2RLungCTDataset(GenericDataset):

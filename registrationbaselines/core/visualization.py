@@ -1,21 +1,23 @@
-from registrationbaselines.core import metrics
-import matplotlib.pyplot as plt
-import matplotlib
-import numpy as np
-import matplotlib.cm as cm
-import matplotlib.colors as colors
-from scipy.ndimage import binary_erosion
-from matplotlib.colors import Normalize
-from matplotlib.colors import ListedColormap
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import pandas as pd
-import wandb
 from pathlib import Path
-import matplotlib.colors as mcolors
-from typing import Optional
 import os
-import registrationbaselines.core.utils as utils
+
+from typing import Optional, Tuple
+
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import matplotlib.cm as cm
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import numpy as np
+from scipy.ndimage import binary_erosion
+import pandas as pd
 import torch
+import wandb
+
+import registrationbaselines.core.utils as utils
+from registrationbaselines.core import metrics
+from registrationbaselines.core.types import floatArray2D
+
 os.environ['NEURITE_BACKEND'] = "pytorch"
 # plt.switch_backend('agg')
 
@@ -117,7 +119,7 @@ def plot_quiverplot(u: np.ndarray, axis: Optional[int] = None, ax=None) -> None:
             u, v = slices_in[i][..., 0], slices_in[i][..., 1]
             colors = np.arctan2(u, v)
             colors[np.isnan(colors)] = 0
-            norm = Normalize()
+            norm = colors.Normalize()
             norm.autoscale(colors)
             if cmaps[i] is None:
                 colormap = cm.winter
@@ -273,7 +275,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     @return: plot
     """
 
-    assert displacement.min() >= -1 and displacement.max()<=1
+    assert displacement.min() >= -1 and displacement.max() <= 1
 
     moving_image = moving_image.numpy().squeeze()
     fixed_image = fixed_image.numpy().squeeze()
@@ -304,7 +306,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         displacement = displacement.transpose(1, 2, 0)
 
     jacobian_determinant = metrics.jacobian_determinant_from_displacement(
-        -displacement_denorm) # we are pull convention, sitk function is push
+        -displacement_denorm)  # we are pull convention, sitk function is push
 
     # BUGFIX: we need to swap the vector components to be (z,y,x) since this is torch convention. (x,y,z, [x,y,z]) -> (x,y,z, [z,y,x])
     displacement = displacement[..., [2, 1, 0]]
@@ -406,10 +408,10 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             # jacobian determinant, negative values shown in red
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 7)
             jacdet_d = jacobian_determinant.take(half_slice_idx[d], axis=d)
-            #jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
+            # jacdet_d[jacdet_d < 0] = np.min(jacdet_d)
             tmp = np.max(np.array([np.max(jacdet_d), -np.min(jacdet_d)]))
             norm = colors.TwoSlopeNorm(
-               vmin=-tmp, vmax=tmp, vcenter=0)
+                vmin=-tmp, vmax=tmp, vcenter=0)
             im1 = ax.imshow(jacdet_d, cmap="RdBu", norm=norm)
             ax.set_frame_on(False)
             if toprow:
@@ -423,21 +425,13 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             # Adjust the colorbar tick label size if needed
             cbar.ax.tick_params(labelsize=6)
 
-            # negative jacobian determinants
+            # discrete jacobian determinants
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 8)
-            field = np.zeros_like(jacdet_d)
-            field[jacdet_d < 0] = -1
-            shrinking_mask = (jacdet_d >= 0) & (jacdet_d <1)
-            field[shrinking_mask] = 0
-            field[jacdet_d == 1 ] = 1
-            field[jacdet_d > 1 ] = 2
-            cmap = mcolors.ListedColormap(['red', 'orange', 'black', 'blue'])
-            bounds = [-1.5, 0, 0, 1.01, 2.5]
-            norm = mcolors.BoundaryNorm(bounds, cmap.N)
-            im1 = ax.imshow(jacdet_d, cmap=cmap, norm=norm)
+            im1 = plot_jacobian_discrete_map(jacdet_d, 0.05, ax)
             ax.set_frame_on(False)
             if toprow:
-                ax.title.set_text("jac det (folding:red, shrink:orange, vp:black, exp:blue)")
+                ax.title.set_text(
+                    "jac det (folding:red, shrink:orange, vp:black, exp:blue)")
             plt.axis('off')
 
             # boundaries
@@ -454,16 +448,16 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 boundaries[pred_boundary == 1] = 2  # pred=blue
                 boundaries_slice = boundaries.take(half_slice_idx[d], axis=d)
 
-                from matplotlib.colors import LinearSegmentedColormap, ListedColormap
                 # cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=3)
-                cmap = ListedColormap(['w', 'crimson', 'cornflowerblue'])
+                cmap = colors.ListedColormap(
+                    ['w', 'crimson', 'cornflowerblue'])
                 ax.imshow(boundaries_slice, cmap=cmap, interpolation='none')
                 ax.set_frame_on(False)
                 ax.title.set_text("diff image after")
                 plt.axis('off')
                 if toprow:
                     ax.title.set_text("segmentations")
-            toprow=False
+            toprow = False
 
     elif image_dim == 2:
         toprow = True
@@ -559,9 +553,8 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             boundaries = fixed_boundary  # true=red
             boundaries[pred_boundary == 1] = 2  # pred=blue
 
-            from matplotlib.colors import LinearSegmentedColormap, ListedColormap
             # cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=3)
-            cmap = ListedColormap(['w', 'crimson', 'cornflowerblue'])
+            cmap = colors.ListedColormap(['w', 'crimson', 'cornflowerblue'])
             ax.imshow(boundaries, cmap=cmap, interpolation='none')
             ax.set_frame_on(False)
             ax.title.set_text("diff image after")
@@ -586,6 +579,54 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     else:
         fig.show()
     return fig
+
+
+def plot_jacobian_discrete_map(jacdet: floatArray2D, tolerance: float, ax: plt.Axes):
+    discrete_jacobian_det = create_discrete_jacobian_det_map(jacdet, tolerance)
+
+    # Find unique values in the discrete map
+    unique_values = np.unique(discrete_jacobian_det)
+
+    # Define the colors corresponding to the possible unique values
+    value_to_color = {
+        -1: 'red',     # folding
+        0: 'orange',   # shrinking
+        1: 'black',    # constant volume
+        2: 'blue'      # expansion
+    }
+
+    # Create a colormap and norm based on the unique values
+    colors_list = [value_to_color[val] for val in unique_values]
+    cmap = colors.ListedColormap(colors_list)
+    bounds = np.arange(min(unique_values)-0.5, max(unique_values)+1.5)
+    norm = colors.BoundaryNorm(bounds, cmap.N)
+
+    # Plot the map
+    im1 = ax.imshow(discrete_jacobian_det, cmap=cmap, norm=norm)
+    return im1
+
+
+def create_discrete_jacobian_det_map(jacdet: floatArray2D, tolerance: float) -> np.ndarray[Tuple[int, int],
+                                                                                           np.dtype[np.int8]]:
+
+    discrete_map = np.zeros_like(jacdet, dtype=np.int8)
+
+    # folding
+    discrete_map[jacdet < 0] = -1
+
+    # shrinking
+    shrinking_mask = (jacdet >= 0) & (jacdet < 1 - tolerance)
+    discrete_map[shrinking_mask] = 0
+
+    # constant volume
+    constant_volume_mask = (
+        jacdet >= 1 - tolerance) & (jacdet <= 1 + tolerance)
+    discrete_map[constant_volume_mask] = 1
+
+    # expansion
+    discrete_map[jacdet > 1 + tolerance] = 2
+
+    return discrete_map
 
 
 def plot_all_registration_results_debugging_wandb(moving_image: np.ndarray,
