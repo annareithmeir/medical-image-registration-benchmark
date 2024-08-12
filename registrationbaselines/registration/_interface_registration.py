@@ -108,6 +108,8 @@ class RegistrationInterface(ABC):
         buffer_ori_name = self.method_name
         self.method_name = "_zeroDisplacement"
 
+        buffer_ori_config = self.configuration
+
         if self.use_wandb is False:
             self.configuration = self.convert_to_non_wandb_config(
                 self.configuration)
@@ -154,6 +156,7 @@ class RegistrationInterface(ABC):
         self.evaluator.visualize()
 
         self.method_name = buffer_ori_name
+        self.configuration = buffer_ori_config
 
     def _perform_wandb_run(self) -> None:
         """
@@ -232,9 +235,9 @@ class RegistrationInterface(ABC):
                          self.dataloader.spacing)
 
         # SAVE DEFORMATION
-        utils.save_image(deformation,
-                         self.path_result_deformation,
-                         self.dataloader.spacing)
+        utils.save_displacement(deformation,
+                                self.path_result_deformation,
+                                self.dataloader.spacing + (1,))
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(
