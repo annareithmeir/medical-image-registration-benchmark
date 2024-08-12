@@ -15,6 +15,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.voxelmorph import VoxelMorphReg  # nopep8
 
 
 def main() -> None:
@@ -23,7 +24,7 @@ def main() -> None:
     """
 
     path_config = Path(__file__).parent.parent.absolute() / \
-        f"registrationbaselines/configs/BSplineNiftyReg.yaml"
+        f"registrationbaselines/configs/VoxelMorph.yaml"
 
     if socket.gethostname() == "fryderyk":
         path_data = Path("/home/fryderyk/Documents/data/LungCT_preprocessed/")
@@ -42,11 +43,11 @@ def main() -> None:
     #############################
     # with register_dataset()
     #############################
-    registration = BSplineNiftyReg(path_config,
-                                   loader_data)
-    registration.evaluate_with_zero_displacement()
+    registration = VoxelMorphReg(path_config,
+                                 loader_data)
+    # registration.evaluate_with_zero_displacement()
     registration.register_dataset()
-
+    return
     #############################
     # with perform_wandb_sweep()
     #############################
