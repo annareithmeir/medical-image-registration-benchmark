@@ -6,6 +6,7 @@ from typing import Optional
 from tqdm import tqdm
 import wandb
 import numpy as np
+import torch
 
 from registrationbaselines.core import utils, result_csv
 from registrationbaselines.core import metrics
@@ -24,10 +25,13 @@ class Evaluation():
                  result_path: Path,
                  method: str,
                  dataset_data: GenericDataset,
-                 dataset_transformations: BaselineTransformations) -> None:
+                 dataset_transformations: Optional[BaselineTransformations] = None,
+                 use_zero_displacement: bool = False) -> None:
         """
         Initialize the evaluatin model.
         """
+
+        self.use_zero_displacement = use_zero_displacement
 
         # create the csv file and all its parents if doesn't exist
         self.path_results = result_path / dataset_data.name / method / 'results.csv'
@@ -49,28 +53,32 @@ class Evaluation():
         Evaluate the registration model.
         """
 
-        # assert len(dataset_transformations) == len(
-        #     dataset_data), "Number of transformations and data must be the same."
-        length_datasets = len(self.dataset_transformations)
+        length_datasets = len(self.dataset_data)
         self.results.number_of_images = length_datasets
 
         for i in tqdm(range(length_datasets)):
-            path_displacement = self.dataset_transformations[i]
-            item = self.dataset_data[i]
 
+            item = self.dataset_data[i]
             fixed_name = str(item["fixed_image"].stem).split('.')[0]
 
-            self._evaluate_displacement(path_displacement, fixed_name)
+            if not self.use_zero_displacement:
+                path_displacement = self.dataset_transformations[i]
 
-            if self.dataset_data.has_segmentations:
-                path_fixed = item["fixed_segmentations"]
-                path_moving = item["moving_segmentations"]
+                self._evaluate_displacement(path_displacement, fixed_name)
 
-            self._evaluate_segmentation(path_displacement,
-                                        path_fixed,
-                                        path_moving,
-                                        fixed_name)
+                if self.dataset_data.has_segmentations:
+                    self._evaluate_segmentation(item["fixed_segmentations"],
+                                                item["moving_segmentations"],
+                                                fixed_name,
+                                                path_displacement)
+            else:
+                if self.dataset_data.has_segmentations:
+                    self._evaluate_segmentation(item["fixed_segmentations"],
+                                                item["moving_segmentations"],
+                                                fixed_name,
+                                                None)
 
+            """
             if self.dataset_data.has_keypoints:
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
@@ -79,6 +87,7 @@ class Evaluation():
                                          path_fixed_keypoints,
                                          path_moving_keypoints,
                                          fixed_name)
+            """
 
         self.results.calculate_mean()
         self.results.calculate_stddev()
@@ -89,22 +98,15 @@ class Evaluation():
         self.results.plot(self.path_results_plots)
 
     def visualize(self,
-                  idxs: Optional[list[int]] = None,
-                  plot_to_wandb: Optional[bool] = False) -> None:
+                  idxs: Optional[list[int]] = None) -> None:
         """
         Create plots for the evaluation.
         """
 
-        # TODO this should be removed once we worke with entire datasets
-        warnings.warn("Restore the assert, when working with entire datasets.")
-        # assert len(dataset_transformations) == len(
-        #     dataset_data), "Number of transformations and data must be the same."
-
         if idxs is None:
-            idxs = range(len(self.dataset_transformations))
+            idxs = range(len(self.dataset_data))
 
         for i in tqdm(idxs):
-            path_displacement = self.dataset_transformations[i]
             item = self.dataset_data[i]
 
             fixed_image_path = item["fixed_image"]
@@ -112,16 +114,23 @@ class Evaluation():
 
             fixed_image = utils.load_image(fixed_image_path)
             moving_image = utils.load_image(moving_image_path)
-            displacement = utils.load_displacement(path_displacement)
 
-            deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
-                                                                moving_image_path.name,
-                                                                extension_overwrite=''.join(path_displacement.suffixes))
-            deformed_image = utils.load_image(deformed_image_path)
+            if self.use_zero_displacement:
+                shape = self.dataset_data.image_shape
+                displacement = torch.zeros((*shape, 3), dtype=torch.float32)
+                deformed_image = moving_image.detach().clone()
+            else:
+                path_displacement = self.dataset_transformations[i]
+                displacement = utils.load_displacement(path_displacement)
+
+                deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
+                                                                    moving_image_path.name,
+                                                                    extension_overwrite=''.join(path_displacement.suffixes))
+                deformed_image = utils.load_image(deformed_image_path)
 
             plots_path = self._create_plots_paths(fixed_image_path.name,
                                                   moving_image_path.name,
-                                                  extension_overwrite=''.join(path_displacement.suffixes))
+                                                  extension_overwrite='.nii.gz')
 
             fixed_keypoints = None
             moving_keypoints = None
@@ -137,7 +146,7 @@ class Evaluation():
                     path_segmentation_moving)
 
                 deformed_segmentation = utils.deform_image(moving_segmentation,
-                                                           displacement, mode='nearest')
+                                                           displacement)
 
             fixed_image = fixed_image.to(displacement.device)
             moving_image = moving_image.to(displacement.device)
@@ -146,17 +155,24 @@ class Evaluation():
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
 
-                fixed_keypoints, moving_keypoints = metrics.read_lanmdarks(
-                    path_fixed_keypoints, path_moving_keypoints)
+                fixed_keypoints = utils.load_keypoints(path_fixed_keypoints)
+                moving_keypoints = utils.load_keypoints(path_moving_keypoints)
 
                 assert moving_keypoints.shape == moving_keypoints.shape
                 assert fixed_keypoints.shape[-1] == 3 or fixed_keypoints.shape[-1] == 2
 
                 deformed_keypoints = utils.deform_keypoints(
                     moving_keypoints, displacement)
-            visualization.plot_all_registration_results(plots_path, moving_image.numpy(), fixed_image.numpy(), deformed_image.numpy(),
-                                                        displacement.numpy(), fixed_labels=fixed_segmentation.numpy(), pred_labels=deformed_segmentation.numpy(),
-                                                        fixed_keypoints=fixed_keypoints, moving_keypoints=moving_keypoints, pred_keypoints=deformed_keypoints)
+            visualization.plot_all_registration_results(moving_image,
+                                                        fixed_image,
+                                                        deformed_image,
+                                                        displacement,
+                                                        fixed_segmentations=fixed_segmentation,
+                                                        pred_segmentations=deformed_segmentation,
+                                                        fixed_keypoints=fixed_keypoints,
+                                                        moving_keypoints=moving_keypoints,
+                                                        pred_keypoints=deformed_keypoints,
+                                                        save_path=plots_path)
 
     def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
         """
@@ -185,10 +201,10 @@ class Evaluation():
         self.results.add_value("frac_foldings", fraction_foldings, name)
 
     def _evaluate_segmentation(self,
-                               path_displacement: Path,
                                path_segmentation_fixed: Path,
                                path_segmentation_moving: Path,
-                               name: str) -> None:
+                               name: str,
+                               path_displacement: Optional[Path] = None) -> None:
         """
         Evaluate segmentations.
 
@@ -211,25 +227,32 @@ class Evaluation():
         hausdorff_mean = 0
         hausdorff95_mean = 0
 
-        for path in [path_displacement, path_segmentation_fixed, path_segmentation_moving]:
-            utils.is_nifti_and_exists(path)
+        utils.is_nifti(path_segmentation_fixed)
+        utils.is_nifti(path_segmentation_moving)
 
-        displacement = utils.load_displacement(path_displacement)
         segmentation_fixed = utils.load_image(path_segmentation_fixed)
         segmentation_moving = utils.load_image(path_segmentation_moving)
 
-        warped = utils.deform_image(segmentation_moving,
-                                    displacement,
-                                    mode='nearest')
+        if not self.use_zero_displacement and path_displacement:
+            utils.is_nifti(path_displacement)
+            displacement = utils.load_displacement(path_displacement)
+            warped = utils.deform_image(segmentation_moving,
+                                        displacement)
+            # save the deformed segmentation
+            deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
+                                                                       path_segmentation_moving.name,
+                                                                       extension_overwrite='.nii.gz')
+            deformed_segmentation_path = Path(
+                deformed_segmentation_path.as_posix().replace(".nii", "_seg.nii"))
+            utils.save_image(warped, deformed_segmentation_path,
+                             spacing=self.dataset_data.spacing)
 
-        deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
-                                                                   path_segmentation_moving.name,
-                                                                   extension_overwrite=''.join(path_displacement.suffixes))
-        deformed_segmentation_path = Path(
-            deformed_segmentation_path.as_posix().replace(".nii", "_seg.nii"))
-
-        utils.save_image(warped, deformed_segmentation_path,
-                         spacing=self.dataset_data.spacing)
+        elif self.use_zero_displacement and not path_displacement:
+            shape = self.dataset_data.image_shape
+            displacement = torch.zeros((*shape, 3), dtype=torch.float32)
+            warped = segmentation_moving.detach().clone()
+        else:
+            raise ValueError("Displacement field not found.")
 
         dice_scores = metrics.dice_score(
             segmentation_fixed, warped)
@@ -285,8 +308,8 @@ class Evaluation():
                     f"File {path.as_posix()} does not exist.")
 
         displacement = utils.load_displacement(path_displacement)
-        keypoints_fixed, keypoints_moving = metrics.read_lanmdarks(path_fixed_keypoints,
-                                                                   path_moving_keypoints)
+        keypoints_fixed = utils.load_keypoints(path_fixed_keypoints)
+        keypoints_moving = utils.load_keypoints(path_moving_keypoints)
 
         keypoints_moving_warped = utils.deform_keypoints(keypoints_moving,
                                                          displacement.detach().cpu().numpy())
