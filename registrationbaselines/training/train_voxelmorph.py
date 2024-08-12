@@ -3,7 +3,7 @@ import sys
 import os
 import time
 
-from typing import List, Tuple
+from typing import Optional
 
 import wandb
 import numpy as np
@@ -11,9 +11,10 @@ import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import gc
-import torch.nn.functional as F
 
 from registrationbaselines.core.training_interface import TrainingInterface
+from registrationbaselines.core import utils
+from registrationbaselines.registration._interface_registration import RegistrationInterface
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.data_loading import data_loaders
 
@@ -35,14 +36,15 @@ class VoxelmorphTraining(TrainingInterface):
     def __init__(self,
                  train_dataset: data_loaders.GenericDataset,
                  config_path: Path,
-                 val_dataset: data_loaders.GenericDataset = None):
+                 val_dataset: Optional[data_loaders.GenericDataset] = None):
 
         self.method = "voxelmorph"
 
         # paths
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
-        self.config = self.read_config(config_path)
+        self.config = RegistrationInterface.convert_to_non_wandb_config(
+            utils.read_config(config_path))
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
         print(self.config)
@@ -51,39 +53,11 @@ class VoxelmorphTraining(TrainingInterface):
         if self.config['use_wandb']:
             self.init_wandb(self.base_dir / self.config['wandb_config_path'])
 
-        self._set_new_image_shape()
+        new_shape = utils.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
+                                                         len(self.config['enc']))
 
-    def _force_tensor_to_voxelmorph_shape(self, tensor: torch.Tensor) -> torch.Tensor:
-        """
-        Input shape for voxelmorph must be multiples of 2^n,
-        for N being the number of layers in the encoder.
-        We only pad, to not loose any information.
-        """
-
-        shape = tensor.shape
-
-        if shape[0:2] != [1, 1] and len(shape) != 5:
-            raise ValueError(
-                "The input tensor should be of shape (1,1,H,W,D).")
-
-        shape = shape[2:]
-        pad: List[int] = [0, 0, 0]
-        new_shape = self.train_dataset.image_shape
-
-        for i in range(3):
-            size = shape[i]
-            pad[i] = new_shape[i] - size  # Only pad at the end
-
-        # Reverse pad list and interleave with zeros for F.pad format
-        pad = [item for sublist in zip([0]*3, reversed(pad))
-               for item in sublist]
-
-        if pad == [0, 0, 0, 0, 0, 0]:
-            return tensor
-
-        padded = F.pad(tensor, pad)
-
-        return padded
+        self.train_dataset.image_shape = tuple(new_shape)
+        self.val_dataset.image_shape = tuple(new_shape)
 
     def scan_to_scan_generator(self, dataset: Dataset):
         """
@@ -107,8 +81,8 @@ class VoxelmorphTraining(TrainingInterface):
             x = x.unsqueeze(0)
             y = y.unsqueeze(0)
 
-            x = self._force_tensor_to_voxelmorph_shape(x)
-            y = self._force_tensor_to_voxelmorph_shape(y)
+            x = utils.pad_tensor_to_shape(x, self.train_dataset.image_shape)
+            y = utils.pad_tensor_to_shape(y, self.train_dataset.image_shape)
 
             shape = x.shape[2:]
             zeros = torch.from_numpy(
@@ -117,28 +91,6 @@ class VoxelmorphTraining(TrainingInterface):
             invols = [x, y]
             outvols = [y, zeros]
             yield (invols, outvols)
-
-    def _set_new_image_shape(self):
-        """
-        Input shape for voxelmorph must be multiples of 2^n,
-        for N being the number of layers in the encoder.
-        We only pad, to not loose any information.
-        """
-
-        # TODO maybe it can be multiple of 2^n and not exactly 2^n
-
-        shape = self.train_dataset.image_shape
-
-        new_shape: List[int] = [0, 0, 0]
-
-        number_of_layers_in_encoder = len(self.config['enc'])
-
-        for i in range(3):
-            new_shape[i] = torch.ceil(torch.tensor(
-                shape[i] / (2 ** number_of_layers_in_encoder))).int().item() * (2 ** number_of_layers_in_encoder)
-
-        self.train_dataset.image_shape = tuple(new_shape)
-        self.val_dataset.image_shape = tuple(new_shape)
 
     def train(self):
 
