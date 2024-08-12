@@ -251,6 +251,29 @@ def load_image(image_path: Path) -> torch.Tensor:
     return return_tensor
 
 
+def get_image_spacing(image_path: Path) -> Tuple[float, float, float]:
+    """
+    Get the spacing of an image.
+
+    @param image_path: The path to the image file.
+    @type image_path: Path
+
+    @return: The spacing.
+    @rtype: Tuple[float, float, float]
+    """
+
+    is_nifti(image_path)
+
+    image_sitk: sitk.Image = sitk.ReadImage(image_path)
+
+    spacing = image_sitk.GetSpacing()
+
+    if len(spacing) != 3:
+        raise ValueError(f"Spacing is not 3D: {spacing}")
+
+    return spacing[2], spacing[1], spacing[1]
+
+
 def load_keypoints(keypoints_path: Path) -> torch.Tensor:
     """
     Load keypoints from a csv file to a torch tensor of shape [N,3].
