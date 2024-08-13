@@ -103,4 +103,3 @@ class SyNANTs(RegistrationInterface):
         # save transformed image
         # deformed.to_filename(self.result_transformed_image_path)
         utils.save_image(deformed, self.result_transformed_image_path, self.dataloader.spacing)
-

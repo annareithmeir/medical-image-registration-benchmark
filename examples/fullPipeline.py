@@ -23,24 +23,27 @@ def main() -> None:
     Main function to run the full registration and evaluation pipeline.
     """
 
-    path_config = Path(__file__).parent.parent.absolute() / \
-                  f"registrationbaselines/configs/SyNANTs.yaml"
-
     method = "SyNANTs"
     # method = "BSplines"
     # method = "voxelmorph_feature"
+
+    path_config = Path(__file__).parent.parent.absolute() / \
+                  f"registrationbaselines/configs/{method}.yaml"
 
     if socket.gethostname() == "fryderyk":
         path_data = Path("/home/fryderyk/Documents/data/LungCT_preprocessed/")
     elif socket.gethostname() == "janus":
         path_data = Path("/data/LungCT_preprocessed")
     else:
-        path_data = Path("/home/anna/datasets/LungCT_preprocessed")
+        path_data = Path("/home/anna/datasets/AbdomenMRCT_preprocessed")
 
     #####################################################################################################
     # REGISTER A REAL DATASET
     #####################################################################################################
-    loader_data = data_loaders.L2RLungCTDataset(path_data,
+    # loader_data = data_loaders.L2RLungCTDataset(path_data,
+    #                                             return_type="path_dict",
+    #                                             indices=[0, 1])
+    loader_data = data_loaders.L2RAbdominalMRCTDataset(path_data,
                                                 return_type="path_dict",
                                                 indices=[0, 1])
 
@@ -58,12 +61,12 @@ def main() -> None:
     # with register_dataset()
     #############################
     # registration.evaluate_with_zero_displacement()
-    registration.register_dataset()
+    # registration.register_dataset()
 
     #############################
     # with perform_wandb_sweep()
     #############################
-    # registration.perform_wandb_sweep()
+    registration.perform_wandb_sweep()
 
 
 if __name__ == "__main__":

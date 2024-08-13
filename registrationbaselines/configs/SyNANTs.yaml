@@ -12,9 +12,9 @@ parameters:
 #    values: [0.02, 2] # 0.2
 
   flow_sigma:
-    values: [3] #3 smoothing of incremental update field
+    values: [0, 3, 30] #3 smoothing of incremental update field
 #    values: [0, 3, 30] #3 smoothing of incremental update field
 
   total_sigma:
-    values: [0] # 0 smoothing of combined field
+    values: [0, 1, 10] # 0 smoothing of combined field
 #    values: [0, 1, 10] # 0 smoothing of combined field
