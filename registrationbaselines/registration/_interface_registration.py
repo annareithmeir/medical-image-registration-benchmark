@@ -121,30 +121,6 @@ class RegistrationInterface(ABC):
         self._create_result_directories(self.method_name)
         self.path_dir_deformations.rmdir()
 
-        """
-        for item in tqdm(self.dataloader):
-            self.path_fixed = item["fixed_image"]
-            self.path_moving = item["moving_image"]
-
-            shape = self.dataloader.image_shape
-
-            zero_displacement = torch.zeros((*shape, 3), dtype=torch.float32)
-
-            _, path_zero_disp = self._create_result_paths(self.path_fixed.stem,
-                                                          self.path_moving.stem,
-                                                          ".nii.gz",
-                                                          ".nii.gz")
-
-            # disp_nifty = utils.load_displacement(Path("/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp_niftyreg/LungCT/BSplineNiftyReg/deformations/LungCT_0001_0001_deformation_to_LungCT_0001_0000.nii.gz"))
-
-            # utils.save_displacement(zero_displacement,
-            #                         path_zero_disp,
-            #                         self.dataloader.spacing + (1,))
-
-        loader_transformations = data_loaders.BaselineTransformations(
-            self.method_dir)
-        """
-
         self.evaluator = Evaluation(result_path,
                                     self.method_dir.name,
                                     self.dataloader,
@@ -324,12 +300,17 @@ class RegistrationInterface(ABC):
 
         for key, value in wandb_config.items():
 
-            if key not in ['result_path', 'method_name']:
+            if key not in ['result_path', 'method_name'] and 'path' not in key:
                 if isinstance(value, bool) or isinstance(value, int) or isinstance(value, float):
                     method_name += f"___{key}_{str(value).lower()}"
-                else:
+                elif isinstance(value, list):
+                    method_name += f"___{key}_{value}"
+                elif value is not None:
                     beautified_param = value.replace('-', '').replace(' ', '_')
                     method_name += f"___{key}_{beautified_param}"
+
+            if len(method_name) > 100:
+                break
 
         return method_name
 
