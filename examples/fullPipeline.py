@@ -42,7 +42,7 @@ def main() -> None:
     #####################################################################################################
     loader_data = data_loaders.L2RLungCTDataset(path_data,
                                                 return_type="path_dict",
-                                                indices=[0, 1])
+                                                indices=[0])
 
     # loader_data = data_loaders.ImagePairDataset([[path_data / "imagesTr/LungCT_0001_0000.nii.gz",
     #                                               path_data / "imagesTr/LungCT_0001_0001.nii.gz"]],

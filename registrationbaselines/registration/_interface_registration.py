@@ -84,6 +84,7 @@ class RegistrationInterface(ABC):
         self._create_result_directories(self.method_name)
 
         for item in tqdm(self.dataloader):
+            #break
             self._register(item["fixed_image"], item["moving_image"])
 
         loader_transformations = data_loaders.BaselineTransformations(

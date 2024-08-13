@@ -1,3 +1,5 @@
+import shutil
+
 import ants
 from pathlib import Path
 import wandb
@@ -74,18 +76,14 @@ class SyNANTs(RegistrationInterface):
             flow_sigma=flow_sigma,
             total_sigma= total_sigma,
             type_of_transform='SyNOnly',
-            write_composite_transform=True  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
+            initial_transform="Identity",
+            write_composite_transform=False  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
 
-        #
-        #deformed_image = registration['warpedmovout']
-        # print(registration['fwdtransforms'])
-        #deformation = ants.read_transform(registration['invtransforms']).numpy()
-
-        # deformation = ants.create_warped_grid(deformation, grid_spacing=(1,1,1), fixed_reference_image=fixed_image)
-
-        # self._save_results(torch.tensor(deformed_image.numpy()), torch.tensor(deformation.numpy()))
-        self._save_results(registration['warpedmovout'], registration['invtransforms'])
+        # deformed_image = ants.apply_transforms(fixed=fixed_image, moving=moving_image,
+        #                                       transformlist=registration['fwdtransforms'])
+        # self._save_results(deformed_image, registration['invtransforms'][0])
+        self._save_results(registration['warpedmovout'], registration['invtransforms'][1])
 
     def _save_results(self, deformed, deformation):
         self.result_transformed_image_path, self.result_transformation_path = \
@@ -95,19 +93,18 @@ class SyNANTs(RegistrationInterface):
                                       ".nii.gz")
 
         # save transformation (by converting to .nii.gz)
-        utils_nifti.convert_h5_to_nii(self.path_fixed,
-                                      Path(deformation),
-                                      self.result_transformation_path)
+        shutil.copy(deformation, self.result_transformation_path)
+        # utils_nifti.convert_h5_to_nii(self.path_fixed,
+        #                               Path(deformation),
+        #                               self.result_transformation_path)
         utils_nifti.set_intent_code(self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
 
-        displacement_sitk = sitk.ReadImage(self.result_transformation_path)
-        displacement_sitk.SetSpacing((1,1,*self.dataloader.spacing))
-        displacement_array = sitk.GetArrayFromImage(
-            displacement_sitk)
-        displacement_array= displacement_array[..., [2, 1, 0]]
-        displacement_sitk = sitk.GetImageFromArray(displacement_array, isVector=True)
-        sitk.WriteImage(displacement_sitk, self.result_transformation_path)
 
         # save transformed image
         deformed.to_filename(self.result_transformed_image_path)
+        # utils.save_image(torch.from_numpy(deformed.numpy()), self.result_transformed_image_path, (1.75, 1.75, 1.75))
+
+        #displacement = utils.load_displacement(self.result_transformation_path)
+        # displacement = utils.flip(displacement, 3)
+        #utils.save_displacement(displacement, self.result_transformation_path, (*self.dataloader.spacing, 1))
 
