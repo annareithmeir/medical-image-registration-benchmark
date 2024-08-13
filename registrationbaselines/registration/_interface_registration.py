@@ -175,7 +175,7 @@ class RegistrationInterface(ABC):
                          self.dataloader.spacing)
 
         # SAVE DEFORMATION
-        utils.save_image(deformation,
+        utils.save_displacement(deformation,
                          self.path_result_deformation,
                          self.dataloader.spacing)
 

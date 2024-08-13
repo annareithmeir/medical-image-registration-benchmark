@@ -8,8 +8,8 @@ import torch
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import Evaluation
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_nifti
-
+from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti, utils
+import SimpleITK as sitk
 
 class SyNANTs(RegistrationInterface):
     """
@@ -18,28 +18,23 @@ class SyNANTs(RegistrationInterface):
     """
 
     def __init__(self,
-                 configuration: Dict[str, Any],
-                 dataloader: data_loaders.GenericDataset,
-                 use_wandb: bool) -> None:
+                 path_configuration: Path,
+                 dataloader: data_loaders.GenericDataset) -> None:
         """
         Initialize the registration model.
 
         NOTE: the displacement field won't work in slicer correctly if the correct itent code is set - the original should be left.
         """
 
-        self.use_wandb = use_wandb
-
         self.method_name = "SyNANTs"
-        self.method_name_ori = self.method_name
+
+        self.configuration = utils.read_config(path_configuration)
+
+        self.dataloader = dataloader
 
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
-        self.configuration = configuration
-        self.dataloader = dataloader
-
-        self._create_result_directories(self.method_name)
-
-    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False, sweep: bool =False):
+    def _register(self, fixed_image_path: Path, moving_image_path: Path) -> None:
         """
         Wrapper around ants to register.
         """
@@ -62,14 +57,14 @@ class SyNANTs(RegistrationInterface):
         fixed_image = ants.image_read(self.path_fixed.as_posix())
         moving_image = ants.image_read(self.path_moving.as_posix())
 
-        if sweep:
-            grad_step = wandb.config.grad_step
-            flow_sigma = wandb.config.flow_sigma
-            total_sigma = wandb.config.total_sigma
-        else:
+        if self.use_wandb is False:
             grad_step = self.configuration["grad_step"]
             flow_sigma = self.configuration["flow_sigma"]
             total_sigma = self.configuration["total_sigma"]
+        else:
+            grad_step = wandb.config["grad_step"]
+            flow_sigma = wandb.config["flow_sigma"]
+            total_sigma = wandb.config["total_sigma"]
 
         # Perform registration
         registration = ants.registration(
@@ -82,48 +77,15 @@ class SyNANTs(RegistrationInterface):
             write_composite_transform=True  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
 
-        self._save_results(
-            registration['warpedmovout'], registration['fwdtransforms'])
-
-    def _register_wandb_wrapper(self) -> None:
-        """
-        Register and evaluate all files and log to wand.
-
-        @return: None
-        """
-
-        # IMPORTANT: this has to be called after creating wandb.agent()
-        wandb.init(mode="online")
-
-        self.method_name = self.method_name_ori + \
-                           f"_gradstep{wandb.config.grad_step}"+f"_flowsigma{wandb.config.flow_sigma}"
-
-        self._create_result_directories(self.method_name)
-
-        assert len(self.dataloader) > 0, "Dataloader is empty."
-        for item in tqdm(self.dataloader):
-            self.register(item["fixed_image"], item["moving_image"], sweep = True)
         #
-        #     # evaluate
-        print(self.method_name)
-        print(Path(wandb.config.result_path) / self.dataloader.name / self.method_name)
-        loader_transformations = data_loaders.BaselineTransformations(
-            Path(wandb.config.result_path) / self.dataloader.name / self.method_name)
-        #
-        print("\nevaluate...")
-        evaluation = Evaluation(Path(wandb.config.result_path),
-                                self.method_dir.name,
-                                self.dataloader,
-                                loader_transformations)
-        evaluation.evaluate()
+        #deformed_image = registration['warpedmovout']
+        # print(registration['fwdtransforms'])
+        #deformation = ants.read_transform(registration['invtransforms']).numpy()
 
-        print("\nplot...")
-        evaluation.visualize()
+        # deformation = ants.create_warped_grid(deformation, grid_spacing=(1,1,1), fixed_reference_image=fixed_image)
 
-        print("\nlog to wandb...")
-        evaluation.wandb_log()
-
-        wandb.finish()
+        # self._save_results(torch.tensor(deformed_image.numpy()), torch.tensor(deformation.numpy()))
+        self._save_results(registration['warpedmovout'], registration['invtransforms'])
 
     def _save_results(self, deformed, deformation):
         self.result_transformed_image_path, self.result_transformation_path = \
@@ -137,6 +99,14 @@ class SyNANTs(RegistrationInterface):
                                       Path(deformation),
                                       self.result_transformation_path)
         utils_nifti.set_intent_code(self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
+
+        displacement_sitk = sitk.ReadImage(self.result_transformation_path)
+        displacement_sitk.SetSpacing((1,1,*self.dataloader.spacing))
+        displacement_array = sitk.GetArrayFromImage(
+            displacement_sitk)
+        displacement_array= displacement_array[..., [2, 1, 0]]
+        displacement_sitk = sitk.GetImageFromArray(displacement_array, isVector=True)
+        sitk.WriteImage(displacement_sitk, self.result_transformation_path)
 
         # save transformed image
         deformed.to_filename(self.result_transformed_image_path)

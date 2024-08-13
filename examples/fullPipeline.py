@@ -24,7 +24,7 @@ def main() -> None:
     """
 
     path_config = Path(__file__).parent.parent.absolute() / \
-                  f"registrationbaselines/configs/BSplineNiftyReg.yaml"
+                  f"registrationbaselines/configs/SyNANTs.yaml"
 
     method = "SyNANTs"
     # method = "BSplines"
@@ -38,15 +38,16 @@ def main() -> None:
         path_data = Path("/home/anna/datasets/LungCT_preprocessed")
 
     #####################################################################################################
-    # REGISTER AN IMAGE PAIR DATASET
+    # DEFINE DATASET (IMAGE PAIR DATASET OR REAL DATASET) AND REGISTRATION METHOD
     #####################################################################################################
-    loader_data = data_loaders.ImagePairDataset([[path_data / "imagesTr/LungCT_0001_0000.nii.gz",
-                                                  path_data / "imagesTr/LungCT_0001_0001.nii.gz"]],
-                                                return_type="path_dict")
-    #############################
-    # with register_dataset()
-    #############################
-    registration = BSplineNiftyReg(path_config, loader_data)
+    # loader_data = data_loaders.ImagePairDataset([[path_data / "imagesTr/LungCT_0001_0000.nii.gz",
+    #                                               path_data / "imagesTr/LungCT_0001_0001.nii.gz"]],
+    #                                             return_type="path_dict")
+
+    loader_data = data_loaders.L2RLungCTDataset(path_data,
+                                                return_type="path_dict",
+                                                indices=[0])
+
     if method == "BSplines":
         registration = BSplineNiftyReg(path_config,
                                        loader_data)
@@ -55,52 +56,16 @@ def main() -> None:
                                loader_data)
     else:
         raise ValueError("Method not implemented")
-    registration.register_dataset()
 
-    print("\nevaluate...")
-
-    result_path = Path(config["parameters"]["result_path"]
-                       ["value"]) if use_wandb else Path(config["result_path"])
-
-    loader_transformations = data_loaders.BaselineTransformations(
-        registration.method_dir)
-
-    evaluation = Evaluation(result_path,
-                            method,
-                            loader_data,
-                            loader_transformations)
-    evaluation.evaluate()
-    print("\nplot...")
-
-    evaluation.visualize()
-    print("\ndone\n\n")
-
-    #############################
-    # with perform_wandb_sweep()
-    #############################
-    registration = BSplineNiftyReg(path_config, loader_data)
-    registration.perform_wandb_sweep()
-
-    #####################################################################################################
-    # REGISTER A REAL DATASET
-    #####################################################################################################
-    loader_data = data_loaders.L2RLungCTDataset(path_data,
-                                                return_type="path_dict",
-                                                indices=[1, 2])
-
-    #############################
-    # with register_dataset()
-    #############################
-    registration = BSplineNiftyReg(path_config,
-                                   loader_data)
+    # #############################
+    # # with register_dataset()
+    # #############################
     registration.register_dataset()
 
     #############################
     # with perform_wandb_sweep()
     #############################
-    registration = BSplineNiftyReg(path_config,
-                                   loader_data)
-    registration.perform_wandb_sweep()
+    # registration.perform_wandb_sweep()
 
 
 if __name__ == "__main__":
