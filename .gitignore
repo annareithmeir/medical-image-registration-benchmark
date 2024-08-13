@@ -10,3 +10,4 @@ tests/_trial_temp
 wandb/
 evaluation_results.csv
 mypy.ini
+results/
