@@ -44,38 +44,26 @@ def main() -> None:
                                                 return_type="path_dict",
                                                 indices=[0, 1])
 
+    # loader_data = data_loaders.ImagePairDataset([[path_data / "imagesTr/LungCT_0001_0000.nii.gz",
+    #                                               path_data / "imagesTr/LungCT_0001_0001.nii.gz"]],
+    #                                             return_type="path_dict")
+
+    if method == "BSplines":
+        registration = BSplineNiftyReg(path_config,
+                                       loader_data)
+    elif method == "SyNANTs":
+        registration = SyNANTs(path_config, loader_data)
+
     #############################
     # with register_dataset()
     #############################
-    registration = BSplineNiftyReg(path_config,
-                                   loader_data)
-    registration.evaluate_with_zero_displacement()
+    # registration.evaluate_with_zero_displacement()
     registration.register_dataset()
 
     #############################
     # with perform_wandb_sweep()
     #############################
-    registration = BSplineNiftyReg(path_config,
-                                   loader_data)
-    registration.perform_wandb_sweep()
-
-    #####################################################################################################
-    # REGISTER AN IMAGE PAIR DATASET
-    #####################################################################################################
-    loader_data = data_loaders.ImagePairDataset([[path_data / "imagesTr/LungCT_0001_0000.nii.gz",
-                                                  path_data / "imagesTr/LungCT_0001_0001.nii.gz"]],
-                                                return_type="path_dict")
-    #############################
-    # with register_dataset()
-    #############################
-    registration = BSplineNiftyReg(path_config, loader_data)
-    registration.register_dataset()
-
-    #############################
-    # with perform_wandb_sweep()
-    #############################
-    registration = BSplineNiftyReg(path_config, loader_data)
-    registration.perform_wandb_sweep()
+    # registration.perform_wandb_sweep()
 
 
 if __name__ == "__main__":
