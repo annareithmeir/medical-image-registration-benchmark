@@ -782,6 +782,56 @@ def pad_tensor_to_shape(tensor: torch.Tensor,
     return padded
 
 
+def reshape_tensor(tensor: torch.Tensor, new_shape: List[int]) -> torch.Tensor:
+    """
+    Reshape a tensor by padding or cropping each dimension as needed.
+    
+    Args:
+    tensor (torch.Tensor): The input tensor to reshape
+    new_shape (tuple): The desired output shape
+    
+    Returns:
+    torch.Tensor: The reshaped tensor
+    """
+    
+    # Ensure the new_shape has the same number of dimensions as the input tensor
+    assert len(new_shape) == tensor.dim(), "New shape must have the same number of dimensions as the input tensor"
+    
+    current_shape = tensor.shape
+    
+    # Initialize the pad and crop parameters
+    pad_sizes = []
+    crop_slices = []
+    
+    for i, (current, new) in enumerate(zip(current_shape, new_shape)):
+        if new > current:
+            # Padding needed
+            pad_left = (new - current) // 2
+            pad_right = new - current - pad_left
+            pad_sizes.extend([pad_left, pad_right])
+        elif new < current:
+            # Cropping needed
+            crop_start = (current - new) // 2
+            crop_end = crop_start + new
+            crop_slices.append(slice(crop_start, crop_end))
+        else:
+            # No change needed
+            pad_sizes.extend([0, 0])
+            crop_slices.append(slice(None))
+    
+    # Reverse pad_sizes because F.pad expects them in reverse order
+    pad_sizes.reverse()
+    
+    # Pad the tensor if needed
+    if any(pad_sizes):
+        tensor = F.pad(tensor, pad_sizes)
+    
+    # Crop the tensor if needed
+    if any(s.start is not None or s.stop is not None for s in crop_slices):
+        tensor = tensor[tuple(crop_slices)]
+    
+    return tensor
+
 def crop_tensor_to_shape(tensor: torch.Tensor, shape: List[int]) -> torch.Tensor:
     """
     Crops the tensor to the specified shape, regardless of the number of dimensions.
