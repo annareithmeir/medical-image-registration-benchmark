@@ -80,10 +80,10 @@ class SyNANTs(RegistrationInterface):
             write_composite_transform=False  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
 
-        # deformed_image = ants.apply_transforms(fixed=fixed_image, moving=moving_image,
-        #                                       transformlist=registration['fwdtransforms'])
-        # self._save_results(deformed_image, registration['invtransforms'][0])
-        self._save_results(registration['warpedmovout'], registration['invtransforms'][1])
+        deformed_image = ants.apply_transforms(fixed=fixed_image, moving=moving_image,
+                                              transformlist=registration['fwdtransforms'])
+        self._save_results(torch.from_numpy(deformed_image.numpy().transpose(2,1,0)), registration['invtransforms'][1])
+        # self._save_results(registration['warpedmovout'], registration['invtransforms'][1])
 
     def _save_results(self, deformed, deformation):
         self.result_transformed_image_path, self.result_transformation_path = \
@@ -101,10 +101,6 @@ class SyNANTs(RegistrationInterface):
 
 
         # save transformed image
-        deformed.to_filename(self.result_transformed_image_path)
-        # utils.save_image(torch.from_numpy(deformed.numpy()), self.result_transformed_image_path, (1.75, 1.75, 1.75))
-
-        #displacement = utils.load_displacement(self.result_transformation_path)
-        # displacement = utils.flip(displacement, 3)
-        #utils.save_displacement(displacement, self.result_transformation_path, (*self.dataloader.spacing, 1))
+        # deformed.to_filename(self.result_transformed_image_path)
+        utils.save_image(deformed, self.result_transformed_image_path, self.dataloader.spacing)
 
