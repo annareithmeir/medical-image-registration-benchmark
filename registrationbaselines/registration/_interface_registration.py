@@ -98,6 +98,63 @@ class RegistrationInterface(ABC):
 
         self.evaluator.visualize()
 
+    def evaluate_with_zero_displacement(self) -> None:
+        """
+        Evaluate with zero displacement.
+
+        @return: None
+        """
+
+        buffer_ori_name = self.method_name
+        self.method_name = "_zeroDisplacement"
+
+        if self.use_wandb is False:
+            self.configuration = self.convert_to_non_wandb_config(
+                self.configuration)
+            result_path = Path(self.configuration["result_path"])
+        else:
+            result_path = Path(
+                self.configuration["parameters"]["result_path"]["values"][0])
+
+        self._create_result_directories(self.method_name)
+        self.path_dir_deformations.rmdir()
+
+        """
+        for item in tqdm(self.dataloader):
+            self.path_fixed = item["fixed_image"]
+            self.path_moving = item["moving_image"]
+
+            shape = self.dataloader.image_shape
+
+            zero_displacement = torch.zeros((*shape, 3), dtype=torch.float32)
+
+            _, path_zero_disp = self._create_result_paths(self.path_fixed.stem,
+                                                          self.path_moving.stem,
+                                                          ".nii.gz",
+                                                          ".nii.gz")
+
+            # disp_nifty = utils.load_displacement(Path("/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp_niftyreg/LungCT/BSplineNiftyReg/deformations/LungCT_0001_0001_deformation_to_LungCT_0001_0000.nii.gz"))
+
+            # utils.save_displacement(zero_displacement,
+            #                         path_zero_disp,
+            #                         self.dataloader.spacing + (1,))
+
+        loader_transformations = data_loaders.BaselineTransformations(
+            self.method_dir)
+        """
+
+        self.evaluator = Evaluation(result_path,
+                                    self.method_dir.name,
+                                    self.dataloader,
+                                    None,
+                                    True)
+
+        self.evaluator.evaluate()
+
+        self.evaluator.visualize()
+
+        self.method_name = buffer_ori_name
+
     def _perform_wandb_run(self) -> None:
         """
         This wraps register() and is used by wandb.agent.

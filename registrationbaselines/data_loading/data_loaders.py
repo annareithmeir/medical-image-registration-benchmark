@@ -379,9 +379,8 @@ class ImagePairDataset(GenericDataset):
         if self.keypoints_list:
             self.has_keypoints = True
 
-        image = sitk.ReadImage(self.images_list[0][0])
-        self.spacing = image.GetSpacing()
-        self.image_shape = sitk.GetArrayFromImage(image).shape
+        self.spacing = utils.get_image_spacing(self.images_list[0][0])
+        self.image_shape = utils.load_image(self.images_list[0][0]).shape
 
 
 class L2RLungCTDataset(GenericDataset):
@@ -507,10 +506,10 @@ class L2RLungCTDataset(GenericDataset):
             self.images_list.append([file_f, file_m])
 
         import SimpleITK as sitk
-        self.spacing = sitk.ReadImage(
-            self.images_path / self.images_list[0][0]).GetSpacing()
-        self.image_shape = sitk.GetArrayFromImage(
-            sitk.ReadImage(self.images_path / self.images_list[0][0])).shape
+        self.spacing = utils.get_image_spacing(
+            self.images_path / self.images_list[0][0])
+        self.image_shape = utils.load_image(
+            self.images_path / self.images_list[0][0]).shape
 
     def _load_segmentations_list(self) -> None:
         """
