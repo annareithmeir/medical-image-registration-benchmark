@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 import gc
 
 from registrationbaselines.core.training_interface import TrainingInterface
-from registrationbaselines.core import utils
+from registrationbaselines.core import utils, utils_voxelmorph
 from registrationbaselines.registration._interface_registration import RegistrationInterface
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.data_loading import data_loaders
@@ -53,8 +53,8 @@ class VoxelmorphTraining(TrainingInterface):
         if self.config['use_wandb']:
             self.init_wandb(self.base_dir / self.config['wandb_config_path'])
 
-        new_shape = utils.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
-                                                         len(self.config['enc']))
+        new_shape = utils_voxelmorph.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
+                                                                    len(self.config['enc']))
 
         self.train_dataset.image_shape = tuple(new_shape)
         self.val_dataset.image_shape = tuple(new_shape)
@@ -81,8 +81,10 @@ class VoxelmorphTraining(TrainingInterface):
             x = x.unsqueeze(0)
             y = y.unsqueeze(0)
 
-            x = utils.pad_tensor_to_shape(x, self.train_dataset.image_shape)
-            y = utils.pad_tensor_to_shape(y, self.train_dataset.image_shape)
+            x = utils_voxelmorph.pad_tensor_to_shape(
+                x, self.train_dataset.image_shape)
+            y = utils_voxelmorph.pad_tensor_to_shape(
+                y, self.train_dataset.image_shape)
 
             shape = x.shape[2:]
             zeros = torch.from_numpy(

@@ -1,10 +1,9 @@
 import pandas as pd
 from pathlib import Path
 
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 from scipy.ndimage import map_coordinates
-from sympy import true
 import yaml
 import numpy as np
 import SimpleITK as sitk
@@ -13,7 +12,7 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D, floatArray2Dor3D
+from registrationbaselines.core.types import floatArray2D, floarArray4Dor5D, array2Dor3D
 
 
 def is_nifti(path: Path) -> None:
@@ -747,77 +746,3 @@ def transform_csv(input_csv: Path, output_csv: Path):
 
     # Save to the output CSV file
     df.to_csv(output_csv, index=False)
-
-
-def pad_tensor_to_shape(tensor: torch.Tensor,
-                        new_shape: List[int]) -> torch.Tensor:
-    """
-    Input shape for voxelmorph must be multiples of 2^n,
-    for N being the number of layers in the encoder.
-    We only pad, to not loose any information.
-    """
-
-    shape = tensor.shape
-
-    if shape[0:2] != [1, 1] and len(shape) != 5:
-        raise ValueError(
-            "The input tensor should be of shape (1,1,H,W,D).")
-
-    shape = shape[2:]
-    pad: List[int] = [0, 0, 0]
-
-    for i in range(3):
-        size = shape[i]
-        pad[i] = new_shape[i] - size  # Only pad at the end
-
-    # Reverse pad list and interleave with zeros for F.pad format
-    pad = [item for sublist in zip([0]*3, reversed(pad))
-           for item in sublist]
-
-    if pad == [0, 0, 0, 0, 0, 0]:
-        return tensor
-
-    padded = F.pad(tensor, pad)
-
-    return padded
-
-
-def crop_tensor_to_shape(tensor: torch.Tensor, shape: List[int]) -> torch.Tensor:
-    """
-    Crops the tensor to the specified shape, regardless of the number of dimensions.
-
-    Args:
-        tensor (torch.Tensor): The tensor to be cropped.
-        shape (List[int]): The desired shape to crop to. It should have the same length as the number of dimensions in the tensor.
-
-    Returns:
-        torch.Tensor: The cropped tensor with the specified shape.
-    """
-    if len(tensor.shape) != len(shape):
-        raise ValueError(
-            "The shape list must have the same number of dimensions as the tensor.")
-
-    # Dynamically create the slicing for each dimension
-    slices = tuple(slice(0, dim) for dim in shape)
-
-    # Apply the slices to crop the tensor
-    tensor_cropped = tensor[slices]
-
-    return tensor_cropped
-
-
-def get_new_voxelmorph_image_shape(old_shape: List[int],
-                                   number_of_layers_in_encoder: int) -> List[int]:
-    """
-    Input shape for voxelmorph must be multiples of 2^n,
-    for N being the number of layers in the encoder.
-    We only pad, to not loose any information.
-    """
-
-    new_shape: List[int] = [0, 0, 0]
-
-    for i in range(3):
-        new_shape[i] = torch.ceil(torch.tensor(
-            old_shape[i] / (2 ** number_of_layers_in_encoder))).int().item() * (2 ** number_of_layers_in_encoder)
-
-    return new_shape

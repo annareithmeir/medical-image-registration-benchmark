@@ -1,12 +1,10 @@
-import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from pathlib import Path
 import sys
 import os
 
-import torch
-
+import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils
+from registrationbaselines.core import utils, utils_voxelmorph
 from registrationbaselines.data_loading import data_loaders
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
@@ -51,19 +49,14 @@ class VoxelMorphReg(RegistrationInterface):
         fixed = utils.load_image(self.path_fixed).to(self.device)
         moving = utils.load_image(self.path_moving).to(self.device)
         ori_shape = moving.shape
-        ori_fixed = fixed.detach().clone()
 
-        padded_shape = utils.get_new_voxelmorph_image_shape(list(fixed.shape),
-                                                            self.number_of_layers)
+        # convert tensors to shapes accepted by voxelmorph, by padding
+        padded_shape = utils_voxelmorph.get_new_voxelmorph_image_shape(list(fixed.shape),
+                                                                       self.number_of_layers)
         fixed.unsqueeze_(0).unsqueeze_(0)
         moving.unsqueeze_(0).unsqueeze_(0)
-        fixed = utils.pad_tensor_to_shape(fixed, padded_shape)
-        moving = utils.pad_tensor_to_shape(moving, padded_shape)
-
-        fixed_cropped = utils.crop_tensor_to_shape(
-            fixed.squeeze(), list(ori_shape))
-
-        a = torch.allclose(fixed_cropped, ori_fixed)
+        fixed = utils_voxelmorph.pad_tensor_to_shape(fixed, padded_shape)
+        moving = utils_voxelmorph.pad_tensor_to_shape(moving, padded_shape)
 
         # load and set up model
         model = vxm.torch.networks.VxmDense.load(self.path_model, self.device)
@@ -75,11 +68,12 @@ class VoxelMorphReg(RegistrationInterface):
                                      fixed,
                                      registration=True)
 
+        # convert tensors to a format accepted by our framework, by cropping
         warped = warped.detach().cpu().squeeze()
-        warped = utils.crop_tensor_to_shape(warped, list(ori_shape))
+        warped = utils_voxelmorph.crop_tensor_to_shape(warped, list(ori_shape))
         displacement = displacement.detach().cpu().squeeze()
         displacement = displacement.permute(1, 2, 3, 0)
-        displacement = utils.crop_tensor_to_shape(
+        displacement = utils_voxelmorph.crop_tensor_to_shape(
             displacement, list(ori_shape) + [3])
 
         self._save_results(warped, displacement)
