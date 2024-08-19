@@ -572,7 +572,6 @@ def deform_image(image: torch.Tensor,
     displacement = displacement.unsqueeze(0)
 
     # warp image
-    print(".....", image.shape, displacement.shape)
     warped_image = F.grid_sample(
         image, displacement + grid, mode=mode, align_corners=True).squeeze()
 

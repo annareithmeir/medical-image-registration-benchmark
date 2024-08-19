@@ -32,6 +32,8 @@ Parent class datasets
 
 class GenericDataset(Dataset[datasetReturnType]):
 
+    image_shape: Tuple[int, ...]
+
     def __init__(self, name: str, return_type: str = None, indices: list[int] = None, **kwargs) -> None:
         super().__init__()
 
@@ -40,7 +42,6 @@ class GenericDataset(Dataset[datasetReturnType]):
         self.indices = indices
         self.ndim = None
         self.spacing: Tuple[float, ...]
-        self.image_shape = None
         self.return_type = return_type
         if return_type is None:
             self.return_type = "torch_tensor_dict"

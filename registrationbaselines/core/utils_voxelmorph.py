@@ -1,12 +1,12 @@
 
-from typing import List
+from typing import List, Tuple
 
 import torch
 import torch.nn.functional as F
 
 
-def get_new_voxelmorph_image_shape(old_shape: List[int],
-                                   number_of_layers_in_encoder: int) -> List[int]:
+def get_new_voxelmorph_image_shape(old_shape: Tuple[int, ...],
+                                   number_of_layers_in_encoder: int) -> Tuple[int, ...]:
     """
     @brief Adjusts the input shape to be compatible with Voxelmorph requirements.
 
@@ -26,7 +26,7 @@ def get_new_voxelmorph_image_shape(old_shape: List[int],
         new_shape[i] = torch.ceil(torch.tensor(
             old_shape[i] / (2 ** number_of_layers_in_encoder))).int().item() * (2 ** number_of_layers_in_encoder)
 
-    return new_shape
+    return tuple(new_shape)
 
 
 def pad_tensor_to_shape(tensor: torch.Tensor,

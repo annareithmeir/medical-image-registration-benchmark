@@ -13,8 +13,7 @@ from torch.utils.data import DataLoader
 import gc
 
 from registrationbaselines.core.training_interface import TrainingInterface
-from registrationbaselines.core import utils, utils_voxelmorph
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.core import utils_voxelmorph
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.data_loading import data_loaders
 
@@ -35,29 +34,23 @@ class VoxelmorphTraining(TrainingInterface):
 
     def __init__(self,
                  train_dataset: data_loaders.GenericDataset,
-                 config_path: Path,
+                 configuration_path: Path,
                  val_dataset: Optional[data_loaders.GenericDataset] = None):
 
-        self.method = "voxelmorph"
+        super().__init__("VoxelMorph",
+                         configuration_path,
+                         train_dataset,
+                         val_dataset)
 
         # paths
-        self.train_dataset = train_dataset
-        self.val_dataset = val_dataset
-        self.config = RegistrationInterface.convert_to_non_wandb_config(
-            utils.read_config(config_path))
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
-        print(self.config)
-        print(type(self.config['enc']))
-
-        if self.config['use_wandb']:
-            self.init_wandb(self.base_dir / self.config['wandb_config_path'])
-
         new_shape = utils_voxelmorph.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
-                                                                    len(self.config['enc']))
+                                                                    len(self.configuration["parameters"]["enc"]["values"][0]))
 
-        self.train_dataset.image_shape = tuple(new_shape)
-        self.val_dataset.image_shape = tuple(new_shape)
+        self.train_dataset.image_shape = new_shape
+        if self.val_dataset:
+            self.val_dataset.image_shape = new_shape
 
     def scan_to_scan_generator(self, dataset: Dataset):
         """
@@ -113,7 +106,8 @@ class VoxelmorphTraining(TrainingInterface):
         inshape = self.train_dataset.image_shape
 
         # prepare model folder
-        model_dir = self.base_dir / self.config["parameters"]['result_model_path']
+        model_dir = self.base_dir / \
+            self.config["parameters"]['result_model_path']
         os.makedirs(model_dir, exist_ok=True)
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
