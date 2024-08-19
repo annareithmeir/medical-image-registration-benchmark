@@ -39,8 +39,8 @@ class GenericDataset(Dataset[datasetReturnType]):
         self.images_path_preprocessed = None
         self.indices = indices
         self.ndim = None
-        self.spacing: Tuple[int, ...]
-        self.image_shape: Tuple[int, ...]
+        self.spacing: Tuple[float, ...]
+        self.image_shape = None
         self.return_type = return_type
         if return_type is None:
             self.return_type = "torch_tensor_dict"

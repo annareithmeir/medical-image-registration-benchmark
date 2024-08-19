@@ -84,6 +84,7 @@ class RegistrationInterface(ABC):
         self._create_result_directories(self.method_name)
 
         for item in tqdm(self.dataloader):
+            #break
             self._register(item["fixed_image"], item["moving_image"])
 
         loader_transformations = data_loaders.BaselineTransformations(
@@ -212,8 +213,8 @@ class RegistrationInterface(ABC):
 
         # SAVE DEFORMATION
         utils.save_displacement(deformation,
-                                self.path_result_deformation,
-                                self.dataloader.spacing + (1,))
+                         self.path_result_deformation,
+                         self.dataloader.spacing)
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(

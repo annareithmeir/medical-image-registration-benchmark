@@ -127,6 +127,8 @@ class Evaluation():
                                                                     moving_image_path.name,
                                                                     extension_overwrite=''.join(path_displacement.suffixes))
                 deformed_image = utils.load_image(deformed_image_path)
+                # deformed_image = utils.deform_image(moving_image, displacement)
+                # utils.save_image(deformed_image,  path_displacement, (1.75, 1.75, 1.75))
 
             plots_path = self._create_plots_paths(fixed_image_path.name,
                                                   moving_image_path.name,
