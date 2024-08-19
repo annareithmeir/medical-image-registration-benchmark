@@ -378,7 +378,6 @@ def save_displacement(displacement: torch.Tensor,
         )
 
     # spacing has to match the image
-    print(spacing, shape)
     if len(spacing) != len(shape):
         raise ValueError(
             "The spacing does not match the image dimensions."
