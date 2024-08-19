@@ -15,6 +15,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.voxelmorph import VoxelMorphReg  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
 
 
@@ -23,12 +24,12 @@ def main() -> None:
     Main function to run the full registration and evaluation pipeline.
     """
 
-    method = "SyNANTs"
+    # method = "SyNANTs"
     # method = "BSplines"
-    # method = "voxelmorph_feature"
+    method = "VoxelMorph"
 
     path_config = Path(__file__).parent.parent.absolute() / \
-                  f"registrationbaselines/configs/{method}.yaml"
+        f"registrationbaselines/configs/{method}.yaml"
 
     if socket.gethostname() == "fryderyk":
         path_data = Path("/home/fryderyk/Documents/data/LungCT_preprocessed/")
@@ -52,10 +53,14 @@ def main() -> None:
     #                                             return_type="path_dict")
 
     if method == "BSplines":
-        registration = BSplineNiftyReg(path_config,
-                                       loader_data)
+        registration_object = BSplineNiftyReg
     elif method == "SyNANTs":
-        registration = SyNANTs(path_config, loader_data)
+        registration_object = SyNANTs
+    elif method == "VoxelMorph":
+        registration_object = VoxelMorphReg
+
+    registration = registration_object(path_config,
+                                       loader_data)
 
     #############################
     # with register_dataset()
