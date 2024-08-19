@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-import yaml
+
+from typing import Dict, Any, Union
+
+import wandb
 
 
 class TrainingInterface(ABC):
     """
     Abstract base class for training procedure.
     """
+
+    configuration: Dict[str, Union[str, int, float, bool]] = {}
 
     @abstractmethod
     def __init__(self, config_path):
@@ -19,7 +24,7 @@ class TrainingInterface(ABC):
         self.model = None
 
     @abstractmethod
-    def train(self):
+    def train(self, use_wandb: bool) -> None:
         """
         Train with given training data.
         """
@@ -35,3 +40,19 @@ class TrainingInterface(ABC):
         """
         Return the initial weights that have been used for training (for reproducibility).
         """
+
+    def perform_wandb_training_sweep(self) -> None:
+        """
+        Train with all parameter sets.
+        """
+
+        self.use_wandb = True
+
+        self.sweep_id = wandb.sweep(self.configuration,
+                                    entity=None,
+                                    project="reg_baselines")
+
+        wandb.agent(self.sweep_id,
+                    function=lambda: self.train(use_wandb=True),
+                    entity=None,
+                    project="reg_baselines")

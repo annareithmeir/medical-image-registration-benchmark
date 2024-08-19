@@ -94,7 +94,10 @@ class VoxelmorphTraining(TrainingInterface):
             outvols = [y, zeros]
             yield (invols, outvols)
 
-    def train(self):
+    def train(self, use_wandb: bool) -> None:
+
+        if use_wandb:
+            wandb.init()
 
         assert len(self.train_dataset) > 0, 'Could not find any training data.'
         print('Training with dataset of length ', len(self.train_dataset))
@@ -110,7 +113,7 @@ class VoxelmorphTraining(TrainingInterface):
         inshape = self.train_dataset.image_shape
 
         # prepare model folder
-        model_dir = self.base_dir / self.config['result_model_path']
+        model_dir = self.base_dir / self.config["parameters"]['result_model_path']
         os.makedirs(model_dir, exist_ok=True)
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -266,7 +269,7 @@ class VoxelmorphTraining(TrainingInterface):
             print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
 
             # wandb logging
-            if self.config['use_wandb']:
+            if use_wandb:
                 if self.val_dataset is not None:
                     wandb.log({"loss": np.mean(
                         epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1], "val-loss": np.mean(val_loss_list)})
@@ -279,7 +282,7 @@ class VoxelmorphTraining(TrainingInterface):
                    self.config['epochs']))
         self.model = model
 
-        if self.config['use_wandb']:
+        if use_wandb:
             wandb.finish()
 
     def get_trained_model_path(self):
@@ -292,12 +295,3 @@ class VoxelmorphTraining(TrainingInterface):
         assert self.model is not None, "Model is not yet initialized!"
         torch.save(self.model.state_dict(), self.base_dir /
                    self.config['initial_weights_path'])  # '.pth'
-
-    def init_wandb(self, wandb_config_path):
-        wandb_config = self.read_config(wandb_config_path)
-        wandb.init(
-            project=wandb_config['project'],
-            group=wandb_config['group'],
-            name=wandb_config['name'],
-            config=wandb_config['config_dict']
-        )
