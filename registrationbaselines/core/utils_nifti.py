@@ -183,8 +183,13 @@ def set_intent_code(path: Path, intent_code: str) -> None:
     header = image.header
     data: np.ndarray[Any, Any] = image.get_fdata()  # type: ignore
 
+    data=data.astype(np.float32)
+
     # set the code
     header.set_intent(nib.nifti1.intent_codes[intent_code])
+
+    # set dtype to float32
+    header.set_data_dtype(np.float32)
 
     # create new image
     new_image = nib.Nifti1Image(data, image.affine, header)

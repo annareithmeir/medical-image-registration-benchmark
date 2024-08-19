@@ -1,9 +1,17 @@
+import shutil
+
 import ants
 from pathlib import Path
+import wandb
+from tqdm import tqdm
+from typing import Dict, Any
+import torch
 
+from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.evaluation.evaluation import Evaluation
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_nifti
-
+from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti, utils
+import SimpleITK as sitk
 
 class SyNANTs(RegistrationInterface):
     """
@@ -11,7 +19,9 @@ class SyNANTs(RegistrationInterface):
     No default initialisation, as the choice of registration should be concious.
     """
 
-    def __init__(self, configuration_path: Path) -> None:
+    def __init__(self,
+                 path_configuration: Path,
+                 dataloader: data_loaders.GenericDataset) -> None:
         """
         Initialize the registration model.
 
@@ -20,70 +30,76 @@ class SyNANTs(RegistrationInterface):
 
         self.method_name = "SyNANTs"
 
+        self.configuration = utils.read_config(path_configuration)
+
+        self.dataloader = dataloader
+
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
-        self.configuration = self.read_config(self.base_dir / configuration_path)
-
-        self._create_result_directories()
-
-        # paths
-        self.fixed_path = Path()
-        self.moving_path = Path()
-        self.result_transformed_image_path = Path()
-        self.result_transformation_path = Path()
-
-    def register(self, fixed_image_path: Path, moving_image_path: Path, print_progress: bool = False):
+    def _register(self, fixed_image_path: Path, moving_image_path: Path) -> None:
         """
         Wrapper around ants to register.
         """
 
-        self.fixed_path = fixed_image_path
-        self.moving_path = moving_image_path
+        self.path_fixed = fixed_image_path
+        self.path_moving = moving_image_path
 
         # check that both images exist
-        assert self.fixed_path.exists(
-        ), f"File {self.fixed_path} does not exist."
-        assert self.moving_path.exists(
-        ), f"File {self.moving_path} does not exist."
+        assert self.path_fixed.exists(
+        ), f"File {self.path_fixed} does not exist."
+        assert self.path_moving.exists(
+        ), f"File {self.path_moving} does not exist."
+
+        self.path_result_deformed, self.path_result_deformation = self._create_result_paths(self.path_fixed.stem,
+                                                                      self.path_moving.stem,
+                                                                      ".nii.gz",
+                                                                      ".nii.gz")
 
         # load boath images with ants
-        fixed_image = ants.image_read(self.fixed_path.as_posix())
-        moving_image = ants.image_read(self.moving_path.as_posix())
+        fixed_image = ants.image_read(self.path_fixed.as_posix())
+        moving_image = ants.image_read(self.path_moving.as_posix())
+
+        if self.use_wandb is False:
+            grad_step = self.configuration["grad_step"]
+            flow_sigma = self.configuration["flow_sigma"]
+            total_sigma = self.configuration["total_sigma"]
+        else:
+            grad_step = wandb.config["grad_step"]
+            flow_sigma = wandb.config["flow_sigma"]
+            total_sigma = wandb.config["total_sigma"]
 
         # Perform registration
         registration = ants.registration(
             fixed=fixed_image,
             moving=moving_image,
+            grad_step=grad_step,
+            flow_sigma=flow_sigma,
+            total_sigma= total_sigma,
             type_of_transform='SyNOnly',
-            write_composite_transform=True  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
+            initial_transform="Identity",
+            write_composite_transform=False  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
 
-        self._create_result_directories()
-
-        self._save_results(
-            registration['warpedmovout'], registration['fwdtransforms'])
-
-    def _register_wandb_wrapper(self) -> None:
-        pass
-
-    def get_transformation_path(self):
-        return self.result_transformation_path
-
-    def get_transformed_image_path(self):
-        return self.result_transformed_image_path
+        deformed_image = ants.apply_transforms(fixed=fixed_image, moving=moving_image,
+                                              transformlist=registration['fwdtransforms'])
+        self._save_results(torch.from_numpy(deformed_image.numpy().transpose(2,1,0)), registration['invtransforms'][1])
+        # self._save_results(registration['warpedmovout'], registration['invtransforms'][1])
 
     def _save_results(self, deformed, deformation):
         self.result_transformed_image_path, self.result_transformation_path = \
-            self._create_result_paths(self.fixed_path.stem,
-                                      self.moving_path.stem,
+            self._create_result_paths(self.path_fixed.stem,
+                                      self.path_moving.stem,
                                       ".nii.gz",
                                       ".nii.gz")
 
         # save transformation (by converting to .nii.gz)
-        utils_nifti.convert_h5_to_nii(self.fixed_path,
-                                      Path(deformation),
-                                      self.result_transformation_path)
+        shutil.copy(deformation, self.result_transformation_path)
+        # utils_nifti.convert_h5_to_nii(self.path_fixed,
+        #                               Path(deformation),
+        #                               self.result_transformation_path)
         utils_nifti.set_intent_code(self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
 
+
         # save transformed image
-        deformed.to_filename(self.result_transformed_image_path)
+        # deformed.to_filename(self.result_transformed_image_path)
+        utils.save_image(deformed, self.result_transformed_image_path, self.dataloader.spacing)
