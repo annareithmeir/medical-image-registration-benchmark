@@ -22,11 +22,9 @@ class VoxelMorphReg(RegistrationInterface):
         Initialize the registration model - inference is performed here.
         """
 
-        self.method_name = "VoxelMorph"
-
-        self.configuration = utils.read_config(configuration_path)
-
-        self.dataloader = dataloader
+        super().__init__("VoxelMorph",
+                         configuration_path,
+                         dataloader)
 
         # from config
         self.path_model = Path(

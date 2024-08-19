@@ -12,6 +12,10 @@ from registrationbaselines.core import utils
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import Evaluation
 
+import uuid
+
+uuid.uuid4()
+
 
 class RegistrationInterface(ABC):
     """
@@ -39,14 +43,19 @@ class RegistrationInterface(ABC):
 
     evaluator: Evaluation
 
-    @abstractmethod
     def __init__(self,
-                 configuration: Dict[str, Any],
-                 dataloader: data_loaders.GenericDataset,
-                 use_wandb: bool):
+                 method_name: str,
+                 configuration_path: Path,
+                 dataloader: data_loaders.GenericDataset):
         """
         Initialize the registration model.
         """
+
+        self.method_name = method_name
+
+        self.configuration = utils.read_config(configuration_path)
+
+        self.dataloader = dataloader
 
     @abstractmethod
     def _register(self,
