@@ -22,8 +22,7 @@ class Evaluation():
     """
 
     def __init__(self,
-                 result_path: Path,
-                 method: str,
+                 run_path: Path,
                  dataset_data: GenericDataset,
                  dataset_transformations: Optional[BaselineTransformations] = None,
                  use_zero_displacement: bool = False) -> None:
@@ -34,10 +33,10 @@ class Evaluation():
         self.use_zero_displacement = use_zero_displacement
 
         # create the csv file and all its parents if doesn't exist
-        self.path_results = result_path / dataset_data.name / method / 'results.csv'
-        self.path_results_plots = result_path / \
-            dataset_data.name / method / 'results.pdf'
-        self.path_plots = result_path / dataset_data.name / method / 'plots'
+        self.path_results = run_path / 'results.csv'
+        self.path_results_plots = run_path / 'results.pdf'
+
+        self.path_plots = run_path / 'plots'
         self.path_results.parent.mkdir(parents=True, exist_ok=True)
         self.path_plots.mkdir(parents=True, exist_ok=True)
         self.path_results.touch()
