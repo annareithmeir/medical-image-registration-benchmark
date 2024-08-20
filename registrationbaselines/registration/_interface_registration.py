@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from typing import Dict, Any, Union
+from typing import Dict, Union
 
 import yaml
 import torch
@@ -22,9 +22,9 @@ class RegistrationInterface(ABC):
     Abstract base class for registration models.
     """
 
-    method_name: str = ""
+    method_name: str
 
-    configuration: Dict[str, Union[str, int, float, bool]] = {}
+    configuration: Dict[str, Union[str, int, float, bool]]
 
     dataloader: data_loaders.GenericDataset
 
@@ -46,7 +46,7 @@ class RegistrationInterface(ABC):
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset):
+                 dataloader: data_loaders.GenericDataset) -> None:
         """
         Initialize the registration model.
         """
@@ -56,6 +56,8 @@ class RegistrationInterface(ABC):
         self.configuration = utils.read_config(configuration_path)
 
         self.dataloader = dataloader
+
+        self.base_dir = Path(__file__).parent.parent.absolute().parent
 
     @abstractmethod
     def _register(self,
@@ -82,13 +84,15 @@ class RegistrationInterface(ABC):
         @return: None
         """
 
-        if self.use_wandb is False:
-            self.configuration = self.convert_to_non_wandb_config(
-                self.configuration)
-            result_path = Path(self.configuration["result_path"])
+        buffer_ori_config = self.configuration
+
+        if self.use_wandb:
+            self.configuration = wandb.config
         else:
-            result_path = Path(
-                self.configuration["parameters"]["result_path"]["values"][0])
+            self.configuration = utils.convert_to_non_wandb_config(
+                self.configuration)
+
+        result_path = Path(self.configuration["result_path"])
 
         self._create_result_directories(self.method_name)
 
@@ -108,6 +112,8 @@ class RegistrationInterface(ABC):
 
         self.evaluator.visualize()
 
+        self.configuration = buffer_ori_config
+
     def evaluate_with_zero_displacement(self) -> None:
         """
         Evaluate with zero displacement.
@@ -120,18 +126,16 @@ class RegistrationInterface(ABC):
 
         buffer_ori_config = self.configuration
 
-        if self.use_wandb is False:
-            self.configuration = self.convert_to_non_wandb_config(
-                self.configuration)
-            result_path = Path(self.configuration["result_path"])
+        if self.use_wandb:
+            self.configuration = wandb.config
         else:
-            result_path = Path(
-                self.configuration["parameters"]["result_path"]["values"][0])
+            self.configuration = utils.convert_to_non_wandb_config(
+                self.configuration)
 
         self._create_result_directories(self.method_name)
         self.path_dir_deformations.rmdir()
 
-        self.evaluator = Evaluation(result_path,
+        self.evaluator = Evaluation(Path(self.configuration["result_path"]),
                                     self.method_dir.name,
                                     self.dataloader,
                                     None,
@@ -146,29 +150,16 @@ class RegistrationInterface(ABC):
 
     def _perform_wandb_run(self) -> None:
         """
-        This wraps register() and is used by wandb.agent.
-        This has to (in order)
-            0. initialise wandb with wandb.init()
-            1. create a unique method name for the current run
-            2. loop over the entire dataset and call register() for each item.
-            3. create a BaselineTransformations loader
-                - the path should be result_path/method_name
-            4. create an Evaluation object
-                - initialise with result_path and method_name
-            5. call evaluate()
-            6. call visualis() [optional]
-            7. call wandb_log() to log evaluation metrics (results)
-
-            WARNING
-            wandb.config doesn't reflect the entire config file,
-            just the config for the current run
+        Perform a single run with wandb.
         """
+
         # IMPORTANT: this has to be called after creating wandb.agent()
-        wandb.init(mode="online")
+        wandb.init()
 
+        # todo use run names
         buffer_ori_name = self.method_name
-
-        self.method_name = self.create_method_name_for_wandb(wandb.config)
+        self.method_name = utils.create_method_name_for_wandb(self.method_name,
+                                                              wandb.config)
 
         self.register_dataset()
 
@@ -237,8 +228,7 @@ class RegistrationInterface(ABC):
         Create the directories to save the results.
         """
 
-        self.path_results = Path(self.configuration["result_path"]) if not self.use_wandb else Path(
-            self.configuration["parameters"]["result_path"]["values"][0])
+        self.path_results = Path(self.configuration["result_path"])
 
         # create directory in base_dir called method
         self.method_dir = self.path_results / \
@@ -285,44 +275,6 @@ class RegistrationInterface(ABC):
             path_deformation.as_posix() + extension_transformation)
 
         return Path(path_dir_deformed), Path(path_deformation)
-
-    @staticmethod
-    def convert_to_non_wandb_config(config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Get the config without the wandb config.
-        """
-
-        config = config["parameters"]
-
-        new_config: Dict[str, str] = {}
-
-        for key, value in config.items():
-            new_config[key] = value["values"][0]
-
-        return new_config
-
-    def create_method_name_for_wandb(self, wandb_config: Dict[str, Union[str, int, float, bool]]) -> str:
-        """
-        Create the method name for wandb.
-        """
-
-        method_name = self.method_name
-
-        for key, value in wandb_config.items():
-
-            if key not in ['result_path', 'method_name'] and 'path' not in key:
-                if isinstance(value, bool) or isinstance(value, int) or isinstance(value, float):
-                    method_name += f"___{key}_{str(value).lower()}"
-                elif isinstance(value, list):
-                    method_name += f"___{key}_{value}"
-                elif value is not None:
-                    beautified_param = value.replace('-', '').replace(' ', '_')
-                    method_name += f"___{key}_{beautified_param}"
-
-            if len(method_name) > 100:
-                break
-
-        return method_name
 
     @staticmethod
     def read_config(file_path: Path):
