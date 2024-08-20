@@ -1,13 +1,10 @@
 from pathlib import Path
 
-from typing import List, Any
-
-import wandb
+from typing import List
 
 from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti, utils
+from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
-
 
 
 class BSplineNiftyReg(RegistrationInterface):
@@ -17,28 +14,22 @@ class BSplineNiftyReg(RegistrationInterface):
     """
 
     def __init__(self,
-                 path_configuration: Path,
+                 configuration_path: Path,
                  dataloader: data_loaders.GenericDataset) -> None:
 
-        self.method_name = "BSplineNiftyReg"
+        super().__init__("BSplineNiftyReg",
+                         configuration_path,
+                         dataloader)
 
-        self.configuration = utils.read_config(path_configuration)
-
-        self.dataloader = dataloader
-
-        base_dir = Path(__file__).parent.parent.absolute().parent
-        self.path_reg_f3d = base_dir / Path(
+        self.path_reg_f3d = self.base_dir / Path(
             "registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
-
-        # paths
-        self.path_working_dir_path = Path()
 
         # command to call NiftyReg
         self.command: List[str] = []
 
     def _register(self,
-                 fixed_image_path: Path,
-                 moving_image_path: Path) -> None:
+                  fixed_image_path: Path,
+                  moving_image_path: Path) -> None:
         """
             Test
         """
@@ -66,7 +57,7 @@ class BSplineNiftyReg(RegistrationInterface):
         utils_nifti.set_intent_code(
             self.path_result_deformation, "NIFTI_INTENT_DISPVECT")
 
-    def __create_registration_command_list(self):
+    def __create_registration_command_list(self) -> None:
         """
         Create the command line list for the registration.
         """
@@ -87,13 +78,11 @@ class BSplineNiftyReg(RegistrationInterface):
                         '-res', self.path_result_deformed.as_posix(),
                         '-cpp', self.result_control_grid_path.as_posix()]
 
-        config: Any = self.configuration if not self.use_wandb else wandb.config
-
         self.command = utils_commandline.add_configuration_to_command(self.command,
-                                                                      config,
+                                                                      self.configuration,
                                                                       only_value=True)
 
-    def __outputs_exist(self):
+    def __outputs_exist(self) -> bool:
         """
         We need this because it's not clear that blockmatching returns non-zero
         when failed
