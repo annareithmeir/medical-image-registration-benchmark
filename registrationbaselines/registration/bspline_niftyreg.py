@@ -79,7 +79,7 @@ class BSplineNiftyReg(RegistrationInterface):
                         '-cpp', self.result_control_grid_path.as_posix()]
 
         self.command = utils_commandline.add_configuration_to_command(self.command,
-                                                                      self.configuration,
+                                                                      self.run_configuration,
                                                                       only_value=True)
 
     def __outputs_exist(self) -> bool:
