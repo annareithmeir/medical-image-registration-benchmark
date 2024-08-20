@@ -43,7 +43,7 @@ class VoxelmorphTraining(TrainingInterface):
                          val_dataset)
 
         new_shape = utils_voxelmorph.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
-                                                                    len(self.configuration["parameters"]["enc"]["values"][0]))
+                                                                    len(self.general_configuration["parameters"]["enc"]["values"][0]))
 
         self.train_dataset.image_shape = new_shape
         if self.val_dataset:

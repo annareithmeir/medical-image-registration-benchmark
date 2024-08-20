@@ -28,13 +28,13 @@ class VoxelMorphReg(RegistrationInterface):
 
         # from config
         self.path_model = Path(
-            self.configuration["parameters"]["model_path"]["values"][0])
+            self.general_configuration["parameters"]["model_path"]["values"][0])
 
-        self.gpu_number = self.configuration["parameters"]['gpu_number']["values"][0]
+        self.gpu_number = self.general_configuration["parameters"]['gpu_number']["values"][0]
         self.device = self.__handle_device_selection()
 
         self.number_of_layers = len(
-            self.configuration["parameters"]['enc']["values"][0])
+            self.general_configuration["parameters"]['enc']["values"][0])
 
     def _register(self,
                   fixed_image_path: Path,
