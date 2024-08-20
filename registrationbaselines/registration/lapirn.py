@@ -20,9 +20,12 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))
 sys.path.append(
     str(Path(__file__).parent.parent.absolute() / "dl_repos/LapIRN/Code"))
 
-
-class LapIRNReg(RegistrationInterface):
-    def __init__(self, configuration_path: Path):
+class LapIRN(RegistrationInterface):
+    """
+    Laplacian Image Registration Network (LapIRN, https://github.com/cwmok/LapIRN).
+    """
+    def __init__(self, path_configuration: Path,
+                 dataloader: data_loaders.GenericDataset) -> None:
         """
         Initialize the registration model - inference is performed here.
         """

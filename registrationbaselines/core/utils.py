@@ -1,10 +1,9 @@
 import pandas as pd
 from pathlib import Path
 
-from typing import Any, Union, Tuple
+from typing import Any, Tuple
 
 from scipy.ndimage import map_coordinates
-from sympy import true
 import yaml
 import numpy as np
 import SimpleITK as sitk
@@ -13,7 +12,7 @@ import torch.nn.functional as F
 
 from registrationbaselines.core import utils_metrics
 
-from registrationbaselines.core.types import floatArray2D, floatArray3Dor4D, floarArray4Dor5D, array2Dor3D, floatArray2Dor3D
+from registrationbaselines.core.types import floatArray2D, floarArray4Dor5D, array2Dor3D
 
 
 def is_nifti(path: Path) -> None:
@@ -331,6 +330,9 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]
             "The spacing does not match the image dimensions."
         )
 
+    image = image.permute(2, 1, 0)
+    spacing = list(reversed(spacing))
+
     sitk_image = sitk.GetImageFromArray(image.detach().cpu().numpy())
     sitk_image.SetSpacing(spacing)
 
@@ -376,7 +378,6 @@ def save_displacement(displacement: torch.Tensor,
         )
 
     # spacing has to match the image
-    print(spacing, shape)
     if len(spacing) != len(shape):
         raise ValueError(
             "The spacing does not match the image dimensions."
@@ -571,7 +572,6 @@ def deform_image(image: torch.Tensor,
     displacement = displacement.unsqueeze(0)
 
     # warp image
-    print(".....", image.shape, displacement.shape)
     warped_image = F.grid_sample(
         image, displacement + grid, mode=mode, align_corners=True).squeeze()
 

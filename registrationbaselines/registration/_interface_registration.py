@@ -12,6 +12,10 @@ from registrationbaselines.core import utils
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import Evaluation
 
+import uuid
+
+uuid.uuid4()
+
 
 class RegistrationInterface(ABC):
     """
@@ -39,14 +43,19 @@ class RegistrationInterface(ABC):
 
     evaluator: Evaluation
 
-    @abstractmethod
     def __init__(self,
-                 configuration: Dict[str, Any],
-                 dataloader: data_loaders.GenericDataset,
-                 use_wandb: bool):
+                 method_name: str,
+                 configuration_path: Path,
+                 dataloader: data_loaders.GenericDataset):
         """
         Initialize the registration model.
         """
+
+        self.method_name = method_name
+
+        self.configuration = utils.read_config(configuration_path)
+
+        self.dataloader = dataloader
 
     @abstractmethod
     def _register(self,
@@ -84,7 +93,7 @@ class RegistrationInterface(ABC):
         self._create_result_directories(self.method_name)
 
         for item in tqdm(self.dataloader):
-            #break
+            # break
             self._register(item["fixed_image"], item["moving_image"])
 
         loader_transformations = data_loaders.BaselineTransformations(
@@ -109,6 +118,8 @@ class RegistrationInterface(ABC):
         buffer_ori_name = self.method_name
         self.method_name = "_zeroDisplacement"
 
+        buffer_ori_config = self.configuration
+
         if self.use_wandb is False:
             self.configuration = self.convert_to_non_wandb_config(
                 self.configuration)
@@ -119,30 +130,6 @@ class RegistrationInterface(ABC):
 
         self._create_result_directories(self.method_name)
         self.path_dir_deformations.rmdir()
-
-        """
-        for item in tqdm(self.dataloader):
-            self.path_fixed = item["fixed_image"]
-            self.path_moving = item["moving_image"]
-
-            shape = self.dataloader.image_shape
-
-            zero_displacement = torch.zeros((*shape, 3), dtype=torch.float32)
-
-            _, path_zero_disp = self._create_result_paths(self.path_fixed.stem,
-                                                          self.path_moving.stem,
-                                                          ".nii.gz",
-                                                          ".nii.gz")
-
-            # disp_nifty = utils.load_displacement(Path("/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp_niftyreg/LungCT/BSplineNiftyReg/deformations/LungCT_0001_0001_deformation_to_LungCT_0001_0000.nii.gz"))
-
-            # utils.save_displacement(zero_displacement,
-            #                         path_zero_disp,
-            #                         self.dataloader.spacing + (1,))
-
-        loader_transformations = data_loaders.BaselineTransformations(
-            self.method_dir)
-        """
 
         self.evaluator = Evaluation(result_path,
                                     self.method_dir.name,
@@ -155,6 +142,7 @@ class RegistrationInterface(ABC):
         self.evaluator.visualize()
 
         self.method_name = buffer_ori_name
+        self.configuration = buffer_ori_config
 
     def _perform_wandb_run(self) -> None:
         """
@@ -234,8 +222,8 @@ class RegistrationInterface(ABC):
 
         # SAVE DEFORMATION
         utils.save_displacement(deformation,
-                         self.path_result_deformation,
-                         self.dataloader.spacing)
+                                self.path_result_deformation,
+                                self.dataloader.spacing + (1,))
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(
@@ -322,12 +310,17 @@ class RegistrationInterface(ABC):
 
         for key, value in wandb_config.items():
 
-            if key not in ['result_path', 'method_name']:
+            if key not in ['result_path', 'method_name'] and 'path' not in key:
                 if isinstance(value, bool) or isinstance(value, int) or isinstance(value, float):
                     method_name += f"___{key}_{str(value).lower()}"
-                else:
+                elif isinstance(value, list):
+                    method_name += f"___{key}_{value}"
+                elif value is not None:
                     beautified_param = value.replace('-', '').replace(' ', '_')
                     method_name += f"___{key}_{beautified_param}"
+
+            if len(method_name) > 100:
+                break
 
         return method_name
 

@@ -32,6 +32,8 @@ Parent class datasets
 
 class GenericDataset(Dataset[datasetReturnType]):
 
+    image_shape: Tuple[int, ...]
+
     def __init__(self, name: str, return_type: str = None, indices: list[int] = None, **kwargs) -> None:
         super().__init__()
 
@@ -40,7 +42,6 @@ class GenericDataset(Dataset[datasetReturnType]):
         self.indices = indices
         self.ndim = None
         self.spacing: Tuple[float, ...]
-        self.image_shape = None
         self.return_type = return_type
         if return_type is None:
             self.return_type = "torch_tensor_dict"
@@ -406,6 +407,11 @@ class L2RLungCTDataset(GenericDataset):
         self.images_path = dataset_path
         self.images_path_preprocessed = None
         self.ndim = 3
+        self.spacing = (1.75, 1.75, 1.75)
+        # self.spacing = (1.75, 1.25, 1.75)
+        self.image_shape = (160, 192, 224)
+        # self.image_shape = (192, 138, 208)
+        # self.image_shape = (192, 192, 208)
 
         self.has_segmentations = True
         self.has_keypoints = True
