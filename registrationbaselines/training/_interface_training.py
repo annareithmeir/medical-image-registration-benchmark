@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import uuid
 
 from abc import ABC, abstractmethod
 from typing import Dict, Union, Optional, Any
@@ -17,8 +18,10 @@ class TrainingInterface(ABC):
     """
 
     method_name: str
+    run_name: str
 
-    configuration: Dict[str, Union[str, int, float, bool]]
+    general_configuration: Dict[str, Union[str, int, float, bool]]
+    run_configuration: Dict[str, Union[str, int, float, bool]]
 
     train_dataset: data_loaders.GenericDataset
     val_dataset: Optional[data_loaders.GenericDataset] = None
@@ -28,8 +31,8 @@ class TrainingInterface(ABC):
     initial_weights_path: Path
     train_data_path: Path
     base_dir: Path
-    model_dir: Path
     method_dir: Path
+    path_dir_train_results: Path
 
     sweep_id: str = ""
 
@@ -64,26 +67,19 @@ class TrainingInterface(ABC):
         Train with one parameter set.
         """
 
-        buffer_ori_config = self.configuration
-
         if self.use_wandb:
-            self.configuration = wandb.config
+            self.run_configuration = wandb.config
+            self.run_name = self.method_name + \
+                f"_{utils_wandb.get_current_wandb_run_name()}"
         else:
-            self.configuration = utils_wandb.convert_to_non_wandb_config(
+            self.run_configuration = utils_wandb.convert_to_non_wandb_config(
                 self.configuration)
+            self.run_name = self.method_name + f"_{uuid.uuid4()}"
 
-        result_path = Path(self.configuration["result_path"])
-
-        # todo
-        # self._create_result_directories(self.method_name)
-
-        # prepare model folder
-        self.model_dir = self.base_dir / result_path
-        os.makedirs(self.model_dir, exist_ok=True)
+        self.run_directory = self.path_dir_train_results / self.run_name
+        self.run_directory.mkdir(parents=True, exist_ok=True)
 
         self._train()
-
-        self.configuration = buffer_ori_config
 
     def _perform_wandb_run(self) -> None:
         """
@@ -93,19 +89,13 @@ class TrainingInterface(ABC):
         # IMPORTANT: this has to be called after creating wandb.agent()
         wandb.init()
 
-        # todo use run names
-        buffer_ori_name = self.method_name
-        self.method_name = utils.create_method_name_for_wandb(self.method_name,
-                                                              wandb.config)
-
         self.train_with_one_parameter_set()
-
-        self.method_name = buffer_ori_name
 
     def perform_wandb_sweep(self) -> None:
         """
         Train with all parameter sets.
         """
+        self._create_result_directories()
 
         self.use_wandb = True
 
@@ -167,28 +157,22 @@ class TrainingInterface(ABC):
 
         return device
 
-    def _create_result_directories(self, method_directory_name: str):
+    def _create_result_directories(self) -> None:
         """
         Create the directories to save the results.
         """
 
-        self.path_results = Path(self.configuration["result_path"])
+        self.path_results = Path(
+            self.configuration["parameters"]["result_path"]["values"][0])
 
         # create directory in base_dir called method
-        self.method_dir = self.path_results / \
-            self.train_dataset.name / method_directory_name
+        self.method_dir = self.path_results / self.train_dataset.name / self.method_name
         self.method_dir.mkdir(parents=True, exist_ok=True)
 
-        # create two subdirectories 'deformed' and 'deformations'
-        self.path_dir_deformed = self.method_dir / 'deformed'
-        self.path_dir_deformed.mkdir(parents=True, exist_ok=True)
+        # create 'train' subdirectory
+        self.path_dir_train_results = self.method_dir / 'train'
+        self.path_dir_train_results.mkdir(parents=True, exist_ok=True)
 
-        self.path_dir_deformations = self.method_dir / 'deformations'
-        self.path_dir_deformations.mkdir(parents=True, exist_ok=True)
-
-        if not self.path_dir_deformations.exists():
+        if not self.path_dir_train_results.exists():
             raise FileNotFoundError(
-                f"Directory {self.path_dir_deformations} couldn't be created.")
-        if not self.path_dir_deformed.exists():
-            raise FileNotFoundError(
-                f"Directory {self.path_dir_deformed} couldn't be created.")
+                f"Directory {self.path_dir_train_results} couldn't be created.")
