@@ -2,7 +2,7 @@ from pathlib import Path
 
 from typing import List
 
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
 

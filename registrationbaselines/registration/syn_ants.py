@@ -9,7 +9,7 @@ import torch
 
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import Evaluation
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti, utils
 import SimpleITK as sitk
 

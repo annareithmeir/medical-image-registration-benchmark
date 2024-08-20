@@ -12,7 +12,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import gc
 
-from registrationbaselines.training._interface_training import TrainingInterface
+from registrationbaselines.interfaces._interface_training import TrainingInterface
 from registrationbaselines.core import utils_voxelmorph
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.data_loading import data_loaders

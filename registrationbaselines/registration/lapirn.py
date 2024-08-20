@@ -8,7 +8,7 @@ import numpy as np
 
 from pathlib import Path
 import torch
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.core.utils_niftyreg import set_intent_code
 from registrationbaselines.dl_repos.LapIRN.Code.Functions import save_img, save_flow
 from registrationbaselines.core.utils_nifti import transform_nifti_image_with_matrix

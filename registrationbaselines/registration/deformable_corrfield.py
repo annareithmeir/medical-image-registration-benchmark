@@ -6,7 +6,7 @@ from typing import List, Union, Any
 import numpy as np
 import SimpleITK as sitk
 
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline, utils_nifti, utils
 
 

@@ -1,6 +1,6 @@
 import gc
 from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 import registrationbaselines.core.utils as utils
 import time
 from pathlib import Path
