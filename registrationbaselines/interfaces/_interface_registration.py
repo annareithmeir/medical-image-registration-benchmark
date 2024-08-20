@@ -10,35 +10,24 @@ from tqdm import tqdm
 from registrationbaselines.core import utils, utils_wandb
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import Evaluation
-
-import uuid
-
-uuid.uuid4()
+from registrationbaselines.interfaces import _interface_core
 
 
-class RegistrationInterface(ABC):
+class RegistrationInterface(_interface_core.InterfaceCore):
     """
     Abstract base class for registration models.
     """
-
-    method_name: str
-
-    configuration: Dict[str, Union[str, int, float, bool]]
 
     dataloader: data_loaders.GenericDataset
 
     path_fixed: Path = Path()
     path_moving: Path = Path()
 
-    path_results: Path = Path()
     path_dir_deformed: Path = Path()
     path_dir_deformations: Path = Path()
-    method_dir: Path = Path()
 
     path_result_deformation: Path = Path()
     path_result_deformed: Path = Path()
-
-    use_wandb: bool = False
 
     evaluator: Evaluation
 
@@ -50,13 +39,11 @@ class RegistrationInterface(ABC):
         Initialize the registration model.
         """
 
-        self.method_name = method_name
-
-        self.configuration = utils.read_config(configuration_path)
+        super().__init__(method_name,
+                         configuration_path,
+                         dataloader.name)
 
         self.dataloader = dataloader
-
-        self.base_dir = Path(__file__).parent.parent.absolute().parent
 
     @abstractmethod
     def _register(self,
@@ -76,34 +63,31 @@ class RegistrationInterface(ABC):
         @return: None
         """
 
-    def register_dataset(self) -> None:
+    def execute_with_one_parameter_set(self) -> None:
         """
         Register and evaluate all files and log to wand.
 
         @return: None
         """
 
-        buffer_ori_config = self.configuration
+        if "model_path" in self.general_configuration["parameters"] and self.use_wandb:
+            wandb.finish()
+            raise ValueError(
+                "DL mode can't be used with wandb sweeps for registration, because the sweep was done in training.")
 
-        if self.use_wandb:
-            self.configuration = wandb.config
-        else:
-            self.configuration = utils_wandb.convert_to_non_wandb_config(
-                self.configuration)
+        self._create_run_parameters()
 
-        result_path = Path(self.configuration["result_path"])
+        self._create_run_directory()
 
-        self._create_result_directories(self.method_name)
+        self._save_run_configuration()
 
         for item in tqdm(self.dataloader):
-            # break
             self._register(item["fixed_image"], item["moving_image"])
 
         loader_transformations = data_loaders.BaselineTransformations(
-            self.method_dir)
+            self.path_dir_run)
 
-        self.evaluator = Evaluation(result_path,
-                                    self.method_dir.name,
+        self.evaluator = Evaluation(self.path_dir_run,
                                     self.dataloader,
                                     loader_transformations)
 
@@ -111,7 +95,8 @@ class RegistrationInterface(ABC):
 
         self.evaluator.visualize()
 
-        self.configuration = buffer_ori_config
+        if self.use_wandb:
+            self.evaluator.wandb_log()
 
     def evaluate_with_zero_displacement(self) -> None:
         """
@@ -135,7 +120,7 @@ class RegistrationInterface(ABC):
         self.path_dir_deformations.rmdir()
 
         self.evaluator = Evaluation(Path(self.configuration["result_path"]),
-                                    self.method_dir.name,
+                                    self.path_dir_method.name,
                                     self.dataloader,
                                     None,
                                     True)
@@ -146,41 +131,6 @@ class RegistrationInterface(ABC):
 
         self.method_name = buffer_ori_name
         self.configuration = buffer_ori_config
-
-    def _perform_wandb_run(self) -> None:
-        """
-        Perform a single run with wandb.
-        """
-
-        # IMPORTANT: this has to be called after creating wandb.agent()
-        wandb.init()
-
-        # todo use run names
-        buffer_ori_name = self.method_name
-        self.method_name = utils.create_method_name_for_wandb(self.method_name,
-                                                              wandb.config)
-
-        self.register_dataset()
-
-        self.evaluator.wandb_log()
-
-        self.method_name = buffer_ori_name
-
-    def perform_wandb_sweep(self) -> None:
-        """
-        Register all parameter sets.
-        """
-
-        self.use_wandb = True
-
-        self.sweep_id = wandb.sweep(self.configuration,
-                                    entity=None,
-                                    project="reg_baselines")
-
-        wandb.agent(self.sweep_id,
-                    function=lambda: self._perform_wandb_run(),
-                    entity=None,
-                    project="reg_baselines")
 
     def get_transformation_path(self):
         """
@@ -222,32 +172,6 @@ class RegistrationInterface(ABC):
             raise FileNotFoundError(
                 f"File {self.path_result_deformation} couldn't be saved.")
 
-    def _create_result_directories(self, method_directory_name: str):
-        """
-        Create the directories to save the results.
-        """
-
-        self.path_results = Path(self.configuration["result_path"])
-
-        # create directory in base_dir called method
-        self.method_dir = self.path_results / \
-            self.dataloader.name / method_directory_name
-        self.method_dir.mkdir(parents=True, exist_ok=True)
-
-        # create two subdirectories 'deformed' and 'deformations'
-        self.path_dir_deformed = self.method_dir / 'deformed'
-        self.path_dir_deformed.mkdir(parents=True, exist_ok=True)
-
-        self.path_dir_deformations = self.method_dir / 'deformations'
-        self.path_dir_deformations.mkdir(parents=True, exist_ok=True)
-
-        if not self.path_dir_deformations.exists():
-            raise FileNotFoundError(
-                f"Directory {self.path_dir_deformations} couldn't be created.")
-        if not self.path_dir_deformed.exists():
-            raise FileNotFoundError(
-                f"Directory {self.path_dir_deformed} couldn't be created.")
-
     def _create_result_paths(self,
                              name_fixed: str,
                              name_moving: str,
@@ -274,3 +198,30 @@ class RegistrationInterface(ABC):
             path_deformation.as_posix() + extension_transformation)
 
         return Path(path_dir_deformed), Path(path_deformation)
+
+    def _create_run_directory(self) -> None:
+        """
+        Create the run directory in the method directory.
+        """
+
+        # if we are in DL mode, we want to copy the run name from the model path
+        if "model_path" in self.run_configuration:
+            self.run_name = Path(
+                self.run_configuration["model_path"]).parent.name
+
+        self.path_dir_run = self.path_dir_method / self.run_name
+        self.path_dir_run.mkdir(parents=True, exist_ok=True)
+
+        # create two subdirectories 'deformed' and 'deformations'
+        self.path_dir_deformed = self.path_dir_run / 'deformed'
+        self.path_dir_deformed.mkdir(parents=True, exist_ok=True)
+
+        self.path_dir_deformations = self.path_dir_run / 'deformations'
+        self.path_dir_deformations.mkdir(parents=True, exist_ok=True)
+
+        if not self.path_dir_deformations.exists():
+            raise FileNotFoundError(
+                f"Directory {self.path_dir_deformations} couldn't be created.")
+        if not self.path_dir_deformed.exists():
+            raise FileNotFoundError(
+                f"Directory {self.path_dir_deformed} couldn't be created.")
