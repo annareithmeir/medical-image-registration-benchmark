@@ -2,7 +2,7 @@ method: grid
 name: VoxelMorph
 parameters:
   result_path:
-    values:     [/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp]
+    values:     [/u/home/koeglf/Documents/code/registrationbaselines/tmp/reg_interface_rewrite]
   model_path:
     values:     ["/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp/VoxelMorph/0001_final.pt"]
   gpu_number:
@@ -24,7 +24,7 @@ parameters:
   initial_epoch:
     values:     [0]
   lr:
-    values:     [0.0001]
+    values:     [0.0001, 0.7]
   int_steps:
     values:     [7]
   int_downsize:
@@ -41,8 +41,6 @@ parameters:
     values:     [0.01]
   use_wandb:
     values:     [False]
-  wandb_config_path:
-    values:     ["registrationbaselines/configs/Wandb.yaml"]
   gpu:
     values:     ['0']
   cudnn_nondet:
