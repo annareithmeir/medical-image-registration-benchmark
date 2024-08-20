@@ -25,8 +25,8 @@ def main() -> None:
     """
 
     # method = "SyNANTs"
-    # method = "BSplineNiftyReg"
-    method = "VoxelMorph"
+    method = "BSplineNiftyReg"
+    # method = "VoxelMorph"
 
     path_config = Path(__file__).parent.parent.absolute() / \
         f"registrationbaselines/configs/{method}.yaml"
@@ -66,7 +66,7 @@ def main() -> None:
     # with register_dataset()
     #############################
     # registration.evaluate_with_zero_displacement()
-    # registration.register_dataset()
+    registration.execute_with_one_parameter_set()
 
     #############################
     # with perform_wandb_sweep()
