@@ -3,12 +3,11 @@ from pathlib import Path
 
 from typing import Dict, Union
 
-import yaml
 import torch
 import wandb
 from tqdm import tqdm
 
-from registrationbaselines.core import utils
+from registrationbaselines.core import utils, utils_wandb
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import Evaluation
 
@@ -89,7 +88,7 @@ class RegistrationInterface(ABC):
         if self.use_wandb:
             self.configuration = wandb.config
         else:
-            self.configuration = utils.convert_to_non_wandb_config(
+            self.configuration = utils_wandb.convert_to_non_wandb_config(
                 self.configuration)
 
         result_path = Path(self.configuration["result_path"])
@@ -129,7 +128,7 @@ class RegistrationInterface(ABC):
         if self.use_wandb:
             self.configuration = wandb.config
         else:
-            self.configuration = utils.convert_to_non_wandb_config(
+            self.configuration = utils_wandb.convert_to_non_wandb_config(
                 self.configuration)
 
         self._create_result_directories(self.method_name)
@@ -275,12 +274,3 @@ class RegistrationInterface(ABC):
             path_deformation.as_posix() + extension_transformation)
 
         return Path(path_dir_deformed), Path(path_deformation)
-
-    @staticmethod
-    def read_config(file_path: Path):
-        """
-        Read the configuration file.
-        """
-
-        with open(file_path, 'r', encoding='utf-8') as file:
-            return yaml.safe_load(file)

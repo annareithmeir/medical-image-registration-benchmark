@@ -748,21 +748,6 @@ def transform_csv(input_csv: Path, output_csv: Path):
     df.to_csv(output_csv, index=False)
 
 
-def convert_to_non_wandb_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Get the config without the wandb config.
-    """
-
-    config = config["parameters"]
-
-    new_config: Dict[str, str] = {}
-
-    for key, value in config.items():
-        new_config[key] = value["values"][0]
-
-    return new_config
-
-
 def create_method_name_for_wandb(method_name: str, wandb_config: Dict[str, Union[str, int, float, bool]]) -> str:
     """
     Create the method name for wandb.

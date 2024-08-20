@@ -8,7 +8,7 @@ import torch
 import wandb
 
 from registrationbaselines.data_loading import data_loaders
-from registrationbaselines.core import utils
+from registrationbaselines.core import utils, utils_wandb
 
 
 class TrainingInterface(ABC):
@@ -29,6 +29,7 @@ class TrainingInterface(ABC):
     train_data_path: Path
     base_dir: Path
     model_dir: Path
+    method_dir: Path
 
     sweep_id: str = ""
 
@@ -68,7 +69,7 @@ class TrainingInterface(ABC):
         if self.use_wandb:
             self.configuration = wandb.config
         else:
-            self.configuration = utils.convert_to_non_wandb_config(
+            self.configuration = utils_wandb.convert_to_non_wandb_config(
                 self.configuration)
 
         result_path = Path(self.configuration["result_path"])
@@ -112,10 +113,10 @@ class TrainingInterface(ABC):
                                     entity=None,
                                     project="reg_baselines")
 
-        self.agent = wandb.agent(self.sweep_id,
-                                 function=lambda: self._perform_wandb_run(),
-                                 entity=None,
-                                 project="reg_baselines")
+        wandb.agent(self.sweep_id,
+                    function=lambda: self._perform_wandb_run(),
+                    entity=None,
+                    project="reg_baselines")
 
     def get_trained_model_path(self) -> Path:
         """
@@ -165,3 +166,29 @@ class TrainingInterface(ABC):
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
         return device
+
+    def _create_result_directories(self, method_directory_name: str):
+        """
+        Create the directories to save the results.
+        """
+
+        self.path_results = Path(self.configuration["result_path"])
+
+        # create directory in base_dir called method
+        self.method_dir = self.path_results / \
+            self.train_dataset.name / method_directory_name
+        self.method_dir.mkdir(parents=True, exist_ok=True)
+
+        # create two subdirectories 'deformed' and 'deformations'
+        self.path_dir_deformed = self.method_dir / 'deformed'
+        self.path_dir_deformed.mkdir(parents=True, exist_ok=True)
+
+        self.path_dir_deformations = self.method_dir / 'deformations'
+        self.path_dir_deformations.mkdir(parents=True, exist_ok=True)
+
+        if not self.path_dir_deformations.exists():
+            raise FileNotFoundError(
+                f"Directory {self.path_dir_deformations} couldn't be created.")
+        if not self.path_dir_deformed.exists():
+            raise FileNotFoundError(
+                f"Directory {self.path_dir_deformed} couldn't be created.")
