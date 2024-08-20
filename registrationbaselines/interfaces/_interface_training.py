@@ -176,3 +176,12 @@ class TrainingInterface(ABC):
         if not self.path_dir_train_results.exists():
             raise FileNotFoundError(
                 f"Directory {self.path_dir_train_results} couldn't be created.")
+    def save_initial_weights(self):
+        assert self.model is not None, "Model is not yet initialized!"
+        self.model.save(self.get_initial_weights_path())
+
+    def get_trained_model_path(self) -> Path:
+        return self.path_dir_run / f"model_epoch{self.run_configuration['epochs']:05d}_final.pt"
+
+    def get_initial_weights_path(self) -> Path:
+        return self.path_dir_run / "model_epoch00000_initial.pt"

@@ -268,13 +268,3 @@ class VoxelmorphTraining(TrainingInterface):
 
         if self.use_wandb:
             wandb.finish()
-
-    def save_initial_weights(self):
-        assert self.model is not None, "Model is not yet initialized!"
-        self.model.save(self.get_initial_weights_path())
-
-    def get_trained_model_path(self) -> Path:
-        return self.run_directory / f"model_epoch{self.run_configuration['epochs']:05d}_final.pt"
-
-    def get_initial_weights_path(self):
-        return self.run_directory / "model_epoch00000_initial.pt"
