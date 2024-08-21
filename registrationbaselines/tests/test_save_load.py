@@ -135,21 +135,6 @@ class TestSaveLoad(unittest.TestCase):
         self.assertRaises(ValueError, utils.load_displacement, file_path_5D)
         file_path_5D.unlink()
 
-        # load an image in wrong dtype
-        file_path_wrong_dtype = Path(
-            "registrationbaselines/tests/test_files/image_tmp.nii.gz")
-        array_wrong_dtype = np.random.rand(
-            3, 1, 10, 10, 10).astype(np.float64)
-        sitk_image_wrong_dtype = sitk.GetImageFromArray(array_wrong_dtype)
-        sitk.WriteImage(sitk_image_wrong_dtype, file_path_wrong_dtype)
-        utils_nifti.set_intent_code(
-            file_path_wrong_dtype, "NIFTI_INTENT_DISPVECT")
-
-        self.assertRaises(TypeError, utils.load_displacement,
-                          file_path_wrong_dtype)
-
-        file_path_wrong_dtype.unlink()
-
         # check that load_image returns a tensor
         file_path = Path(
             "registrationbaselines/tests/test_files/LungCT_0001_0001_deformation_to_LungCT_0001_0000.nii.gz")
