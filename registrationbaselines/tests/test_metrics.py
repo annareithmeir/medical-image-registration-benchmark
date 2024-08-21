@@ -93,3 +93,33 @@ class TestDICE(unittest.TestCase):
         expected_scores = [0.5]  # Dice score should be 0.5
         actual_scores = metrics.dice_score(image1, image2)
         self.assertEqual(actual_scores, expected_scores)
+
+
+class TestHausdorff(unittest.TestCase):
+
+    def test_hd95_zero_dist(self) -> None:
+        """
+        Test case where volumes are identical, so Hausdorff distance should be 0.
+        """
+
+        fixed = torch.tensor([
+            [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+            [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        ])
+
+        warped = torch.tensor([
+            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
+            [[0, 0, 0], [0, 1, 0],  [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]]
+        ])
+
+        res_l2r = metrics.compute_hd95(fixed.detach().cpu().numpy(),
+                                       fixed.detach().cpu().numpy(),
+                                       warped.detach().cpu().numpy(),
+                                       [1])
+        res_ours = metrics.hausdorff_distance(fixed,
+                                              warped, 95)
+
+        self.assertEqual(res_ours, res_l2r[1])
+        self.assertEqual(res_ours[0], 0.0)

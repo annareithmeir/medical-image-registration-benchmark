@@ -6,8 +6,11 @@ from scipy.spatial.distance import dice
 from scipy.spatial import KDTree
 import SimpleITK as sitk
 import torch
+import seg_metrics as sg
+from seg_metrics.seg_metrics import write_metrics
 
 from registrationbaselines.core import utils
+from . import hd95
 from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
 
 
@@ -117,6 +120,25 @@ def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
         scores.append(1 - dice(mask1, mask2))
 
     return scores
+
+
+def compute_hd95(fixed, moving, moving_warped, labels):
+    hd95_vals = []
+    for i in labels:
+        if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0):
+            hd95_vals.append(np.NAN)
+        else:
+            hd95_vals.append(hd95.compute_robust_hausdorff(hd95.compute_surface_distances(
+                (fixed == i), (moving_warped == i), np.ones(3)), 95.))
+    mean_hd95 = np.nanmean(hd95_vals)
+    return mean_hd95, hd95_vals
+
+
+def hausdorff_distance_l2r(image1: torch.Tensor, image2: torch.Tensor, percentile: Optional[float] = None) -> List[float]:
+    image1_np = image1.detach().cpu().numpy()
+    image2_np = image2.detach().cpu().numpy()
+
+    labels = [1]
 
 
 def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: Optional[float] = None) -> List[float]:
