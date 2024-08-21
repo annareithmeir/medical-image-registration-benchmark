@@ -71,11 +71,12 @@ class SyNANTs(RegistrationInterface):
 
         deformed_image = ants.apply_transforms(fixed=fixed_image, moving=moving_image,
                                                transformlist=registration['fwdtransforms'])
-        self._save_results(torch.from_numpy(deformed_image.numpy(
-        ).transpose(2, 1, 0)), Path(registration['invtransforms'][1]))
+        self._save_results(torch.from_numpy(deformed_image.numpy()),
+                           Path(registration['invtransforms'][1]))
         # self._save_results(registration['warpedmovout'], registration['invtransforms'][1])
 
     def _save_results(self, deformed: torch.Tensor, deformation_path: Path) -> None:
+
         self.result_transformed_image_path, self.result_transformation_path = \
             self._create_result_paths(self.path_fixed.stem,
                                       self.path_moving.stem,
@@ -87,9 +88,6 @@ class SyNANTs(RegistrationInterface):
 
         utils_nifti.set_intent_code(
             self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
-
-        # permute x and y
-        deformed = deformed.permute(2, 1, 0)
 
         # save transformed image
         utils.save_image(
