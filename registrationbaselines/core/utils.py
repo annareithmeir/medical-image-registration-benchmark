@@ -10,7 +10,7 @@ import SimpleITK as sitk
 import torch
 import torch.nn.functional as F
 
-from registrationbaselines.core import utils_metrics
+from registrationbaselines.metrics import utils_metrics
 
 from registrationbaselines.core.types import floatArray2D, floarArray4Dor5D, array2Dor3D
 

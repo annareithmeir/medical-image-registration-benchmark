@@ -1,6 +1,11 @@
-from . import lookup_tables  # pylint: disable=relative-beyond-top-level
+"""
+Code taken from https://github.com/MDL-UzL/L2R/tree/28985b74f2671b3e5e736e2d088f53cfe1faa209
+"""
+
 import numpy as np
 import scipy.ndimage as ndimage
+
+from registrationbaselines.metrics import lookup_tables
 
 
 def _assert_is_numpy_array(name, array):

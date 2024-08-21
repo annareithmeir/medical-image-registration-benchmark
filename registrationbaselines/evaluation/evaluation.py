@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from registrationbaselines.core import utils, result_csv
-from registrationbaselines.core import metrics
+from registrationbaselines.metrics import metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
 
@@ -269,10 +269,11 @@ class Evaluation():
             self.results.add_value("dice_mean", dice_mean, name)
 
         hausdorff_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
-                                                      warped.squeeze())
+                                                      warped.squeeze(),
+                                                      100.0)
         hausdorff95_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
                                                         warped.squeeze(),
-                                                        percentile=95)
+                                                        percentile=95.0)
 
         assert len(hausdorff_scores) == len(
             hausdorff95_scores), "Hausdorff scores and 95th percentile scores should have the same length."

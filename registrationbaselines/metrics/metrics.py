@@ -3,14 +3,10 @@ from typing import Tuple, Optional, List
 
 import numpy as np
 from scipy.spatial.distance import dice
-from scipy.spatial import KDTree
 import SimpleITK as sitk
 import torch
-import seg_metrics as sg
-from seg_metrics.seg_metrics import write_metrics
 
-from registrationbaselines.core import utils
-from . import hd95
+from registrationbaselines.metrics import hd95
 from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
 
 
@@ -122,26 +118,7 @@ def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     return scores
 
 
-def compute_hd95(fixed, moving, moving_warped, labels):
-    hd95_vals = []
-    for i in labels:
-        if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0):
-            hd95_vals.append(np.NAN)
-        else:
-            hd95_vals.append(hd95.compute_robust_hausdorff(hd95.compute_surface_distances(
-                (fixed == i), (moving_warped == i), np.ones(3)), 95.))
-    mean_hd95 = np.nanmean(hd95_vals)
-    return mean_hd95, hd95_vals
-
-
-def hausdorff_distance_l2r(image1: torch.Tensor, image2: torch.Tensor, percentile: Optional[float] = None) -> List[float]:
-    image1_np = image1.detach().cpu().numpy()
-    image2_np = image2.detach().cpu().numpy()
-
-    labels = [1]
-
-
-def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: Optional[float] = None) -> List[float]:
+def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: float) -> List[float]:
     """
     Calculate the 95th percentile of the Hausdorff distance between two NIfTI files for each class.
 
@@ -155,39 +132,16 @@ def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: O
 
     classes, data1, data2 = preprocess_segmentations(image1, image2)
 
-    scores = []
-
     classes = classes.detach().cpu().numpy()
     data1 = data1.detach().cpu().numpy()
     data2 = data2.detach().cpu().numpy()
 
-    for c in classes:
-        # Get the coordinates of the current class in both images
-        coords1 = np.column_stack(np.where(data1 == c))
-        coords2 = np.column_stack(np.where(data2 == c))
+    hd95_vals = []
+    for i in classes:
+        hd95_vals.append(hd95.compute_robust_hausdorff(hd95.compute_surface_distances(
+            (data1 == i), (data2 == i), np.ones(3)), percentile))
 
-        if coords1.size == 0 or coords2.size == 0:
-            scores.append(np.inf)
-        else:
-            # Create KD-trees for fast nearest-neighbor lookup
-            kdtree1 = KDTree(coords1)
-            kdtree2 = KDTree(coords2)
-
-            # Calculate all directed distances from coords1 to coords2
-            dists1, _ = kdtree1.query(coords2)
-            dists2, _ = kdtree2.query(coords1)
-
-            # Combine both distances
-            combined_dists = np.concatenate([dists1, dists2])
-
-            if percentile is not None:
-                # Calculate the 95th percentile
-                scores.append(np.percentile(combined_dists, 95))
-            else:
-                # Calculate the maximum distance
-                scores.append(np.max(combined_dists))
-
-    return scores
+    return hd95_vals
 
 
 def tre(keypoints_fixed: torch.Tensor,

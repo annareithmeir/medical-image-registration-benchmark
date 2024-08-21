@@ -25,9 +25,9 @@ def main() -> None:
     Main function to run the full registration and evaluation pipeline.
     """
 
-    method = "SyNANTs"
+    # method = "SyNANTs"
     # method = "DemonsSITK"
-    # method = "BSplineNiftyReg"
+    method = "BSplineNiftyReg"
     # method = "VoxelMorph"
 
     path_config = Path(__file__).parent.parent.absolute() / \

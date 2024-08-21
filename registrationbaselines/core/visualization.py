@@ -15,7 +15,7 @@ import torch
 import wandb
 
 import registrationbaselines.core.utils as utils
-from registrationbaselines.core import metrics
+from registrationbaselines.metrics import metrics
 from registrationbaselines.core.types import floatArray2D
 
 os.environ['NEURITE_BACKEND'] = "pytorch"

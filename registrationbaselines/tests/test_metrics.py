@@ -7,7 +7,7 @@ import torch
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
-import registrationbaselines.core.metrics as metrics
+import registrationbaselines.metrics.metrics as metrics
 
 
 class TestDICE(unittest.TestCase):
@@ -122,4 +122,31 @@ class TestHausdorff(unittest.TestCase):
                                               warped, 95)
 
         self.assertEqual(res_ours, res_l2r[1])
-        self.assertEqual(res_ours[0], 0.0)
+        self.assertEqual(res_ours, [0.0])
+
+    def test_hd95_one_dist(self) -> None:
+        """
+        Test case where volumes are identical, so Hausdorff distance should be 0.
+        """
+
+        fixed = torch.tensor([
+            [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+            [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        ])
+
+        warped = torch.tensor([
+            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 1],  [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]]
+        ])
+
+        res_l2r = metrics.compute_hd95(fixed.detach().cpu().numpy(),
+                                       fixed.detach().cpu().numpy(),
+                                       warped.detach().cpu().numpy(),
+                                       [1])
+        res_ours = metrics.hausdorff_distance(fixed,
+                                              warped, 95)
+
+        self.assertEqual(res_ours, res_l2r[1])
+        self.assertEqual(res_ours, [1.0])
