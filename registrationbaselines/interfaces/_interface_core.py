@@ -24,6 +24,7 @@ class InterfaceCore(ABC):
     run_configuration: Dict[str, Union[str, int, float, bool]]
 
     path_dir_results: Path
+    path_dir_dataset: Path
     path_dir_method: Path
     path_dir_run: Path
 
@@ -86,7 +87,8 @@ class InterfaceCore(ABC):
             self.general_configuration["parameters"]["result_path"]["values"][0])
 
         # create directory in base_dir called method
-        self.path_dir_method = self.path_dir_results / dataset_name / self.method_name
+        self.path_dir_dataset = self.path_dir_results / dataset_name
+        self.path_dir_method = self.path_dir_dataset / self.method_name
         self.path_dir_method.mkdir(parents=True, exist_ok=True)
 
     @abstractmethod
