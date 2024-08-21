@@ -14,7 +14,7 @@ os.environ['VXM_BACKEND'] = 'pytorch'
 sys.path.append(str(Path(__file__).parent.absolute().parent))
 
 
-class VoxelMorphReg(RegistrationInterface):
+class VoxelMorph(RegistrationInterface):
     def __init__(self,
                  configuration_path: Path,
                  dataloader: data_loaders.GenericDataset):

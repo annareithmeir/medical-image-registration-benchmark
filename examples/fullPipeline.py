@@ -15,8 +15,9 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
-from registrationbaselines.registration.voxelmorph import VoxelMorphReg  # nopep8
+from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
+from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
 
 
 def main() -> None:
@@ -24,8 +25,9 @@ def main() -> None:
     Main function to run the full registration and evaluation pipeline.
     """
 
-    # method = "SyNANTs"
-    method = "BSplineNiftyReg"
+    method = "SyNANTs"
+    # method = "DemonsSITK"
+    # method = "BSplineNiftyReg"
     # method = "VoxelMorph"
 
     path_config = Path(__file__).parent.parent.absolute() / \
@@ -57,7 +59,9 @@ def main() -> None:
     elif method == "SyNANTs":
         registration_object = SyNANTs
     elif method == "VoxelMorph":
-        registration_object = VoxelMorphReg
+        registration_object = VoxelMorph
+    elif method == "DemonsSITK":
+        registration_object = DemonsSITK
 
     registration = registration_object(path_config,
                                        loader_data)
@@ -65,7 +69,7 @@ def main() -> None:
     #############################
     # with register_dataset()
     #############################
-    # registration.evaluate_with_zero_displacement()
+    registration.evaluate_with_zero_displacement()
     registration.execute_with_one_parameter_set()
 
     #############################
