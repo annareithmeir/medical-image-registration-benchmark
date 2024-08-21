@@ -105,22 +105,18 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         @return: None
         """
 
-        buffer_ori_name = self.method_name
-        self.method_name = "_zeroDisplacement"
-
-        buffer_ori_config = self.configuration
+        self.run_name = "_zeroDisplacement"
 
         if self.use_wandb:
-            self.configuration = wandb.config
+            self.run_configuration = wandb.config
         else:
-            self.configuration = utils_wandb.convert_to_non_wandb_config(
-                self.configuration)
+            self.run_configuration = utils_wandb.convert_to_non_wandb_config(
+                self.general_configuration)
 
-        self._create_result_directories(self.method_name)
+        self._create_run_directory()
         self.path_dir_deformations.rmdir()
 
-        self.evaluator = Evaluation(Path(self.configuration["result_path"]),
-                                    self.path_dir_method.name,
+        self.evaluator = Evaluation(self.path_dir_run,
                                     self.dataloader,
                                     None,
                                     True)
@@ -128,9 +124,6 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         self.evaluator.evaluate()
 
         self.evaluator.visualize()
-
-        self.method_name = buffer_ori_name
-        self.configuration = buffer_ori_config
 
     def get_transformation_path(self):
         """
