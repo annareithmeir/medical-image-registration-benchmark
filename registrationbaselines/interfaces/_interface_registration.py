@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
 from pathlib import Path
+import shutil
 
-from typing import Dict, Union
+from abc import abstractmethod
 
 import torch
 import wandb
@@ -124,6 +124,13 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         self.evaluator.evaluate()
 
         self.evaluator.visualize()
+
+        # move the results directory one level up
+        shutil.move(self.path_dir_run, self.path_dir_dataset)
+
+        # if the path_dir_method_is empty, delete it
+        if not list(self.path_dir_method.iterdir()):
+            self.path_dir_method.rmdir()
 
     def get_transformation_path(self):
         """
