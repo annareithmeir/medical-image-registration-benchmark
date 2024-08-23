@@ -388,7 +388,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 5)
             diff_image = fixed_image.take(
                 half_slice_idx[d], axis=d) - moving_image.take(half_slice_idx[d], axis=d)
-            ax.imshow(diff_image, cmap='gray')
+            ax.imshow(diff_image, cmap='gray', vmin=-1, vmax=1)
             ax.set_frame_on(False)
             if toprow:
                 ax.title.set_text("diff image")
@@ -399,7 +399,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 6)
             diff_image = fixed_image.take(
                 half_slice_idx[d], axis=d) - pred_image.take(half_slice_idx[d], axis=d)
-            ax.imshow(diff_image, cmap='gray')
+            ax.imshow(diff_image, cmap='gray', vmin=-1, vmax=1)
             ax.set_frame_on(False)
             if toprow:
                 ax.title.set_text("diff image after")
