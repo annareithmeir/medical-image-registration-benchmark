@@ -1,3 +1,4 @@
+import math
 import unittest
 from pathlib import Path
 import sys
@@ -114,14 +115,18 @@ class TestHausdorff(unittest.TestCase):
             [[0, 0, 0], [0, 0, 0],  [0, 0, 0]]
         ])
 
-        res_l2r = metrics.compute_hd95(fixed.detach().cpu().numpy(),
-                                       fixed.detach().cpu().numpy(),
-                                       warped.detach().cpu().numpy(),
-                                       [1])
+        # res_l2r = metrics.compute_hd95(fixed.detach().cpu().numpy(),
+        #                                fixed.detach().cpu().numpy(),
+        #                                warped.detach().cpu().numpy(),
+        #                                [1])
         res_ours = metrics.hausdorff_distance(fixed,
-                                              warped, 95)
+                                              warped, 0.95)
+        res_monai = metrics.hausdorff_distance_monai(fixed.unsqueeze(0),
+                                              warped.unsqueeze(0), 0.95)
+        print("expected: 0, ours: ",res_ours, "monai: ", res_monai)
 
-        self.assertEqual(res_ours, res_l2r[1])
+        # self.assertEqual(res_ours, res_l2r[1])
+        self.assertEqual(res_ours, res_monai)
         self.assertEqual(res_ours, [0.0])
 
     def test_hd95_one_dist(self) -> None:
@@ -147,6 +152,74 @@ class TestHausdorff(unittest.TestCase):
                                        [1])
         res_ours = metrics.hausdorff_distance(fixed,
                                               warped, 95)
+        res_monai = metrics.hausdorff_distance_monai(fixed.unsqueeze(0),
+                                                     warped.unsqueeze(0), 1)
+
+        print("expected: 1, ours: ", res_ours, "monai: ", res_monai)
 
         self.assertEqual(res_ours, res_l2r[1])
+        self.assertEqual(res_ours, res_monai)
         self.assertEqual(res_ours, [1.0])
+
+    def test_hd95_two_dist(self) -> None:
+        """
+        Test case where volumes are identical, so Hausdorff distance should be 0.
+        """
+
+        fixed = torch.tensor([
+            [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 1], [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        ])
+
+        warped = torch.tensor([
+            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
+            [[0, 0, 0], [1, 0, 0],  [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]]
+        ])
+
+        # res_l2r = metrics.compute_hd95(fixed.detach().cpu().numpy(),
+        #                                fixed.detach().cpu().numpy(),
+        #                                warped.detach().cpu().numpy(),
+        #                                [1])
+        res_ours = metrics.hausdorff_distance(fixed,
+                                              warped, 1)
+        res_monai = metrics.hausdorff_distance_monai(fixed.unsqueeze(0),
+                                              warped.unsqueeze(0), 1)
+        print("expected: 2, ours: ",res_ours, "monai: ", res_monai)
+
+        # self.assertEqual(res_ours, res_l2r[1])
+        self.assertEqual(res_ours, res_monai)
+        self.assertEqual(res_ours, [2.0])
+
+
+    def test_hd95_diagonal_dist(self) -> None:
+        """
+        Test case where volumes are identical, so Hausdorff distance should be 0.
+        """
+
+        fixed = torch.tensor([
+            [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 1], [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        ])
+
+        warped = torch.tensor([
+            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
+            [[0, 0, 0], [0, 1, 0],  [0, 0, 0]]
+        ])
+
+        # res_l2r = metrics.compute_hd95(fixed.detach().cpu().numpy(),
+        #                                fixed.detach().cpu().numpy(),
+        #                                warped.detach().cpu().numpy(),
+        #                                [1])
+        res_ours = metrics.hausdorff_distance(fixed,
+                                              warped, 1)
+        res_monai = metrics.hausdorff_distance_monai(fixed.unsqueeze(0),
+                                              warped.unsqueeze(0), 1)
+        print("expected: ", math.sqrt(2), "ours: ",res_ours, "monai: ", res_monai)
+
+        # self.assertEqual(res_ours, res_l2r[1])
+        self.assertEqual(res_ours, res_monai)
+        self.assertEqual(res_ours, [math.sqrt(2.0)])

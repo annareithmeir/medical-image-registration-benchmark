@@ -8,6 +8,7 @@ import torch
 
 from registrationbaselines.metrics import hd95
 from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
+import monai
 
 
 def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> floatArray2Dor3D:
@@ -142,6 +143,28 @@ def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: f
             (data1 == i), (data2 == i), np.ones(3)), percentile))
 
     return hd95_vals
+
+
+def hausdorff_distance_monai(image1, image2,  p=95, spacing=None):
+    """
+    images must be one how and classdim is at dim zero
+    @param image1:
+    @param image2:
+    @param p:
+    @param spacing:
+    @return:
+    """
+
+    assert image2.shape == image1.shape
+    image1=image1.unsqueeze(0) # add batch dim
+    image2=image2.unsqueeze(0)
+
+    # image1 = torch.movedim(image1, -1, 1)
+    # image2 = torch.movedim(image2, -1, 1)
+
+    hd = monai.metrics.compute_hausdorff_distance(image1, image2, percentile=p, spacing=spacing)
+
+    return hd.detach().numpy()[0]
 
 
 def tre(keypoints_fixed: torch.Tensor,
