@@ -1,10 +1,11 @@
 import shutil
+from pathlib import Path
+
+from typing import Dict, Any
 
 import ants
-from pathlib import Path
-import wandb
-from typing import Dict, Any
 import torch
+import SimpleITK as sitk
 
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
@@ -33,6 +34,9 @@ class SyNANTs(RegistrationInterface):
     def _register(self, fixed_image_path: Path, moving_image_path: Path) -> None:
         """
         Wrapper around ants to register.
+
+        BUGFIX 0: ants doesn't permute and flip on loading, so we have permute images on loading and permute and flip the displacement field on saving.
+                  We also have to save the forward transform, as this was also used to register.
         """
 
         self.path_fixed = fixed_image_path
@@ -53,6 +57,11 @@ class SyNANTs(RegistrationInterface):
         fixed_image = ants.image_read(self.path_fixed.as_posix())
         moving_image = ants.image_read(self.path_moving.as_posix())
 
+        # BUGFIX 0
+        # premute x and z
+        fixed_image = ants.from_numpy(fixed_image.numpy().transpose(2, 1, 0))
+        moving_image = ants.from_numpy(moving_image.numpy().transpose(2, 1, 0))
+
         grad_step = self.run_configuration["grad_step"]
         flow_sigma = self.run_configuration["flow_sigma"]
         total_sigma = self.run_configuration["total_sigma"]
@@ -71,9 +80,9 @@ class SyNANTs(RegistrationInterface):
 
         deformed_image = ants.apply_transforms(fixed=fixed_image, moving=moving_image,
                                                transformlist=registration['fwdtransforms'])
+        # BUGFIX 0
         self._save_results(torch.from_numpy(deformed_image.numpy()),
-                           Path(registration['invtransforms'][1]))
-        # self._save_results(registration['warpedmovout'], registration['invtransforms'][1])
+                           Path(registration['fwdtransforms'][0]))
 
     def _save_results(self, deformed: torch.Tensor, deformation_path: Path) -> None:
 
@@ -88,6 +97,16 @@ class SyNANTs(RegistrationInterface):
 
         utils_nifti.set_intent_code(
             self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
+
+        # BUGFIX 0
+        sitk_im = sitk.ReadImage(self.result_transformation_path)
+        sitk_tensor = torch.from_numpy(
+            sitk.GetArrayFromImage(sitk_im)).unsqueeze(3)
+        # todo this should be utils.reverse()
+        sitk_tensor = sitk_tensor[..., [2, 1, 0]]
+        sitk_tensor = sitk_tensor.permute(4, 3, 2, 1, 0)
+        sitk_im = sitk.GetImageFromArray(sitk_tensor.cpu().numpy())
+        sitk.WriteImage(sitk_im, self.result_transformation_path)
 
         # save transformed image
         utils.save_image(
