@@ -92,11 +92,8 @@ class SyNANTs(RegistrationInterface):
                                       ".nii.gz",
                                       ".nii.gz")
 
-        # cope transformation
+        # copy transformation
         shutil.copy(deformation_path, self.result_transformation_path)
-
-        utils_nifti.set_intent_code(
-            self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
 
         # BUGFIX 0
         sitk_im = sitk.ReadImage(self.result_transformation_path)
@@ -107,6 +104,9 @@ class SyNANTs(RegistrationInterface):
         sitk_tensor = sitk_tensor.permute(4, 3, 2, 1, 0)
         sitk_im = sitk.GetImageFromArray(sitk_tensor.cpu().numpy())
         sitk.WriteImage(sitk_im, self.result_transformation_path)
+
+        utils_nifti.set_intent_code(
+            self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
 
         # save transformed image
         utils.save_image(
