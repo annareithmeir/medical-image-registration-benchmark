@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Tuple, Union
 
 import torch
 
@@ -59,3 +59,39 @@ def compute_grid(image_size: torch.Size,
         return torch.cat((x, y, z), 4).to(dtype=dtype, device=device)
     else:
         raise ValueError(f"Error: {dim} is not a valid grid dimension.")
+
+
+def preprocess_segmentations(image1: torch.Tensor, image2: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Prepares egmentations for evaluation by ensuring the classes are the same and removing class 0.
+    """
+
+    # round each value to nearest integer
+    image1 = torch.round(image1).to(torch.uint8)
+    image2 = torch.round(image2).to(torch.uint8)
+
+    # Ensure the shapes match
+    if image1.shape != image2.shape:
+        raise ValueError("The two NIfTI files must have the same shape.")
+
+    # Find unique classes in the images
+    classes1 = torch.unique(image1)
+    classes2 = torch.unique(image2)
+
+    # Find common classes
+    common_classes = torch.tensor(
+        [c for c in classes1 if c in classes2], device=image1.device, dtype=classes1.dtype)
+
+    if not torch.equal(classes1, classes2):
+        Warning(
+            "Both images should have the same classes. Continuing with classes common for both segmentations.")
+
+    # find index of class 0
+    idx = torch.where(classes1 == 0)[0]
+
+    # remove class 0
+    mask = torch.ones(len(common_classes), dtype=bool, device=classes1.device)
+    mask[idx] = 0
+    common_classes = torch.masked_select(common_classes, mask)
+
+    return common_classes, image1, image2

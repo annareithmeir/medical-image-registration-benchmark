@@ -6,7 +6,7 @@ from scipy.spatial.distance import dice
 import SimpleITK as sitk
 import torch
 
-from registrationbaselines.metrics import hd95
+from registrationbaselines.metrics import hd95, utils_metrics
 from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
 import monai
 
@@ -54,42 +54,6 @@ def displacement_field_metrics(displacement: torch.Tensor) -> Tuple[float, float
     return sd_log_det, fraction_foldings
 
 
-def preprocess_segmentations(image1: torch.Tensor, image2: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Prepares egmentations for evaluation by ensuring the classes are the same and removing class 0.
-    """
-
-    # round each value to nearest integer
-    image1 = torch.round(image1).to(torch.uint8)
-    image2 = torch.round(image2).to(torch.uint8)
-
-    # Ensure the shapes match
-    if image1.shape != image2.shape:
-        raise ValueError("The two NIfTI files must have the same shape.")
-
-    # Find unique classes in the images
-    classes1 = torch.unique(image1)
-    classes2 = torch.unique(image2)
-
-    # Find common classes
-    common_classes = torch.tensor(
-        [c for c in classes1 if c in classes2], device=image1.device, dtype=classes1.dtype)
-
-    if not torch.equal(classes1, classes2):
-        Warning(
-            "Both images should have the same classes. Continuing with classes common for both segmentations.")
-
-    # find index of class 0
-    idx = torch.where(classes1 == 0)[0]
-
-    # remove class 0
-    mask = torch.ones(len(common_classes), dtype=bool, device=classes1.device)
-    mask[idx] = 0
-    common_classes = torch.masked_select(common_classes, mask)
-
-    return common_classes, image1, image2
-
-
 def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     """
     Calculate the Dice score between two NIfTI files using scipy's dice function. It is assumed that both
@@ -104,7 +68,8 @@ def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
         float: The Dice score between the two NIfTI files.
     """
 
-    classes, data1, data2 = preprocess_segmentations(image1, image2)
+    classes, data1, data2 = utils_metrics.preprocess_segmentations(
+        image1, image2)
 
     scores: List[float] = []
 
@@ -131,7 +96,8 @@ def hausdorff_distance(image1: torch.Tensor, image2: torch.Tensor, percentile: f
         float: The 95th percentile of the Hausdorff distances.
     """
 
-    classes, data1, data2 = preprocess_segmentations(image1, image2)
+    classes, data1, data2 = utils_metrics.preprocess_segmentations(
+        image1, image2)
 
     classes = classes.detach().cpu().numpy()
     data1 = data1.detach().cpu().numpy()
