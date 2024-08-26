@@ -45,7 +45,7 @@ def main() -> None:
     #####################################################################################################
     loader_data = data_loaders.L2RLungCTDataset(path_data,
                                                 return_type="path_dict",
-                                                indices=[0])
+                                                indices=[8])
     # loader_data = data_loaders.L2RAbdominalMRCTDataset(path_data,
     #                                                    return_type="path_dict",
     #                                                    indices=[0])
@@ -69,13 +69,13 @@ def main() -> None:
     #############################
     # with register_dataset()
     #############################
-    registration.evaluate_with_zero_displacement()
+    # registration.evaluate_with_zero_displacement()
     registration.execute_with_one_parameter_set()
 
     #############################
     # with perform_wandb_sweep()
     #############################
-    registration.perform_wandb_sweep()
+    # registration.perform_wandb_sweep()
 
 
 if __name__ == "__main__":
