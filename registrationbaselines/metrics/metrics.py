@@ -179,22 +179,25 @@ def dice_score_monai(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     image2_mapped = image2.clone()
 
     # Re-map label maps to a common set of classes
-    for original_class, new_index in class_to_index.items():
-        image1_mapped[image1 == original_class] = new_index
-        image2_mapped[image2 == original_class] = new_index
+    # for original_class, new_index in class_to_index.items():
+    #     image1_mapped[image1 == original_class] = new_index
+    #     image2_mapped[image2 == original_class] = new_index
+
+    image2_mapped=image2
+    image1_mapped=image1
 
     # Number of classes after mapping
-    num_classes = len(unique_classes)
+    # num_classes = len(unique_classes)
+    num_classes = -1
 
     one_hot1 = torch.nn.functional.one_hot(image1_mapped.unsqueeze(0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
     one_hot2 = torch.nn.functional.one_hot(image2_mapped.unsqueeze(0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
 
-    print(image1.shape, image1_mapped.shape, one_hot1.shape)
-
     dice_metric = monai.metrics.DiceMetric(include_background=False, reduction="none", get_not_nans=False)
     dice_score = dice_metric(y_pred=one_hot1, y=one_hot2)
+
     dice_score = dice_score.squeeze().tolist()
-    if type(dice_score == float):
+    if type(dice_score) == float:
         dice_score = [dice_score]
     return dice_score
 
