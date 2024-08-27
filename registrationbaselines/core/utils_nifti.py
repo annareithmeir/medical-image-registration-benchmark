@@ -196,6 +196,41 @@ def set_intent_code(path: Path, intent_code: str) -> None:
         print(f"Error saving the file: {e}")
 
 
+def set_nifti_metadata_key_nibabel(path: Path, key: str, value: str) -> None:
+    import nibabel as nib
+    from nibabel.nifti1 import Nifti1Image
+
+    image: Nifti1Image = nib.load(path)  # type: ignore
+
+    # we have to construct a new image with the new intent code, otherwise we cannot overwrite
+    header = image.header
+    data: np.ndarray[Any, Any] = image.get_fdata()  # type: ignore
+
+    # create new image
+    new_image = nib.Nifti1Image(data, image.affine, header)
+
+    # save the new image
+    try:
+        nib.save(new_image, path.as_posix())
+    except Exception as e:
+        print(f"Error saving the file: {e}")
+
+
+def set_nifti_metadata_key_sitk(path: Path, key: str, value: str) -> None:
+    image = sitk.ReadImage(path)
+
+    # Set the metadata key
+    image.SetMetaData(key, value)
+
+    # Write the image
+    sitk.WriteImage(image, path)
+
+    # check that it worked
+    image_test = sitk.ReadImage(path)
+    if image_test.GetMetaData(key) != value:
+        raise ValueError(f"Metadata key {key} was not set to {value}.")
+
+
 def convert_h5_to_nii(path_fixed: Path, path_h5: Path, path_niigz: Path) -> None:
     """
     Convert the .h5 transformation to a .nii.gz transformation. Also requires the fixed (reference) image.

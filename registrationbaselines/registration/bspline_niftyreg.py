@@ -50,7 +50,7 @@ class BSplineNiftyReg(RegistrationInterface):
                                                   print_command_list=False)
 
         self.path_result_deformation = \
-            utils_niftyreg.convert_control_point_grid_to_displacement_field(
+            utils_niftyreg.convert_transformation_to_displacement_field(
                 self.result_control_grid_path, self.path_fixed)
 
         # assign intent code to the displacement field

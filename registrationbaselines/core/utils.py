@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-from typing import Any, Tuple, Dict, Union
+from typing import Any, Tuple, Dict, Union, List, Optional
 
 from scipy.ndimage import map_coordinates
 import yaml
@@ -461,8 +461,8 @@ def save_array_to_nii_gz_image(array: np.ndarray, filename: Path, affine: np.nda
     Saves a 3D numpy array to a .nii.gz file
     @param array: array
     @param filename: filename for daving
-    @param affine: affine matrix of shaoe (4,4) 
-    @return: 
+    @param affine: affine matrix of shaoe (4,4)
+    @return:
     """
     assert array.ndim == 3
     image = sitk.GetImageFromArray(array)
@@ -480,13 +480,47 @@ def save_array_to_nii_gz_image(array: np.ndarray, filename: Path, affine: np.nda
     sitk.WriteImage(image, str(filename))
 
 
+def get_sitk_header(sitk_image: sitk.Image) -> dict[str, Any]:
+
+    result_dict = {}
+
+    for key in sitk_image.GetMetaDataKeys():
+        value = sitk_image.GetMetaData(key)
+        result_dict[key] = value
+
+    return result_dict
+
+
+def compare_sitk_headers(header1: dict[str, Any], header2: dict[str, Any]) -> List[Any]:
+
+    differences = []
+
+    for key in header1.keys():
+        if key not in header2.keys():
+            differences.append(f"Key {key} not in header2")
+        else:
+            if header1[key] != header2[key]:
+                differences.append(
+                    f"Key {key} has different values: header1({header1[key]}) vs header2({header2[key]})")
+    
+    for key in header2.keys():
+        if key not in header1.keys():
+            differences.append(f"Key {key} not in header1")
+        else:
+            if header1[key] != header2[key]:
+                differences.append(
+                    f"Key {key} has different values: header1({header1[key]}) vs header2({header2[key]})")
+                
+    return differences
+
+
 def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, affine: np.ndarray = None) -> None:
     """
     Saves a displacement field in form of np array to a .nii.gz file
     @param array: np array of shape (H,W,D,3)
     @param filename: filename for saving
     @param affine: affine matrix of shape (4,4)
-    @return: 
+    @return:
     """
     assert array.ndim == 4
     assert array.shape[-1] == 3
@@ -508,7 +542,7 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
 def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tensor:
     """
     Convert a displacement field to a unit displacement field.
-    The standard unit of displacement is a half-image, so a displacement vector of magnitude 2 
+    The standard unit of displacement is a half-image, so a displacement vector of magnitude 2
     means that the displacement distance is equal to the side length of the displaced image.
     """
 
@@ -530,6 +564,152 @@ def unit_displacement_to_displacement(displacement: torch.Tensor) -> torch.Tenso
             displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
 
     return disp
+
+
+def deform_image_niftyreg_path(path_image: Path,
+                               path_deformation: Path) -> Path:
+
+    from registrationbaselines.core import utils_commandline
+
+    path_warped_image = Path(
+        path_image.as_posix().replace(".nii", "_warpedManually.nii"))
+
+    command = ["/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/libraries/NiftyReg/reg_resample_ubuntu",
+               '-ref', path_image.as_posix(),
+               '-flo', path_image.as_posix(),
+               '-trans', path_deformation.as_posix(),
+               '-res', path_warped_image.as_posix()]
+
+    utils_commandline.run_command_in_terminal(command,
+                                              path_warped_image.exists,
+                                              print_command_list=False)
+
+    return path_warped_image
+
+
+def deform_image_niftyreg_sitk(image: sitk.Image,
+                               deformation: sitk.Image,
+                               image_path: Optional[Path] = None,
+                               deformation_path: Optional[Path] = None) -> sitk.Image:
+
+    if image_path:
+        path_image = image_path
+    else:
+        path_image = Path("image.nii.gz")
+        sitk.WriteImage(image, path_image)
+
+    if deformation_path:
+        path_deformation = deformation_path
+    else:
+        path_deformation = Path("deformation.nii.gz")
+        sitk.WriteImage(deformation, path_deformation)
+
+    path_warped_image = deform_image_niftyreg_path(path_image,
+                                                   path_deformation)
+
+    warped = sitk.ReadImage(path_warped_image)
+
+    if not image_path:
+        path_image.unlink()
+    if not deformation_path:
+        path_deformation.unlink()
+
+    return warped
+
+
+def deform_image_niftyreg_numpy(image: np.ndarray[Any, Any],
+                                deformation: np.ndarray[Any, Any],
+                                deformation_metadata: dict[str, Any],
+                                image_metadata: dict[str, Any]) -> np.ndarray[Any, Any]:
+
+    sitk_image = sitk.GetImageFromArray(image.astype(np.float32))
+    sitk_deformation = sitk.GetImageFromArray(deformation)
+
+    for key, value in deformation_metadata.items():
+        sitk_deformation.SetMetaData(key, value)
+
+    for key, value in image_metadata.items():
+        sitk_image.SetMetaData(key, value)
+
+    sitk_warped = deform_image_niftyreg_sitk(sitk_image, sitk_deformation)
+
+    warped = sitk.GetArrayFromImage(sitk_warped).astype(np.float32)
+
+    return warped
+
+
+def deform_image_niftyreg_torch(image: torch.Tensor,
+                                deformation: torch.Tensor) -> torch.Tensor:
+
+    sitk_image = sitk.GetImageFromArray(
+        image.detach().cpu().numpy().astype(np.float32))
+    sitk_deformation = sitk.GetImageFromArray(
+        deformation.detach().cpu().numpy())
+
+    sitk_warped = deform_image_niftyreg_sitk(sitk_image, sitk_deformation)
+
+    warped = torch.from_numpy(
+        sitk.GetArrayFromImage(sitk_warped).astype(np.float32))
+
+    return warped
+
+
+def register_niftyreg(path_fixed: Path,
+                      path_moving: Path) -> Dict[str, Path]:
+
+    from registrationbaselines.core import utils_commandline, utils_niftyreg
+
+    # check that both images exist
+    assert path_fixed.exists(
+    ), f"File {path_fixed} does not exist."
+    assert path_moving.exists(
+    ), f"File {path_moving} does not exist."
+
+    path_reg_f3d = Path(
+        "/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
+
+    path_result_deformed = Path(
+        path_moving.as_posix().replace(".nii", "_warped.nii"))
+    path_result_gird = path_moving.parent / "deformation_temp.nii.gz"
+
+    command = [path_reg_f3d.as_posix(),
+               '-ref', path_fixed.as_posix(),
+               '-flo', path_moving.as_posix(),
+               '-res', path_result_deformed.as_posix(),
+               '-cpp', path_result_gird.as_posix()]
+
+    utils_commandline.run_command_in_terminal(command,
+                                              path_result_deformed.exists,
+                                              print_command_list=False)
+
+    path_result_deformation = utils_niftyreg.convert_transformation_to_displacement_field(
+        path_result_gird, path_fixed)
+
+    return {"warped": path_result_deformed,
+            "deformation": path_result_deformation}
+
+
+def print_histogram(tensor: torch.Tensor, bins: int) -> None:
+    # Flatten the 3D tensor to 1D
+    flattened_tensor = tensor.flatten()
+
+    # Calculate the histogram with 10 bins between 0.0 and 1.0
+    hist = torch.histc(flattened_tensor, bins=10, min=0.0, max=1.0)
+
+    # Normalize the histogram counts to a reasonable scale for display
+    max_count = hist.max().item()
+    scale_factor = 200 / max_count if max_count > 0 else 1
+
+    # Print the histogram with horizontal bars
+    for i in range(bins):
+        bin_start = i / float(bins)
+        bar_length = hist[i].item() * scale_factor
+
+        if 0.1 < bar_length < 1:
+            bar_length = 1
+
+        bar = '█' * int(bar_length)
+        print(f"{bin_start:.1f} [{bar}]")
 
 
 def deform_image(image: torch.Tensor,
