@@ -294,3 +294,6 @@ class TestDisplacementFieldMetrics(unittest.TestCase):
 
     def test_num_foldings(self):
         pass #TODO
+
+    def test_jacdet_visualization(self):
+        pass # TODO
