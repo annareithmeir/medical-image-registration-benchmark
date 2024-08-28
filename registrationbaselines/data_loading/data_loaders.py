@@ -34,7 +34,11 @@ class GenericDataset(Dataset[datasetReturnType]):
 
     image_shape: Tuple[int, ...]
 
-    def __init__(self, name: str, return_type: str = None, indices: list[int] = None, **kwargs) -> None:
+    def __init__(self,
+                 name: str,
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None,
+                 masked_evaluation: Optional[bool] = None) -> None:
         super().__init__()
 
         self.images_path = None
@@ -55,6 +59,8 @@ class GenericDataset(Dataset[datasetReturnType]):
         self.name = name
 
         assert self.return_type in ["torch_tensor_dict", "path_dict"]
+
+        self.masked_evaluation = False if masked_evaluation is None else masked_evaluation
 
     def __len__(self):
         return len(self.images_list)
@@ -290,14 +296,20 @@ class MNISTDataset(GenericDataset):
     The images are of shape (32,32) and normalized to [0,1]
     """
 
-    def __init__(self, num_pairs: int, return_type: str = None):
+    def __init__(self,
+                 num_pairs: int,
+                 return_type: Optional[str] = None,
+                 masked_evaluation: Optional[bool] = None) -> None:
         """
 
         @param num_pairs: Amount of image pairs to use from the overall dataset
         @param return_type: in what data format the images should be returned in __getitem__()
         """
 
-        super().__init__("MNIST", return_type, None)
+        super().__init__("MNIST",
+                         return_type,
+                         None,
+                         masked_evaluation)
 
         assert return_type == "torch_tensor"  # path is not applicable for MNIST dataset
 
@@ -366,8 +378,12 @@ class ImagePairDataset(GenericDataset):
                  segmentation_pairs: Optional[List[List[Path]]] = None,
                  keypoint_pairs: Optional[List[List[Path]]] = None,
                  return_type: str = "",
-                 name: str = "image_pairs") -> None:
-        super().__init__(name, return_type, [])
+                 name: str = "image_pairs",
+                 masked_evaluation: Optional[bool] = None) -> None:
+        super().__init__(name,
+                         return_type,
+                         [],
+                         masked_evaluation)
 
         self.images_path = image_pairs[0][0].parent
 
@@ -393,7 +409,11 @@ class L2RLungCTDataset(GenericDataset):
     We assume the data is preprocessed with preprocess() before use
     """
 
-    def __init__(self, dataset_path: Path, return_type: str = None, indices: list[int] = None) -> None:
+    def __init__(self,
+                 dataset_path: Path,
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None,
+                 masked_evaluation: Optional[bool] = None) -> None:
         """
 
         @param dataset_path: Path to the original or pre-processed dataset
@@ -402,7 +422,10 @@ class L2RLungCTDataset(GenericDataset):
         @param indices: If desired, only specific indices can be used for the dataset creation (e.g. for train/val/test split)
         """
 
-        super().__init__("LungCT", return_type, indices)
+        super().__init__("LungCT",
+                         return_type,
+                         indices,
+                         masked_evaluation)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -552,8 +575,11 @@ class L2RAbdominalMRCTDataset(GenericDataset):
     preprocess() optional, since already isotropic pixel size
     """
 
-    def __init__(self, dataset_path: Path, return_type: str = None,
-                 indices: list[int] = None) -> None:
+    def __init__(self,
+                 dataset_path: Path,
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None,
+                 masked_evaluation: Optional[bool] = None) -> None:
         """
 
         @param dataset_path: path to the original or preprocessed dataset
@@ -562,7 +588,10 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         @param indices: list of indices which form the dataset (e.g. for train/val/test split)
         """
 
-        super().__init__("AbdomenMRCT", return_type, indices)
+        super().__init__("AbdomenMRCT",
+                         return_type,
+                         indices,
+                         masked_evaluation)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -679,8 +708,11 @@ class L2RAbdominalCTCTDataset(GenericDataset):
     preprocess() optional since already isotropic pixel size
     """
 
-    def __init__(self, dataset_path: Path, return_type: str = None,
-                 indices: list[int] = None) -> None:
+    def __init__(self,
+                 dataset_path: Path,
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None,
+                 masked_evaluation: Optional[bool] = None) -> None:
         """
 
         @param dataset_path: path to the original or preprocessed dataset
@@ -689,7 +721,10 @@ class L2RAbdominalCTCTDataset(GenericDataset):
         @param indices: list of indices which form the dataset (e.g. for train/val/test split)
         """
 
-        super().__init__("AbdomenCTCT", return_type, indices)
+        super().__init__("AbdomenCTCT",
+                         return_type,
+                         indices,
+                         masked_evaluation)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
