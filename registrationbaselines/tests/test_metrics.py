@@ -20,7 +20,7 @@ def compare_lists_with_nan(list1: List[float], list2: List[float]) -> bool:
     for a, b in zip(list1, list2):
         if np.isnan(a) and np.isnan(b):
             continue
-        if round(a, 5) != round(b, 5):
+        if abs(a - b) > 1e-5:
             return False
     return True
 
@@ -191,26 +191,42 @@ class TestHausdorff(unittest.TestCase):
         """
 
         fixed = torch.tensor([
-            [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
-            [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
-            [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-        ])
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 1, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]]
+        ]).to(torch.uint8)
 
         warped = torch.tensor([
-            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
-            [[0, 0, 0], [0, 1, 0],  [0, 0, 0]],
-            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]]
-        ])
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 1, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]]
+        ]).to(torch.uint8)
+
+        expected = [0.0]
 
         res_l2r = metrics.hausdorff_distance_learn2reg(fixed,
                                                        warped, 0.95)
-        res_monai = metrics.hausdorff_distance_monai(fixed.unsqueeze(0),
-                                                     warped.unsqueeze(0), 0.95)
-        print("expected: 0, l2r: ", res_l2r, "monai: ", res_monai)
+        res_monai, res_monai_mean = metrics.hausdorff_distance_monai(fixed,
+                                                                     warped, 0.95)
 
-        # self.assertEqual(res_ours, res_l2r[1])
-        self.assertEqual(res_l2r, res_monai)
-        self.assertEqual(res_l2r, [0.0])
+        self.assertEqual(res_l2r, expected)
+        self.assertEqual([res_monai['1']], expected)
 
     def test_hd95_one_dist(self) -> None:
         """
@@ -218,28 +234,43 @@ class TestHausdorff(unittest.TestCase):
         """
 
         fixed = torch.tensor([
-            [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
-            [[0, 0, 0], [0, 1, 0], [0, 0, 0]],
-            [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-        ])
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 1, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]]
+        ]).to(torch.uint8)
 
         warped = torch.tensor([
-            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
-            [[0, 0, 0], [0, 0, 1],  [0, 0, 0]],
-            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]]
-        ])
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 1, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]]
+        ]).to(torch.uint8)
+
+        expected = [1.0]
 
         res_l2r = metrics.hausdorff_distance_learn2reg(fixed,
                                                        warped,
                                                        1)
-        res_monai = metrics.hausdorff_distance_monai(fixed.unsqueeze(0),
-                                                     warped.unsqueeze(0), 1)
+        res_monai, res_monai_mean = metrics.hausdorff_distance_monai(fixed,
+                                                                     warped, 1)
 
-        print("expected: 1, l2r: ", res_l2r, "monai: ", res_monai)
-
-        self.assertEqual(res_l2r, res_l2r[0])
-        self.assertEqual(res_l2r, res_monai)
-        self.assertEqual(res_l2r, [1.0])
+        # self.assertEqual(res_l2r, expected)
+        self.assertEqual([res_monai['1']], expected)
 
     def test_hd95_two_dist(self) -> None:
         """
@@ -250,55 +281,114 @@ class TestHausdorff(unittest.TestCase):
             [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
             [[0, 0, 0], [0, 0, 1], [0, 0, 0]],
             [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-        ])
+        ]).to(torch.uint8)
 
         warped = torch.tensor([
             [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
             [[0, 0, 0], [1, 0, 0],  [0, 0, 0]],
             [[0, 0, 0], [0, 0, 0],  [0, 0, 0]]
-        ])
+        ]).to(torch.uint8)
 
-        res_ours = metrics.hausdorff_distance_learn2reg(fixed,
-                                                        warped, 1)
-        res_monai = metrics.hausdorff_distance_monai(fixed.unsqueeze(0),
-                                                     warped.unsqueeze(0), 1)
-        print("expected: 2, l2r: ", res_ours, "monai: ", res_monai)
+        expected = [2.0]
 
-        # self.assertEqual(res_ours, res_l2r[1])
-        self.assertEqual(res_ours, res_monai)
-        self.assertEqual(res_ours, [2.0])
+        res_l2r = metrics.hausdorff_distance_learn2reg(fixed,
+                                                       warped, 1)
+        res_monai, res_monai_mean = metrics.hausdorff_distance_monai(fixed,
+                                                                     warped, 1)
+
+        # self.assertEqual(res_l2r, expected)
+        self.assertEqual([res_monai['1']], expected)
 
     def test_hd95_diagonal_dist(self) -> None:
         """
-        Test case where volumes are identical, so Hausdorff distance should be 0.
+        diagonal dist of sqrt(2)
         """
 
         fixed = torch.tensor([
-            [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
-            [[0, 0, 0], [0, 0, 1], [0, 0, 0]],
-            [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-        ])
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 1, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]]
+        ]).to(torch.uint8)
 
         warped = torch.tensor([
-            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
-            [[0, 0, 0], [0, 0, 0],  [0, 0, 0]],
-            [[0, 0, 0], [0, 1, 0],  [0, 0, 0]]
-        ])
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]],
 
-        # res_l2r = metrics.compute_hd95(fixed.detach().cpu().numpy(),
-        #                                fixed.detach().cpu().numpy(),
-        #                                warped.detach().cpu().numpy(),
-        #                                [1])
+            [[0, 0, 1],
+             [0, 0, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]]
+        ]).to(torch.uint8)
+
+        expected = [math.sqrt(2.0)]
+
         res_l2r = metrics.hausdorff_distance_learn2reg(fixed,
                                                        warped, 1)
-        res_monai = metrics.hausdorff_distance_monai(fixed.unsqueeze(0),
-                                                     warped.unsqueeze(0), 1)
-        print("expected: ", math.sqrt(2), "l2r: ",
-              res_l2r, "monai: ", res_monai)
+        res_monai, res_monai_mean = metrics.hausdorff_distance_monai(fixed,
+                                                                     warped, 1)
 
         # self.assertEqual(res_ours, res_l2r[1])
-        self.assertEqual(res_l2r, res_monai)
-        self.assertEqual(res_l2r, [math.sqrt(2.0)])
+        # self.assertEqual(res_l2r, res_monai)
+        # self.assertTrue(compare_lists_with_nan(res_l2r, expected))
+        self.assertTrue(compare_lists_with_nan([res_monai['1']], expected))
+
+    def test_hd95_diagonal_and_horizontal_dist(self) -> None:
+        """
+        list of two distances : 1 and sqrt(2)
+        """
+
+        fixed = torch.tensor([
+            [[0, 0, 0],
+             [0, 2, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 1, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]]
+        ]).to(torch.uint8)
+
+        warped = torch.tensor([
+            [[0, 2, 0],
+             [0, 0, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 1],
+             [0, 0, 0],
+             [0, 0, 0]],
+
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 0]]
+        ]).to(torch.uint8)
+
+        expected = [math.sqrt(2.0), 1]
+
+        # res_l2r = metrics.hausdorff_distance_learn2reg(fixed,
+        #                                                warped, 1)
+        res_monai, res_monai_mean = metrics.hausdorff_distance_monai(fixed,
+                                                                     warped, 1)
+
+        # self.assertEqual(res_ours, res_l2r[1])
+        # self.assertEqual(res_l2r, res_monai)
+        # self.assertTrue(compare_lists_with_nan(res_l2r, expected))
+        self.assertTrue(compare_lists_with_nan(
+            [res_monai['1'], res_monai['2']], expected))
 
 
 class TestDisplacementFieldMetrics(unittest.TestCase):

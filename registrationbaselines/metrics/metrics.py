@@ -184,7 +184,41 @@ def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> Tuple[Dict[str, fl
 
         else:
             scores[str(cls)] = 1.0 - scipy.spatial.distance.dice(mask1, mask2)
-    
+
+    return scores, np.nanmean(list(scores.values()))
+
+
+def hausdorff_distance_monai(image1: torch.Tensor, image2: torch.Tensor,  p=95) -> Tuple[Dict[str, float], float]:
+
+    if image1.dtype != torch.uint8 or image2.dtype != torch.uint8:
+        raise ValueError("Both images should be of type uint8")
+    if image1.shape != image2.shape:
+        raise ValueError("Both images should have the same shape")
+
+    # add batch and channel dimension
+    image1 = image1.unsqueeze(0).unsqueeze(0)
+    image2 = image2.unsqueeze(0).unsqueeze(0)
+
+    unique_classes = get_non_zero_unique_classes(image1, image2)
+
+    scores: Dict[str, float] = {}
+
+    for cls in unique_classes:
+        # Create binary masks for the current class
+        mask1 = (image1 == cls)
+        mask2 = (image2 == cls)
+
+        # if the class is only in one image, set the score to -1
+        if is_class_present_in_only_one(mask1.detach().cpu().numpy(),
+                                        mask2.detach().cpu().numpy()):
+            scores[str(cls)] = nan
+
+        else:
+            hd = monai.metrics.compute_hausdorff_distance(mask1,
+                                                          mask2,
+                                                          percentile=p)
+            scores[str(cls)] = float(hd.detach().cpu().numpy()[0])
+
     return scores, np.nanmean(list(scores.values()))
 
 
@@ -293,29 +327,6 @@ def hausdorff_distance_learn2reg(image1: torch.Tensor, image2: torch.Tensor, per
                 (image1 == i), (image2 == i), np.ones(3)), percentile))
 
     return hd95_vals
-
-
-def hausdorff_distance_monai(image1, image2,  p=95, spacing=None):
-    """
-    images must be one how and classdim is at dim zero
-    @param image1:
-    @param image2:
-    @param p:
-    @param spacing:
-    @return:
-    """
-
-    assert image2.shape == image1.shape
-    image1 = image1.unsqueeze(0)  # add batch dim
-    image2 = image2.unsqueeze(0)
-
-    # image1 = torch.movedim(image1, -1, 1)
-    # image2 = torch.movedim(image2, -1, 1)
-
-    hd = monai.metrics.compute_hausdorff_distance(
-        image1, image2, percentile=p, spacing=spacing)
-
-    return hd.detach().numpy()[0]
 
 
 def tre(keypoints_fixed: torch.Tensor,
