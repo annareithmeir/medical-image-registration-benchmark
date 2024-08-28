@@ -1,36 +1,38 @@
-method_name: AffineNiftyReg
-result_path: /home/fryderyk/Documents/data/results/
+method: grid
+name: AffineNiftyReg
 
-# input and output paths are not defined here,
-# because we want to do it in the register() function directly
+parameters:
+  result_path:
+    # values:            [/home/fryderyk/Documents/code/registrationbaselines/tmp/results]
+    values:            [/u/home/koeglf/Documents/code/registrationbaselines/tmp/niftyreg]
 
-noSym:     false
-rigOnly:   false
-affDirect: false
-inaff:     false
-rmask:     false
-fmask:     false
-maxit:     false
-ln:        false
-lp:        false
-smooR:     false
-smooF:     false
-refLowThr: false
-refUpThr:  false
-floLowThr: false
-floUpThr:  false
-pad:       false
-nac:       false
-comm:      false
-comi:      false
-interp:    false
-iso:       false
-pv:        false
-pi:        false
-speeeeed:  false
-omp:       false
-voff:      false
 
+# noSym:     false
+# rigOnly:   false
+# affDirect: false
+# inaff:     false
+# rmask:     false
+# fmask:     false
+# maxit:     false
+# ln:        false
+# lp:        false
+# smooR:     false
+# smooF:     false
+# refLowThr: false
+# refUpThr:  false
+# floLowThr: false
+# floUpThr:  false
+# pad:       false
+# nac:       false
+# comm:      false
+# comi:      false
+# interp:    false
+# iso:       false
+# pv:        false
+# pi:        false
+# speeeeed:  false
+# omp:       false
+# voff:      false
 
 
 #[reg_aladin] * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
