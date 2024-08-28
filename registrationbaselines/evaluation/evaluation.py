@@ -225,7 +225,6 @@ class Evaluation():
             None
         """
 
-        dice_mean = 0
         hausdorff_mean = 0
         hausdorff95_mean = 0
 
@@ -239,7 +238,7 @@ class Evaluation():
             utils.is_nifti(path_displacement)
             displacement = utils.load_displacement(path_displacement)
             segmentation_warped = utils.deform_image(segmentation_moving,
-                                        displacement)
+                                                     displacement)
             # save the deformed segmentation
             deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
                                                                        path_segmentation_moving.name,
@@ -256,18 +255,16 @@ class Evaluation():
         else:
             raise ValueError("Displacement field not found.")
 
-        dice_scores = metrics.dice_score(segmentation_fixed,
-                                         segmentation_warped)
+        dice_scores, dice_mean = metrics.dice_score(segmentation_fixed,
+                                                    segmentation_warped)
 
         if len(dice_scores) == 1:
             self.results.add_value("dice",  next(
                 iter(dice_scores.values())), name)
         else:
-            for cls, score in dice_scores:
+            for cls, score in dice_scores.items():
                 self.results.add_value("dice_" + cls, score, name)
-                dice_mean += score
 
-            dice_mean /= len(dice_scores)
             self.results.add_value("dice_mean", dice_mean, name)
 
         """

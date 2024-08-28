@@ -148,7 +148,7 @@ def is_class_present_in_only_one(array1: np.ndarray[bool],
         return False
 
 
-def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> Dict[str, float]:
+def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> Tuple[Dict[str, float], float]:
     """
     Calculate the Dice score between two torch Tensors using scipy's dice function.
     Supports multi class.
@@ -184,8 +184,8 @@ def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> Dict[str, float]:
 
         else:
             scores[str(cls)] = 1.0 - scipy.spatial.distance.dice(mask1, mask2)
-
-    return scores
+    
+    return scores, np.nanmean(list(scores.values()))
 
 
 def dice_score_monai(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
