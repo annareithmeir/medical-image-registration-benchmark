@@ -1,7 +1,7 @@
 from pathlib import Path
 from math import nan
 
-from typing import Tuple, Optional, List, Dict
+from typing import Tuple, Optional, List, Dict, Union
 
 import numpy as np
 import scipy
@@ -188,7 +188,7 @@ def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> Tuple[Dict[str, fl
     return scores, np.nanmean(list(scores.values()))
 
 
-def hausdorff_distance_monai(image1: torch.Tensor, image2: torch.Tensor,  p=95) -> Tuple[Dict[str, float], float]:
+def hausdorff_distance_monai(image1: torch.Tensor, image2: torch.Tensor, percentile: Optional[float] = None) -> Tuple[Dict[str, float], float]:
 
     if image1.dtype != torch.uint8 or image2.dtype != torch.uint8:
         raise ValueError("Both images should be of type uint8")
@@ -216,7 +216,7 @@ def hausdorff_distance_monai(image1: torch.Tensor, image2: torch.Tensor,  p=95) 
         else:
             hd = monai.metrics.compute_hausdorff_distance(mask1,
                                                           mask2,
-                                                          percentile=p)
+                                                          percentile=percentile)
             scores[str(cls)] = float(hd.detach().cpu().numpy()[0])
 
     return scores, np.nanmean(list(scores.values()))

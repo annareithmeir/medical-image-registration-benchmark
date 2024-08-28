@@ -225,9 +225,6 @@ class Evaluation():
             None
         """
 
-        hausdorff_mean = 0
-        hausdorff95_mean = 0
-
         utils.is_nifti(path_segmentation_fixed)
         utils.is_nifti(path_segmentation_moving)
 
@@ -259,41 +256,42 @@ class Evaluation():
                                                     segmentation_warped)
 
         if len(dice_scores) == 1:
-            self.results.add_value("dice",  next(
-                iter(dice_scores.values())), name)
+            self.results.add_value("dice",
+                                   next(iter(dice_scores.values())),
+                                   name)
         else:
             for cls, score in dice_scores.items():
-                self.results.add_value("dice_" + cls, score, name)
+                self.results.add_value("dice_" + cls,
+                                       score,
+                                       name)
 
-            self.results.add_value("dice_mean", dice_mean, name)
+            self.results.add_value("dice_mean",
+                                   dice_mean,
+                                   name)
 
-        """
-        hausdorff_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
-                                                      segmentation_warped.squeeze(),
-                                                      100.0)
-        hausdorff95_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
-                                                        segmentation_warped.squeeze(),
-                                                        percentile=95.0)
-
-        assert len(hausdorff_scores) == len(
-            hausdorff95_scores), "Hausdorff scores and 95th percentile scores should have the same length."
+        hausdorff_scores, hausdorff_mean = metrics.hausdorff_distance_monai(segmentation_fixed.squeeze(),
+                                                                            segmentation_warped.squeeze())
+        hausdorff95_scores, hausdorff95_mean = metrics.hausdorff_distance_monai(segmentation_fixed.squeeze(),
+                                                                                segmentation_warped.squeeze(),
+                                                                                percentile=95.0)
 
         if len(hausdorff_scores) == 1:
-            self.results.add_value("hausdorff", hausdorff_scores[0], name)
-            self.results.add_value("hausdorff95", hausdorff95_scores[0], name)
+            self.results.add_value("hausdorff",
+                                   next(iter(hausdorff_scores.values())),
+                                   name)
+            self.results.add_value("hausdorff95",
+                                   next(iter(hausdorff95_scores.values())),
+                                   name)
         else:
-            for i, score in enumerate(hausdorff_scores):
-                self.results.add_value("hausdorff_" + str(i), score, name)
-                hausdorff_mean += score
+            for (cls, score), (cls_95, score_95) in zip(hausdorff_scores.items(), hausdorff95_scores.items()):
+                self.results.add_value("hausdorff_" + cls,
+                                       score,
+                                       name)
+                self.results.add_value("hausdorff95_" + cls_95,
+                                       score_95,
+                                       name)
 
-                self.results.add_value(
-                    "hausdorff95_" + str(i), hausdorff95_scores[i], name)
-                hausdorff95_mean += hausdorff95_scores[i]
-
-            hausdorff_mean /= len(hausdorff_scores)
             self.results.add_value("hausdorff_mean", hausdorff_mean, name)
-
-            hausdorff95_mean /= len(hausdorff95_scores)
             self.results.add_value("hausdorff95_mean", hausdorff95_mean, name)
         """
 
