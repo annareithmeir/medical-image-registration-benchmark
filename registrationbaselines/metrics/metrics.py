@@ -233,32 +233,6 @@ def dice_score_monai(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     return dice_score
 
 
-def dice_score_monai_new(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
-
-    def dice_score_single(image1: torch.Tensor, image2: torch.Tensor, class_label: int) -> float:
-        image1_class = (image1 == class_label)
-        image2_class = (image2 == class_label)
-
-        dice_metric = monai.metrics.DiceMetric(include_background=False,
-                                               reduction="none",
-                                               get_not_nans=False)
-        dice_score = dice_metric(y_pred=image1_class, y=image2_class)
-
-        return dice_score.squeeze().tolist()
-
-    unique_classes = sorted(torch.unique(torch.cat((image1, image2))).tolist())
-
-    # remove zero class
-    if unique_classes[0] == 0:
-        unique_classes = unique_classes[1:]
-
-    scores = []
-    for cls in unique_classes:
-        scores.append(dice_score_single(image1, image2, cls))
-
-    return scores
-
-
 def dice_score_l2r(fixed: torch.Tensor, moving_warped: torch.Tensor, moving: torch.Tensor) -> List[float]:
     def compute_dice_coefficient(mask_gt, mask_pred):
         """Computes soerensen-dice coefficient.
