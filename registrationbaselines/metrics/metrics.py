@@ -11,7 +11,8 @@ from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
 import monai
 import scipy.ndimage
 
-def get_classes_set(image1:torch.Tensor, image2: torch.Tensor) -> list[float]:
+
+def get_classes_set(image1: torch.Tensor, image2: torch.Tensor) -> list[float]:
     image1 = image1.to(torch.uint8)
     image2 = image2.to(torch.uint8)
 
@@ -31,7 +32,6 @@ def get_classes_set(image1:torch.Tensor, image2: torch.Tensor) -> list[float]:
     if 0 in classes:
         classes.remove(0)
 
-    print("classes:", classes)
     return classes
 
 
@@ -56,32 +56,36 @@ def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> fl
 
 
 def jacobian_determinant_from_displacement_monai(displacement: torch.Tensor) -> torch.Tensor:
-    displacement = displacement.permute(3,1,2,0)
-    jacobian_determinant = monai.losses.compute_jacobian_determinant(displacement)
+    displacement = displacement.permute(3, 1, 2, 0)
+    jacobian_determinant = monai.losses.compute_jacobian_determinant(
+        displacement)
     return jacobian_determinant
 
 
 def jacobian_determinant_from_displacement_l2r(disp: torch.Tensor) -> torch.Tensor:
 
-    disp = disp.permute(3,0,1,2)
-    disp=disp.unsqueeze(0)
+    disp = disp.permute(3, 0, 1, 2)
+    disp = disp.unsqueeze(0)
 
-    _,_,H, W, D = disp.shape
+    _, _, H, W, D = disp.shape
 
     gradx = np.array([-0.5, 0, 0.5]).reshape(1, 3, 1, 1)
     grady = np.array([-0.5, 0, 0.5]).reshape(1, 1, 3, 1)
     gradz = np.array([-0.5, 0, 0.5]).reshape(1, 1, 1, 3)
 
     gradx_disp = np.stack([scipy.ndimage.correlate(disp[:, 0, :, :, :], gradx, mode='constant', cval=0.0),
-                           scipy.ndimage.correlate(disp[:, 1, :, :, :], gradx, mode='constant', cval=0.0),
+                           scipy.ndimage.correlate(
+                               disp[:, 1, :, :, :], gradx, mode='constant', cval=0.0),
                            scipy.ndimage.correlate(disp[:, 2, :, :, :], gradx, mode='constant', cval=0.0)], axis=1)
 
     grady_disp = np.stack([scipy.ndimage.correlate(disp[:, 0, :, :, :], grady, mode='constant', cval=0.0),
-                           scipy.ndimage.correlate(disp[:, 1, :, :, :], grady, mode='constant', cval=0.0),
+                           scipy.ndimage.correlate(
+                               disp[:, 1, :, :, :], grady, mode='constant', cval=0.0),
                            scipy.ndimage.correlate(disp[:, 2, :, :, :], grady, mode='constant', cval=0.0)], axis=1)
 
     gradz_disp = np.stack([scipy.ndimage.correlate(disp[:, 0, :, :, :], gradz, mode='constant', cval=0.0),
-                           scipy.ndimage.correlate(disp[:, 1, :, :, :], gradz, mode='constant', cval=0.0),
+                           scipy.ndimage.correlate(
+                               disp[:, 1, :, :, :], gradz, mode='constant', cval=0.0),
                            scipy.ndimage.correlate(disp[:, 2, :, :, :], gradz, mode='constant', cval=0.0)], axis=1)
 
     grad_disp = np.concatenate([gradx_disp, grady_disp, gradz_disp], 0)
@@ -89,15 +93,15 @@ def jacobian_determinant_from_displacement_l2r(disp: torch.Tensor) -> torch.Tens
     jacobian = grad_disp + np.eye(3, 3).reshape(3, 3, 1, 1, 1)
     jacobian = jacobian[:, :, 2:-2, 2:-2, 2:-2]
     jacdet = jacobian[0, 0, :, :, :] * (
-                jacobian[1, 1, :, :, :] * jacobian[2, 2, :, :, :] - jacobian[1, 2, :, :, :] * jacobian[2, 1, :, :,
-                                                                                              :]) - \
-             jacobian[1, 0, :, :, :] * (
-                         jacobian[0, 1, :, :, :] * jacobian[2, 2, :, :, :] - jacobian[0, 2, :, :, :] * jacobian[2,
-                                                                                                       1, :, :,
-                                                                                                       :]) + \
-             jacobian[2, 0, :, :, :] * (
-                         jacobian[0, 1, :, :, :] * jacobian[1, 2, :, :, :] - jacobian[0, 2, :, :, :] * jacobian[1,
-                                                                                                       1, :, :, :])
+        jacobian[1, 1, :, :, :] * jacobian[2, 2, :, :, :] - jacobian[1, 2, :, :, :] * jacobian[2, 1, :, :,
+                                                                                               :]) - \
+        jacobian[1, 0, :, :, :] * (
+        jacobian[0, 1, :, :, :] * jacobian[2, 2, :, :, :] - jacobian[0, 2, :, :, :] * jacobian[2,
+                                                                                               1, :, :,
+                                                                                               :]) + \
+        jacobian[2, 0, :, :, :] * (
+        jacobian[0, 1, :, :, :] * jacobian[1, 2, :, :, :] - jacobian[0, 2, :, :, :] * jacobian[1,
+                                                                                               1, :, :, :])
 
     return jacdet
 
@@ -124,11 +128,14 @@ def displacement_field_metrics(displacement: torch.Tensor) -> Tuple[float, float
 
     return sd_log_det, fraction_foldings
 
+
 def displacement_field_metrics_monai(displacement: torch.Tensor) -> Tuple[float, float]:
     pass
 
+
 def displacement_field_metrics_l2r(displacement: torch.Tensor) -> Tuple[float, float]:
     pass
+
 
 def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     """
@@ -183,17 +190,20 @@ def dice_score_monai(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     #     image1_mapped[image1 == original_class] = new_index
     #     image2_mapped[image2 == original_class] = new_index
 
-    image2_mapped=image2
-    image1_mapped=image1
+    image2_mapped = image2
+    image1_mapped = image1
 
     # Number of classes after mapping
     # num_classes = len(unique_classes)
     num_classes = -1
 
-    one_hot1 = torch.nn.functional.one_hot(image1_mapped.unsqueeze(0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
-    one_hot2 = torch.nn.functional.one_hot(image2_mapped.unsqueeze(0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
+    one_hot1 = torch.nn.functional.one_hot(image1_mapped.unsqueeze(
+        0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
+    one_hot2 = torch.nn.functional.one_hot(image2_mapped.unsqueeze(
+        0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
 
-    dice_metric = monai.metrics.DiceMetric(include_background=False, reduction="none", get_not_nans=False)
+    dice_metric = monai.metrics.DiceMetric(
+        include_background=False, reduction="none", get_not_nans=False)
     dice_score = dice_metric(y_pred=one_hot1, y=one_hot2)
 
     dice_score = dice_score.squeeze().tolist()
@@ -229,7 +239,8 @@ def dice_score_l2r(fixed: torch.Tensor, moving_warped: torch.Tensor, moving: tor
         if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0):
             dice.append(np.NAN)
         else:
-            dice.append(float(compute_dice_coefficient((fixed == i), (moving_warped == i))))
+            dice.append(float(compute_dice_coefficient(
+                (fixed == i), (moving_warped == i))))
 
     return list(dice)
 
@@ -274,13 +285,14 @@ def hausdorff_distance_monai(image1, image2,  p=95, spacing=None):
     """
 
     assert image2.shape == image1.shape
-    image1=image1.unsqueeze(0) # add batch dim
-    image2=image2.unsqueeze(0)
+    image1 = image1.unsqueeze(0)  # add batch dim
+    image2 = image2.unsqueeze(0)
 
     # image1 = torch.movedim(image1, -1, 1)
     # image2 = torch.movedim(image2, -1, 1)
 
-    hd = monai.metrics.compute_hausdorff_distance(image1, image2, percentile=p, spacing=spacing)
+    hd = monai.metrics.compute_hausdorff_distance(
+        image1, image2, percentile=p, spacing=spacing)
 
     return hd.detach().numpy()[0]
 
