@@ -6,7 +6,7 @@ from typing import Tuple
 import numpy as np
 import torch
 import SimpleITK as sitk
-imoprt nibabel
+import nibabel as nib
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 

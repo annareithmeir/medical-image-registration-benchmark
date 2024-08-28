@@ -7,6 +7,7 @@ from scipy.ndimage import map_coordinates
 import yaml
 import numpy as np
 import SimpleITK as sitk
+import nibabel as nib
 import torch
 import torch.nn.functional as F
 
@@ -502,7 +503,7 @@ def compare_sitk_headers(header1: dict[str, Any], header2: dict[str, Any]) -> Li
             if header1[key] != header2[key]:
                 differences.append(
                     f"Key {key} has different values: header1({header1[key]}) vs header2({header2[key]})")
-    
+
     for key in header2.keys():
         if key not in header1.keys():
             differences.append(f"Key {key} not in header1")
@@ -510,7 +511,7 @@ def compare_sitk_headers(header1: dict[str, Any], header2: dict[str, Any]) -> Li
             if header1[key] != header2[key]:
                 differences.append(
                     f"Key {key} has different values: header1({header1[key]}) vs header2({header2[key]})")
-                
+
     return differences
 
 
@@ -587,6 +588,25 @@ def deform_image_niftyreg_path(path_image: Path,
     return path_warped_image
 
 
+def deform_image_niftyreg_nibabel(image: nib.Nifti1Image,
+                                  deformation: nib.Nifti1Image) -> nib.Nifti1Image:
+    path_image = Path("image.nii.gz")
+    nib.save(image, path_image)
+
+    path_deformation = Path("deformation.nii.gz")
+    nib.save(deformation, path_deformation)
+
+    path_warped_image = deform_image_niftyreg_path(path_image,
+                                                   path_deformation)
+
+    warped = nib.load(path_warped_image)
+
+    path_image.unlink()
+    path_deformation.unlink()
+
+    return warped
+
+
 def deform_image_niftyreg_sitk(image: sitk.Image,
                                deformation: sitk.Image,
                                image_path: Optional[Path] = None,
@@ -618,26 +638,33 @@ def deform_image_niftyreg_sitk(image: sitk.Image,
 
 
 def deform_image_niftyreg_numpy(image: np.ndarray[Any, Any],
-                                deformation: np.ndarray[Any, Any],
-                                deformation_metadata: dict[str, Any],
-                                image_metadata: dict[str, Any]) -> np.ndarray[Any, Any]:
+                                deformation: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+
+    image_nib = nib.Nifti1Image(image.astype(np.float32), affine=None)
+    deformation_nib = nib.Nifti1Image(deformation, affine=None)
+
+    warped_nib = deform_image_niftyreg_nibabel(image_nib, deformation_nib)
+
+    warped = warped_nib.get_fdata(dtype=np.float32)
+
+    return warped
+
+
+"""
+def deform_image_niftyreg_numpy(image: np.ndarray[Any, Any],
+                                deformation: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
 
     sitk_image = sitk.GetImageFromArray(image.astype(np.float32))
     sitk_deformation = sitk.GetImageFromArray(deformation)
-
-    for key, value in deformation_metadata.items():
-        sitk_deformation.SetMetaData(key, value)
-
-    for key, value in image_metadata.items():
-        sitk_image.SetMetaData(key, value)
 
     sitk_warped = deform_image_niftyreg_sitk(sitk_image, sitk_deformation)
 
     warped = sitk.GetArrayFromImage(sitk_warped).astype(np.float32)
 
     return warped
+"""
 
-
+"""
 def deform_image_niftyreg_torch(image: torch.Tensor,
                                 deformation: torch.Tensor) -> torch.Tensor:
 
@@ -650,6 +677,23 @@ def deform_image_niftyreg_torch(image: torch.Tensor,
 
     warped = torch.from_numpy(
         sitk.GetArrayFromImage(sitk_warped).astype(np.float32))
+
+    return warped
+"""
+
+
+def deform_image_niftyreg_torch(image: torch.Tensor,
+                                deformation: torch.Tensor) -> torch.Tensor:
+
+    image_np = image.detach().cpu().numpy().astype(np.float32)
+    deformation_np = deformation.detach().cpu().numpy()
+
+    image_nib = nib.Nifti1Image(image_np, affine=None)
+    deformation_nib = nib.Nifti1Image(deformation_np, affine=None)
+
+    warped_nib = deform_image_niftyreg_nibabel(image_nib, deformation_nib)
+
+    warped = torch.from_numpy(warped_nib.get_fdata(dtype=np.float32))
 
     return warped
 

@@ -15,6 +15,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.affine_niftyreg import AffineNiftyReg  # nopep8
 from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
 from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
@@ -28,6 +29,7 @@ def main() -> None:
     # method = "SyNANTs"
     # method = "DemonsSITK"
     method = "BSplineNiftyReg"
+    # method = "AffineNiftyReg"
     # method = "VoxelMorph"
 
     path_config = Path(__file__).parent.parent.absolute() / \
@@ -43,16 +45,16 @@ def main() -> None:
     #####################################################################################################
     # REGISTER A REAL DATASET
     #####################################################################################################
-    loader_data = data_loaders.L2RLungCTDataset(path_data,
-                                                return_type="path_dict",
-                                                indices=[8])
+    # loader_data = data_loaders.L2RLungCTDataset(path_data,
+    #                                             return_type="path_dict",
+    #                                             indices=[8])
     # loader_data = data_loaders.L2RAbdominalMRCTDataset(path_data,
     #                                                    return_type="path_dict",
     #                                                    indices=[0])
 
-    # loader_data = data_loaders.ImagePairDataset([[path_data / "imagesTr/LungCT_0001_0000.nii.gz",
-    #                                               path_data / "imagesTr/LungCT_0001_0001.nii.gz"]],
-    #                                             return_type="path_dict")
+    loader_data = data_loaders.ImagePairDataset([[Path("/u/home/koeglf/Documents/code/registrationbaselines/fixed_x_11.nii.gz"),
+                                                  Path("/u/home/koeglf/Documents/code/registrationbaselines/moving_x_11.nii.gz")]],
+                                                return_type="path_dict")
 
     if method == "BSplineNiftyReg":
         registration_object = BSplineNiftyReg
@@ -62,6 +64,8 @@ def main() -> None:
         registration_object = VoxelMorph
     elif method == "DemonsSITK":
         registration_object = DemonsSITK
+    elif method == "AffineNiftyReg":
+        registration_object = AffineNiftyReg
 
     registration = registration_object(path_config,
                                        loader_data)
