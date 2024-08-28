@@ -38,7 +38,7 @@ class TestDICE(unittest.TestCase):
         image2 = image1.clone()  # Identical to image1
 
         expected_scores = [1.0]  # One score - we ignore 0 class
-        ours = metrics.dice_score(image1, image2)
+        ours, ours_mean = metrics.dice_score(image1, image2)
         l2r = metrics.dice_score_l2r(image1, image2, image2)
         # monai = metrics.dice_score_monai(image1.unsqueeze(
         #     0).unsqueeze(0), image2.unsqueeze(0).unsqueeze(0))
@@ -46,20 +46,6 @@ class TestDICE(unittest.TestCase):
         self.assertEqual([ours['1']], expected_scores)
         self.assertEqual(l2r, expected_scores)
         # self.assertEqual(monai, expected_scores)
-
-    # def test_dice_score_ignore_zero_class(self):
-    #     """Test case where both volumes are identical, so Dice score should be 1."""
-    #     image1 = torch.tensor([
-    #         [[0, 1, 0], [0, 1, 0], [0, 1, 0]],
-    #         [[0, 1, 0], [0, 1, 0], [0, 1, 0]],
-    #         [[0, 1, 0], [0, 1, 0], [0, 1, 0]]
-    #     ])
-    #
-    #     image2 = image1.clone()  # Identical to image1
-    #
-    #     len_expected_scores = 1  # One score - we ignore 0 class
-    #     actual_scores = metrics.dice_score(image1, image2)
-    #     self.assertEqual(len(actual_scores), len_expected_scores)
 
     def test_dice_score_no_overlap(self):
         """Test case where volumes have no overlap, so Dice score should be 0."""
@@ -76,7 +62,7 @@ class TestDICE(unittest.TestCase):
         ]).to(torch.uint8)
 
         expected_scores = [0.0, 0.0]  # One score for each class (1 and 2)
-        ours = metrics.dice_score(image1, image2)
+        ours, ours_mean = metrics.dice_score(image1, image2)
         l2r = metrics.dice_score_l2r(image1, image2, image2)
         # monai = metrics.dice_score_monai(image1, image2)
 
@@ -97,7 +83,7 @@ class TestDICE(unittest.TestCase):
         ]).to(torch.uint8)
 
         expected_scores = [0.0, 0.0]  # One score for each class (0 and 1)
-        ours = metrics.dice_score(image1, image2)
+        ours, ours_mean = metrics.dice_score(image1, image2)
         l2r = metrics.dice_score_l2r(image1, image2, image2)
         # monai = metrics.dice_score_monai(image1, image2)
 
@@ -122,7 +108,7 @@ class TestDICE(unittest.TestCase):
         # we have 2 intersections and in both the top and bottom we have 4 values, so 2 * 2 / (4+4) = 0.5
 
         expected_scores = [0.5]  # Dice score should be 0.5
-        ours = metrics.dice_score(image1, image2)
+        ours, ours_mean = metrics.dice_score(image1, image2)
         l2r = metrics.dice_score_l2r(image1, image2, image2)
         # monai = metrics.dice_score_monai(image1, image2)
 
@@ -146,7 +132,7 @@ class TestDICE(unittest.TestCase):
         # we have 2 intersections and in both the top and bottom we have 4 values, so 2 * 2 / (4+4) = 0.5
 
         expected = [0.5, math.nan, math.nan]
-        ours = metrics.dice_score(image1, image2)
+        ours, ours_mean = metrics.dice_score(image1, image2)
         l2r = metrics.dice_score_l2r(image1, image2, image2)
         # monai = metrics.dice_score_monai(image1, image2)
 
@@ -171,7 +157,7 @@ class TestDICE(unittest.TestCase):
         ]).to(torch.uint8)
 
         expected = [0.5, math.nan, math.nan, 0.8636363636363636]
-        ours = metrics.dice_score(image1, image2)
+        ours, ours_mean = metrics.dice_score(image1, image2)
         l2r = metrics.dice_score_l2r(image1, image2, image2)
         # monai = metrics.dice_score_monai(image1, image2)
 
