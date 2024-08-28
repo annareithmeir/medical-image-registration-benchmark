@@ -1,38 +1,32 @@
 from pathlib import Path
-from typing import Tuple, Optional, List
+from math import nan
+
+from typing import Tuple, Optional, List, Dict
 
 import numpy as np
-from scipy.spatial.distance import dice
+import scipy
+import scipy.ndimage
 import SimpleITK as sitk
 import torch
+import monai
 
 from registrationbaselines.metrics import hd95, utils_metrics
 from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
-import monai
-import scipy.ndimage
 
 
-def get_classes_set(image1: torch.Tensor, image2: torch.Tensor) -> list[float]:
-    image1 = image1.to(torch.uint8)
-    image2 = image2.to(torch.uint8)
+def get_non_zero_unique_classes(image1: torch.Tensor, image2: torch.Tensor) -> List[int]:
+    """
+    Returns a sorted list of uniqe classes (without class 0)
+    """
 
-    # classes, data1, data2 = preprocess_segmentations(image1, image2)
+    # get the unique classes
+    unique_classes = torch.unique(torch.cat((image1, image2))).tolist()
 
-    # get labels
-    # Flatten the tensors
-    image1_flat = image1.view(-1)
-    image2_flat = image2.view(-1)
+    # remove class 0
+    if 0 in unique_classes:
+        unique_classes.remove(0)
 
-    # Find unique elements in each tensor
-    unique_image1 = torch.unique(image1_flat).tolist()
-    unique_image2 = torch.unique(image2_flat).tolist()
-
-    # Convert the intersection result to a set (optional, if you need a set)
-    classes = sorted(list(set(unique_image1 + unique_image2)))
-    if 0 in classes:
-        classes.remove(0)
-
-    return classes
+    return sorted(unique_classes)
 
 
 def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> floatArray2Dor3D:
@@ -137,32 +131,59 @@ def displacement_field_metrics_l2r(displacement: torch.Tensor) -> Tuple[float, f
     pass
 
 
-def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
+def is_class_present_in_only_one(array1: np.ndarray[bool],
+                                 array2: np.ndarray[bool]) -> bool:
     """
-    Calculate the Dice score between two NIfTI files using scipy's dice function. It is assumed that both
-    images have only one class.
+    Returns true if one image has only False and the other not
+    """
 
-    The function reads two NIfTI files, ensures the classes are the same in both images, and calculates
-    the Dice score for each class. The Dice score is a measure of overlap between two samples, defined as:
+    all_false_array1 = np.all(array1 == False)
+    all_false_array2 = np.all(array2 == False)
+
+    if all_false_array1 and not all_false_array2:
+        return True
+    elif not all_false_array1 and all_false_array2:
+        return True
+    else:
+        return False
+
+
+def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> Dict[str, float]:
+    """
+    Calculate the Dice score between two torch Tensors using scipy's dice function.
+    Supports multi class.
+    If a class is only present in one image, a score of nan is appended
+
+
+    The Dice score is a measure of overlap between two samples, defined as:
 
         Dice(A, B) = 2 * |A ∩ B| / (|A| + |B|)
 
-    Returns:
-        float: The Dice score between the two NIfTI files.
+    @param image1: The first image.
+    @param image2: The second image.
+    @return: A dictionary containing the Dice score for each class.
     """
 
-    classes, data1, data2 = utils_metrics.preprocess_segmentations(
-        image1, image2)
+    if image1.dtype != torch.uint8 or image2.dtype != torch.uint8:
+        raise ValueError("Both images should be of type uint8")
+    if image1.shape != image2.shape:
+        raise ValueError("Both images should have the same shape")
 
-    scores: List[float] = []
+    unique_classes = get_non_zero_unique_classes(image1, image2)
 
-    for c in classes:
+    scores: Dict[str, float] = {}
+
+    for cls in unique_classes:
         # Create binary masks for the current class
-        mask1 = (data1 == c).to(torch.uint8).ravel().detach().cpu().numpy()
-        mask2 = (data2 == c).to(torch.uint8).ravel().detach().cpu().numpy()
+        mask1 = (image1 == cls).ravel().detach().cpu().numpy()
+        mask2 = (image2 == cls).ravel().detach().cpu().numpy()
 
-        # Calculate the Dice score using scipy's dice function
-        scores.append(1 - dice(mask1, mask2))
+        # if the class is only in one image, set the score to -1
+        if is_class_present_in_only_one(mask1, mask2):
+            scores[str(cls)] = nan
+
+        else:
+            scores[str(cls)] = 1.0 - scipy.spatial.distance.dice(mask1, mask2)
 
     return scores
 
@@ -212,6 +233,32 @@ def dice_score_monai(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     return dice_score
 
 
+def dice_score_monai_new(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
+
+    def dice_score_single(image1: torch.Tensor, image2: torch.Tensor, class_label: int) -> float:
+        image1_class = (image1 == class_label)
+        image2_class = (image2 == class_label)
+
+        dice_metric = monai.metrics.DiceMetric(include_background=False,
+                                               reduction="none",
+                                               get_not_nans=False)
+        dice_score = dice_metric(y_pred=image1_class, y=image2_class)
+
+        return dice_score.squeeze().tolist()
+
+    unique_classes = sorted(torch.unique(torch.cat((image1, image2))).tolist())
+
+    # remove zero class
+    if unique_classes[0] == 0:
+        unique_classes = unique_classes[1:]
+
+    scores = []
+    for cls in unique_classes:
+        scores.append(dice_score_single(image1, image2, cls))
+
+    return scores
+
+
 def dice_score_l2r(fixed: torch.Tensor, moving_warped: torch.Tensor, moving: torch.Tensor) -> List[float]:
     def compute_dice_coefficient(mask_gt, mask_pred):
         """Computes soerensen-dice coefficient.
@@ -231,7 +278,7 @@ def dice_score_l2r(fixed: torch.Tensor, moving_warped: torch.Tensor, moving: tor
             return 0
         volume_intersect = (mask_gt & mask_pred).sum()
         return 2 * volume_intersect / volume_sum
-    classes = get_classes_set(fixed, moving)
+    classes = get_non_zero_unique_classes(fixed, moving)
     print(classes)
 
     dice = []
@@ -257,7 +304,7 @@ def hausdorff_distance_learn2reg(image1: torch.Tensor, image2: torch.Tensor, per
         float: The 95th percentile of the Hausdorff distances.
     """
 
-    classes = get_classes_set(image1, image2)
+    classes = get_non_zero_unique_classes(image1, image2)
     # print(classes)
 
     image1 = image1.detach().cpu().numpy()
