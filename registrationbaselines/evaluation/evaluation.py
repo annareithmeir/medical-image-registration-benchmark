@@ -9,7 +9,7 @@ import numpy as np
 import torch
 
 from registrationbaselines.core import utils, result_csv
-from registrationbaselines.metrics import metrics
+from registrationbaselines.metrics import metrics, utils_metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
 
@@ -59,6 +59,7 @@ class Evaluation():
 
             item = self.dataset_data[i]
             fixed_name = str(item["fixed_image"].stem).split('.')[0]
+            masked_evaluation = self.dataset_data.masked_evaluation
 
             if not self.use_zero_displacement:
                 path_displacement = self.dataset_transformations[i]
@@ -69,13 +70,15 @@ class Evaluation():
                     self._evaluate_segmentation(item["fixed_segmentations"],
                                                 item["moving_segmentations"],
                                                 fixed_name,
-                                                path_displacement)
+                                                path_displacement,
+                                                masked_evaluation)
             else:
                 if self.dataset_data.has_segmentations:
                     self._evaluate_segmentation(item["fixed_segmentations"],
                                                 item["moving_segmentations"],
                                                 fixed_name,
-                                                None)
+                                                None,
+                                                masked_evaluation)
 
             """
             if self.dataset_data.has_keypoints:
@@ -150,6 +153,11 @@ class Evaluation():
                 deformed_segmentation = utils.deform_image(moving_segmentation,
                                                            displacement)
 
+                if self.dataset_data.masked_evaluation:
+                    fixed_mask = utils_metrics.get_convex_hull_mask(
+                        fixed_segmentation.detach().cpu().numpy())
+                    deformed_segmentation *= fixed_mask
+
             fixed_image = fixed_image.to(displacement.device)
             moving_image = moving_image.to(displacement.device)
 
@@ -206,7 +214,8 @@ class Evaluation():
                                path_segmentation_fixed: Path,
                                path_segmentation_moving: Path,
                                name: str,
-                               path_displacement: Optional[Path] = None) -> None:
+                               path_displacement: Optional[Path] = None,
+                               masked_evaluation: Optional[bool] = None) -> None:
         """
         Evaluate segmentations.
 
@@ -252,6 +261,11 @@ class Evaluation():
         else:
             raise ValueError("Displacement field not found.")
 
+        if masked_evaluation:
+            fixed_mask = utils_metrics.get_convex_hull_mask(
+                segmentation_fixed.detach().cpu().numpy())
+            segmentation_warped *= fixed_mask
+
         dice_scores, dice_mean = metrics.dice_score(segmentation_fixed,
                                                     segmentation_warped)
 
@@ -293,7 +307,6 @@ class Evaluation():
 
             self.results.add_value("hausdorff_mean", hausdorff_mean, name)
             self.results.add_value("hausdorff95_mean", hausdorff95_mean, name)
-        """
 
     def _evaluate_keypoints(self,
                             path_displacement: Path,
