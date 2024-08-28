@@ -1,38 +1,32 @@
 from pathlib import Path
-from typing import Tuple, Optional, List
+from math import nan
+
+from typing import Tuple, Optional, List, Dict
 
 import numpy as np
-from scipy.spatial.distance import dice
+import scipy
+import scipy.ndimage
 import SimpleITK as sitk
 import torch
+import monai
 
 from registrationbaselines.metrics import hd95, utils_metrics
 from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
-import monai
-import scipy.ndimage
 
-def get_classes_set(image1:torch.Tensor, image2: torch.Tensor) -> list[float]:
-    image1 = image1.to(torch.uint8)
-    image2 = image2.to(torch.uint8)
 
-    # classes, data1, data2 = preprocess_segmentations(image1, image2)
+def get_non_zero_unique_classes(image1: torch.Tensor, image2: torch.Tensor) -> List[int]:
+    """
+    Returns a sorted list of uniqe classes (without class 0)
+    """
 
-    # get labels
-    # Flatten the tensors
-    image1_flat = image1.view(-1)
-    image2_flat = image2.view(-1)
+    # get the unique classes
+    unique_classes = torch.unique(torch.cat((image1, image2))).tolist()
 
-    # Find unique elements in each tensor
-    unique_image1 = torch.unique(image1_flat).tolist()
-    unique_image2 = torch.unique(image2_flat).tolist()
+    # remove class 0
+    if 0 in unique_classes:
+        unique_classes.remove(0)
 
-    # Convert the intersection result to a set (optional, if you need a set)
-    classes = sorted(list(set(unique_image1 + unique_image2)))
-    if 0 in classes:
-        classes.remove(0)
-
-    print("classes:", classes)
-    return classes
+    return sorted(unique_classes)
 
 
 def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> floatArray2Dor3D:
@@ -56,32 +50,36 @@ def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> fl
 
 
 def jacobian_determinant_from_displacement_monai(displacement: torch.Tensor) -> torch.Tensor:
-    displacement = displacement.permute(3,1,2,0)
-    jacobian_determinant = monai.losses.compute_jacobian_determinant(displacement)
+    displacement = displacement.permute(3, 1, 2, 0)
+    jacobian_determinant = monai.losses.compute_jacobian_determinant(
+        displacement)
     return jacobian_determinant
 
 
 def jacobian_determinant_from_displacement_l2r(disp: torch.Tensor) -> torch.Tensor:
 
-    disp = disp.permute(3,0,1,2)
-    disp=disp.unsqueeze(0)
+    disp = disp.permute(3, 0, 1, 2)
+    disp = disp.unsqueeze(0)
 
-    _,_,H, W, D = disp.shape
+    _, _, H, W, D = disp.shape
 
     gradx = np.array([-0.5, 0, 0.5]).reshape(1, 3, 1, 1)
     grady = np.array([-0.5, 0, 0.5]).reshape(1, 1, 3, 1)
     gradz = np.array([-0.5, 0, 0.5]).reshape(1, 1, 1, 3)
 
     gradx_disp = np.stack([scipy.ndimage.correlate(disp[:, 0, :, :, :], gradx, mode='constant', cval=0.0),
-                           scipy.ndimage.correlate(disp[:, 1, :, :, :], gradx, mode='constant', cval=0.0),
+                           scipy.ndimage.correlate(
+                               disp[:, 1, :, :, :], gradx, mode='constant', cval=0.0),
                            scipy.ndimage.correlate(disp[:, 2, :, :, :], gradx, mode='constant', cval=0.0)], axis=1)
 
     grady_disp = np.stack([scipy.ndimage.correlate(disp[:, 0, :, :, :], grady, mode='constant', cval=0.0),
-                           scipy.ndimage.correlate(disp[:, 1, :, :, :], grady, mode='constant', cval=0.0),
+                           scipy.ndimage.correlate(
+                               disp[:, 1, :, :, :], grady, mode='constant', cval=0.0),
                            scipy.ndimage.correlate(disp[:, 2, :, :, :], grady, mode='constant', cval=0.0)], axis=1)
 
     gradz_disp = np.stack([scipy.ndimage.correlate(disp[:, 0, :, :, :], gradz, mode='constant', cval=0.0),
-                           scipy.ndimage.correlate(disp[:, 1, :, :, :], gradz, mode='constant', cval=0.0),
+                           scipy.ndimage.correlate(
+                               disp[:, 1, :, :, :], gradz, mode='constant', cval=0.0),
                            scipy.ndimage.correlate(disp[:, 2, :, :, :], gradz, mode='constant', cval=0.0)], axis=1)
 
     grad_disp = np.concatenate([gradx_disp, grady_disp, gradz_disp], 0)
@@ -89,15 +87,15 @@ def jacobian_determinant_from_displacement_l2r(disp: torch.Tensor) -> torch.Tens
     jacobian = grad_disp + np.eye(3, 3).reshape(3, 3, 1, 1, 1)
     jacobian = jacobian[:, :, 2:-2, 2:-2, 2:-2]
     jacdet = jacobian[0, 0, :, :, :] * (
-                jacobian[1, 1, :, :, :] * jacobian[2, 2, :, :, :] - jacobian[1, 2, :, :, :] * jacobian[2, 1, :, :,
-                                                                                              :]) - \
-             jacobian[1, 0, :, :, :] * (
-                         jacobian[0, 1, :, :, :] * jacobian[2, 2, :, :, :] - jacobian[0, 2, :, :, :] * jacobian[2,
-                                                                                                       1, :, :,
-                                                                                                       :]) + \
-             jacobian[2, 0, :, :, :] * (
-                         jacobian[0, 1, :, :, :] * jacobian[1, 2, :, :, :] - jacobian[0, 2, :, :, :] * jacobian[1,
-                                                                                                       1, :, :, :])
+        jacobian[1, 1, :, :, :] * jacobian[2, 2, :, :, :] - jacobian[1, 2, :, :, :] * jacobian[2, 1, :, :,
+                                                                                               :]) - \
+        jacobian[1, 0, :, :, :] * (
+        jacobian[0, 1, :, :, :] * jacobian[2, 2, :, :, :] - jacobian[0, 2, :, :, :] * jacobian[2,
+                                                                                               1, :, :,
+                                                                                               :]) + \
+        jacobian[2, 0, :, :, :] * (
+        jacobian[0, 1, :, :, :] * jacobian[1, 2, :, :, :] - jacobian[0, 2, :, :, :] * jacobian[1,
+                                                                                               1, :, :, :])
 
     return jacdet
 
@@ -124,38 +122,68 @@ def displacement_field_metrics(displacement: torch.Tensor) -> Tuple[float, float
 
     return sd_log_det, fraction_foldings
 
+
 def displacement_field_metrics_monai(displacement: torch.Tensor) -> Tuple[float, float]:
     pass
+
 
 def displacement_field_metrics_l2r(displacement: torch.Tensor) -> Tuple[float, float]:
     pass
 
-def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
-    """
-    Calculate the Dice score between two NIfTI files using scipy's dice function. It is assumed that both
-    images have only one class.
 
-    The function reads two NIfTI files, ensures the classes are the same in both images, and calculates
-    the Dice score for each class. The Dice score is a measure of overlap between two samples, defined as:
+def is_class_present_in_only_one(array1: np.ndarray[bool],
+                                 array2: np.ndarray[bool]) -> bool:
+    """
+    Returns true if one image has only False and the other not
+    """
+
+    all_false_array1 = np.all(array1 == False)
+    all_false_array2 = np.all(array2 == False)
+
+    if all_false_array1 and not all_false_array2:
+        return True
+    elif not all_false_array1 and all_false_array2:
+        return True
+    else:
+        return False
+
+
+def dice_score(image1: torch.Tensor, image2: torch.Tensor) -> Dict[str, float]:
+    """
+    Calculate the Dice score between two torch Tensors using scipy's dice function.
+    Supports multi class.
+    If a class is only present in one image, a score of nan is appended
+
+
+    The Dice score is a measure of overlap between two samples, defined as:
 
         Dice(A, B) = 2 * |A ∩ B| / (|A| + |B|)
 
-    Returns:
-        float: The Dice score between the two NIfTI files.
+    @param image1: The first image.
+    @param image2: The second image.
+    @return: A dictionary containing the Dice score for each class.
     """
 
-    classes, data1, data2 = utils_metrics.preprocess_segmentations(
-        image1, image2)
+    if image1.dtype != torch.uint8 or image2.dtype != torch.uint8:
+        raise ValueError("Both images should be of type uint8")
+    if image1.shape != image2.shape:
+        raise ValueError("Both images should have the same shape")
 
-    scores: List[float] = []
+    unique_classes = get_non_zero_unique_classes(image1, image2)
 
-    for c in classes:
+    scores: Dict[str, float] = {}
+
+    for cls in unique_classes:
         # Create binary masks for the current class
-        mask1 = (data1 == c).to(torch.uint8).ravel().detach().cpu().numpy()
-        mask2 = (data2 == c).to(torch.uint8).ravel().detach().cpu().numpy()
+        mask1 = (image1 == cls).ravel().detach().cpu().numpy()
+        mask2 = (image2 == cls).ravel().detach().cpu().numpy()
 
-        # Calculate the Dice score using scipy's dice function
-        scores.append(1 - dice(mask1, mask2))
+        # if the class is only in one image, set the score to -1
+        if is_class_present_in_only_one(mask1, mask2):
+            scores[str(cls)] = nan
+
+        else:
+            scores[str(cls)] = 1.0 - scipy.spatial.distance.dice(mask1, mask2)
 
     return scores
 
@@ -183,17 +211,20 @@ def dice_score_monai(image1: torch.Tensor, image2: torch.Tensor) -> List[float]:
     #     image1_mapped[image1 == original_class] = new_index
     #     image2_mapped[image2 == original_class] = new_index
 
-    image2_mapped=image2
-    image1_mapped=image1
+    image2_mapped = image2
+    image1_mapped = image1
 
     # Number of classes after mapping
     # num_classes = len(unique_classes)
     num_classes = -1
 
-    one_hot1 = torch.nn.functional.one_hot(image1_mapped.unsqueeze(0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
-    one_hot2 = torch.nn.functional.one_hot(image2_mapped.unsqueeze(0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
+    one_hot1 = torch.nn.functional.one_hot(image1_mapped.unsqueeze(
+        0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
+    one_hot2 = torch.nn.functional.one_hot(image2_mapped.unsqueeze(
+        0).unsqueeze(0), num_classes=num_classes).transpose(-1, 1).squeeze(-1)
 
-    dice_metric = monai.metrics.DiceMetric(include_background=False, reduction="none", get_not_nans=False)
+    dice_metric = monai.metrics.DiceMetric(
+        include_background=False, reduction="none", get_not_nans=False)
     dice_score = dice_metric(y_pred=one_hot1, y=one_hot2)
 
     dice_score = dice_score.squeeze().tolist()
@@ -221,7 +252,7 @@ def dice_score_l2r(fixed: torch.Tensor, moving_warped: torch.Tensor, moving: tor
             return 0
         volume_intersect = (mask_gt & mask_pred).sum()
         return 2 * volume_intersect / volume_sum
-    classes = get_classes_set(fixed, moving)
+    classes = get_non_zero_unique_classes(fixed, moving)
     print(classes)
 
     dice = []
@@ -229,7 +260,8 @@ def dice_score_l2r(fixed: torch.Tensor, moving_warped: torch.Tensor, moving: tor
         if ((fixed == i).sum() == 0) or ((moving == i).sum() == 0):
             dice.append(np.NAN)
         else:
-            dice.append(float(compute_dice_coefficient((fixed == i), (moving_warped == i))))
+            dice.append(float(compute_dice_coefficient(
+                (fixed == i), (moving_warped == i))))
 
     return list(dice)
 
@@ -246,7 +278,7 @@ def hausdorff_distance_learn2reg(image1: torch.Tensor, image2: torch.Tensor, per
         float: The 95th percentile of the Hausdorff distances.
     """
 
-    classes = get_classes_set(image1, image2)
+    classes = get_non_zero_unique_classes(image1, image2)
     # print(classes)
 
     image1 = image1.detach().cpu().numpy()
@@ -274,13 +306,14 @@ def hausdorff_distance_monai(image1, image2,  p=95, spacing=None):
     """
 
     assert image2.shape == image1.shape
-    image1=image1.unsqueeze(0) # add batch dim
-    image2=image2.unsqueeze(0)
+    image1 = image1.unsqueeze(0)  # add batch dim
+    image2 = image2.unsqueeze(0)
 
     # image1 = torch.movedim(image1, -1, 1)
     # image2 = torch.movedim(image2, -1, 1)
 
-    hd = monai.metrics.compute_hausdorff_distance(image1, image2, percentile=p, spacing=spacing)
+    hd = monai.metrics.compute_hausdorff_distance(
+        image1, image2, percentile=p, spacing=spacing)
 
     return hd.detach().numpy()[0]
 

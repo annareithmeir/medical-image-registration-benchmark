@@ -238,7 +238,7 @@ class Evaluation():
         if not self.use_zero_displacement and path_displacement:
             utils.is_nifti(path_displacement)
             displacement = utils.load_displacement(path_displacement)
-            warped = utils.deform_image(segmentation_moving,
+            segmentation_warped = utils.deform_image(segmentation_moving,
                                         displacement)
             # save the deformed segmentation
             deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
@@ -246,34 +246,36 @@ class Evaluation():
                                                                        extension_overwrite='.nii.gz')
             deformed_segmentation_path = Path(
                 deformed_segmentation_path.as_posix().replace(".nii", "_seg.nii"))
-            utils.save_image(warped, deformed_segmentation_path,
+            utils.save_image(segmentation_warped, deformed_segmentation_path,
                              spacing=self.dataset_data.spacing)
 
         elif self.use_zero_displacement and not path_displacement:
             shape = self.dataset_data.image_shape
             displacement = torch.zeros((*shape, 3), dtype=torch.float32)
-            warped = segmentation_moving.detach().clone()
+            segmentation_warped = segmentation_moving.detach().clone()
         else:
             raise ValueError("Displacement field not found.")
 
-        dice_scores = metrics.dice_score(
-            segmentation_fixed, warped)
+        dice_scores = metrics.dice_score(segmentation_fixed,
+                                         segmentation_warped)
 
         if len(dice_scores) == 1:
-            self.results.add_value("dice", dice_scores[0], name)
+            self.results.add_value("dice",  next(
+                iter(dice_scores.values())), name)
         else:
-            for i, score in enumerate(dice_scores):
-                self.results.add_value("dice_" + str(i), score, name)
+            for cls, score in dice_scores:
+                self.results.add_value("dice_" + cls, score, name)
                 dice_mean += score
 
             dice_mean /= len(dice_scores)
             self.results.add_value("dice_mean", dice_mean, name)
 
+        """
         hausdorff_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
-                                                      warped.squeeze(),
+                                                      segmentation_warped.squeeze(),
                                                       100.0)
         hausdorff95_scores = metrics.hausdorff_distance(segmentation_fixed.squeeze(),
-                                                        warped.squeeze(),
+                                                        segmentation_warped.squeeze(),
                                                         percentile=95.0)
 
         assert len(hausdorff_scores) == len(
@@ -296,6 +298,7 @@ class Evaluation():
 
             hausdorff95_mean /= len(hausdorff95_scores)
             self.results.add_value("hausdorff95_mean", hausdorff95_mean, name)
+        """
 
     def _evaluate_keypoints(self,
                             path_displacement: Path,
