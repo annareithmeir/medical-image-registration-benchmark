@@ -7,7 +7,7 @@ import wandb
 import numpy as np
 import torch
 
-from registrationbaselines.core import utils, result_csv
+from registrationbaselines.evaluation import utils, result_csv
 from registrationbaselines.metrics import metrics, utils_metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
