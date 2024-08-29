@@ -6,10 +6,10 @@ parameters:
     values:               [/u/home/koeglf/Documents/code/registrationbaselines/tmp/results]
 
   filter_type:
-    values:               [DemonsRegistrationFilter]
+    values:               [FastSymmetricForcesDemonsRegistrationFilter]
                           #  SymmetricForcesDemonsRegistrationFilter,
-                          #  FastSymmetricForcesDemonsRegistrationFilter,
-                          #  DiffeomorphicDemonsRegistrationFilter]
+                          #  DiffeomorphicDemonsRegistrationFilter,
+                          #  DemonsRegistrationFilter]
 
   # matcher
   histogram_levels_int8:  
@@ -21,7 +21,7 @@ parameters:
 
   # demons
   number_of_iterations:   
-    values:               [200]
+    values:               [1]
   standard_deviations:    
     values:               [1.0]
 
