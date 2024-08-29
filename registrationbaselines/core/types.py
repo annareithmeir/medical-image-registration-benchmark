@@ -9,7 +9,7 @@ import torch
 allInts = Union[np.dtype[np.uint8], np.dtype[np.uint16],
                 np.dtype[np.uint32], np.dtype[np.uint64],
                 np.dtype[np.int8], np.dtype[np.int16],
-                  np.dtype[np.int32], np.dtype[np.int64]]
+                np.dtype[np.int32], np.dtype[np.int64]]
 
 intArray1D = np.ndarray[Tuple[int],
                         allInts]

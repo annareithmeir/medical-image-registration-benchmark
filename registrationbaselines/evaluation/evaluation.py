@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from typing import Optional
+from typing import Optional, Union
 
 from tqdm import tqdm
 import wandb
@@ -11,6 +11,7 @@ from registrationbaselines.core import utils, result_csv
 from registrationbaselines.metrics import metrics, utils_metrics
 from registrationbaselines.core import visualization
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
+from registrationbaselines.core.types import intArray3D
 
 
 class Evaluation():
@@ -61,24 +62,34 @@ class Evaluation():
             item = self.dataset_data[i]
             fixed_name = str(item["fixed_image"].stem).split('.')[0]
 
+            if self.use_masked_evaluation:
+                segmentation_fixed = utils.load_image(
+                    item["fixed_segmentations"])
+                fixed_evaluation_mask: Union[intArray3D, None] = utils_metrics.get_convex_hull_mask(
+                    segmentation_fixed.detach().cpu().numpy())
+            else:
+                fixed_evaluation_mask = None
+
             if not self.use_zero_displacement:
                 path_displacement = self.dataset_transformations[i]
 
-                self._evaluate_displacement(path_displacement, fixed_name)
+                self._evaluate_displacement(path_displacement,
+                                            fixed_name,
+                                            fixed_evaluation_mask)
 
                 if self.dataset_data.has_segmentations:
                     self._evaluate_segmentation(item["fixed_segmentations"],
                                                 item["moving_segmentations"],
                                                 fixed_name,
                                                 path_displacement,
-                                                self.use_masked_evaluation)
+                                                fixed_evaluation_mask)
             else:
                 if self.dataset_data.has_segmentations:
                     self._evaluate_segmentation(item["fixed_segmentations"],
                                                 item["moving_segmentations"],
                                                 fixed_name,
                                                 None,
-                                                self.use_masked_evaluation)
+                                                fixed_evaluation_mask)
 
             """
             if self.dataset_data.has_keypoints:
@@ -184,7 +195,10 @@ class Evaluation():
                                                         pred_keypoints=deformed_keypoints,
                                                         save_path=plots_path)
 
-    def _evaluate_displacement(self, path_displacement: Path, name: str) -> None:
+    def _evaluate_displacement(self,
+                               path_displacement: Path,
+                               name: str,
+                               fixed_evaluation_mask: Optional[intArray3D] = None) -> None:
         """
         Evaluates the displacement field with sdlogj and fraction of foldings.
 
@@ -205,7 +219,8 @@ class Evaluation():
         displacement = utils.load_displacement(path_displacement)
 
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
-            displacement)
+            displacement,
+            fixed_evaluation_mask)
 
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
@@ -215,7 +230,7 @@ class Evaluation():
                                path_segmentation_moving: Path,
                                name: str,
                                path_displacement: Optional[Path] = None,
-                               use_masked_evaluation: Optional[bool] = None) -> None:
+                               fixed_evaluation_mask: Optional[intArray3D] = None) -> None:
         """
         Evaluate segmentations.
 
@@ -261,10 +276,8 @@ class Evaluation():
         else:
             raise ValueError("Displacement field not found.")
 
-        if use_masked_evaluation:
-            fixed_mask = utils_metrics.get_convex_hull_mask(
-                segmentation_fixed.detach().cpu().numpy())
-            segmentation_warped *= fixed_mask
+        if fixed_evaluation_mask is not None:
+            segmentation_warped *= fixed_evaluation_mask
 
         dice_scores, dice_mean = metrics.dice_score(segmentation_fixed,
                                                     segmentation_warped)
