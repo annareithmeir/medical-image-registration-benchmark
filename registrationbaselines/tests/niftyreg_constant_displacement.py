@@ -8,10 +8,13 @@ import torch
 import SimpleITK as sitk
 import nibabel as nib
 
+import registrationbaselines.warping.deform_objects
+import registrationbaselines.warping.utils_displacement
+
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
-from registrationbaselines.core import utils, utils_nifti  # nopep8
-from registrationbaselines.core.visualization import plot_all_registration_results  # nopep8
+from registrationbaselines.core import utils_nifti  # nopep8
+from registrationbaselines.evaluation.plot_objects import plot_all_registration_results  # nopep8
 
 
 def create_concentric_ellipsoids(shape: Tuple[int, int, int] = (200, 200, 200),
@@ -118,10 +121,11 @@ displacement_sitk = sitk.GetImageFromArray(
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 image = image.to(device)
 displacement_x = displacement_x.to(device)
-deformed_image_torch_x = utils.deform_image(image,
-                                            displacement_x.detach().clone())
+deformed_image_torch_x = registrationbaselines.warping.deform_objects.deform_image(image,
+                                                                                   displacement_x.detach().clone())
 
-utils.print_histogram(deformed_image_torch_x, 10)
+registrationbaselines.warping.utils_displacement.print_histogram(
+    deformed_image_torch_x, 10)
 
 im_moving = sitk.GetImageFromArray(image.cpu().numpy())
 im_fixed = sitk.GetImageFromArray(deformed_image_torch_x.cpu().numpy())
@@ -151,7 +155,7 @@ deformed_image_niftyreg_xyz = utils.deform_image_niftyreg(image,
                                                       displacement_xyz.detach().clone())
 """
 
-displacement_unit_x = utils.displacement_to_unit_displacement(
+displacement_unit_x = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
     displacement_x.detach().clone())
 """
 displacement_unit_y = utils.displacement_to_unit_displacement(

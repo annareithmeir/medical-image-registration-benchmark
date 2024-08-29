@@ -4,6 +4,7 @@ from math import nan
 from typing import Tuple, Optional, List, Dict, Union
 
 import numpy as np
+from numpy.typing import NDArray
 import scipy
 import scipy.ndimage
 import SimpleITK as sitk
@@ -11,7 +12,7 @@ import torch
 import monai
 
 from registrationbaselines.metrics import hd95, utils_metrics
-from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D
+from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D, intArray3D
 
 
 def get_non_zero_unique_classes(image1: torch.Tensor, image2: torch.Tensor) -> List[int]:
@@ -100,7 +101,8 @@ def jacobian_determinant_from_displacement_l2r(disp: torch.Tensor) -> torch.Tens
     return jacdet
 
 
-def displacement_field_metrics(displacement: torch.Tensor) -> Tuple[float, float]:
+def displacement_field_metrics(displacement: torch.Tensor,
+                               fixed_evaluation_mask: Optional[intArray3D] = None) -> Tuple[float, float]:
     """
     Calculate the fraction of foldings and the standard deviation of the logarithm of the Jacobian determinant.
     """
@@ -109,6 +111,9 @@ def displacement_field_metrics(displacement: torch.Tensor) -> Tuple[float, float
 
     jacobian_determinant = jacobian_determinant_from_displacement(
         displacement.detach().cpu().numpy())
+
+    if fixed_evaluation_mask is not None:
+        jacobian_determinant *= fixed_evaluation_mask
 
     # foldings are where the jacobian determinant is negative
     num_foldings = int((jacobian_determinant < 0).astype(float).sum())
@@ -131,8 +136,8 @@ def displacement_field_metrics_l2r(displacement: torch.Tensor) -> Tuple[float, f
     pass
 
 
-def is_class_present_in_only_one(array1: np.ndarray[bool],
-                                 array2: np.ndarray[bool]) -> bool:
+def is_class_present_in_only_one(array1: NDArray[np.bool_],
+                                 array2: NDArray[np.bool_]) -> bool:
     """
     Returns true if one image has only False and the other not
     """

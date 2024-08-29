@@ -1,9 +1,12 @@
-import os
-from pathlib import Path
+from registrationbaselines.evaluation import plot_objects
+
 
 import numpy as np
 import pandas as pd
-from registrationbaselines.core import visualization
+
+
+import os
+from pathlib import Path
 
 
 class EvaluationResults:
@@ -130,4 +133,4 @@ class EvaluationResults:
         @return:
         """
 
-        visualization.plot_quantitative_results(self.df, plot_path)
+        plot_objects.plot_quantitative_results(self.df, plot_path)

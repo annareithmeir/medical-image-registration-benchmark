@@ -1,15 +1,14 @@
 import shutil
 from pathlib import Path
 
-from typing import Dict, Any
-
 import ants
 import torch
 import SimpleITK as sitk
 
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_nifti, utils
+from registrationbaselines.io import save
+from registrationbaselines.core import utils_nifti
 
 
 class SyNANTs(RegistrationInterface):
@@ -20,7 +19,8 @@ class SyNANTs(RegistrationInterface):
 
     def __init__(self,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
         """
         Initialize the registration model.
 
@@ -29,7 +29,8 @@ class SyNANTs(RegistrationInterface):
 
         super().__init__("SyNANTs",
                          configuration_path,
-                         dataloader)
+                         dataloader,
+                         use_masked_evaluation)
 
     def _register(self, fixed_image_path: Path, moving_image_path: Path) -> None:
         """
@@ -109,5 +110,5 @@ class SyNANTs(RegistrationInterface):
             self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
 
         # save transformed image
-        utils.save_image(
+        save.save_image(
             deformed, self.result_transformed_image_path, self.dataloader.spacing)

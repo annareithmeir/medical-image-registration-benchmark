@@ -7,7 +7,7 @@ from time import sleep
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
-from registrationbaselines.core import result_csv
+from registrationbaselines.evaluation import result_csv
 
 
 class TestEvaluationResults(unittest.TestCase):

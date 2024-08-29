@@ -15,11 +15,13 @@ class AffineNiftyReg(RegistrationInterface):
 
     def __init__(self,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
 
         super().__init__("AffineNiftyReg",
                          configuration_path,
-                         dataloader)
+                         dataloader,
+                         use_masked_evaluation)
 
         self.path_reg_aladin = Path(
             "registrationbaselines/libraries/NiftyReg/reg_aladin_ubuntu").absolute()

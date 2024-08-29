@@ -7,9 +7,9 @@ from typing import Dict, Union, List
 
 import wandb
 import wandb.sdk
-# from wandb.sdk.wandb_config import Config
 
-from registrationbaselines.core import utils, utils_wandb
+from registrationbaselines.io import load
+from registrationbaselines.core import utils_wandb
 
 
 class InterfaceCore(ABC):
@@ -40,7 +40,7 @@ class InterfaceCore(ABC):
 
         self.method_name = method_name
 
-        self.general_configuration = utils.read_config(configuration_path)
+        self.general_configuration = load.read_config(configuration_path)
 
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
