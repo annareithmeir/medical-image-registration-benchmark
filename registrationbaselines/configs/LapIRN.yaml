@@ -1,0 +1,55 @@
+# General training args
+method: grid
+name: LapIRN
+
+parameters:
+  result_path:
+    values: [/u/home/koeglf/Documents/code/registrationbaselines/tmp/reg_interface_rewrite]
+  gpu_number:
+    values: ["0"]
+  multichannel:
+    values: [False]
+  batch_size:
+    values: [1]
+  epochs:
+    values: [3]
+  steps_per_epoch:
+    values: [3]
+  load_model:
+    values: [null]
+  initial_epoch:
+    values: [0]
+  lr:
+    values: [0.0001]
+  iteration_lvl1:
+    values: [30]
+  iteration_lvl2:
+    values: [30]
+  iteration_lvl3:
+    values: [60]
+  antifold_weight:
+    values: [0.0]
+  smooth_weight:
+    values: [1.0]
+  start_channel:
+    values: [7]
+  freeze_step:
+    values: [2000]
+  range_flow:
+    values: [0.4]
+  use_diff_version:
+    values: [True]
+  use_wandb:
+    values: [True]
+  gpu:
+    values: ['0']
+  cudnn_nondet:
+    values: [False]
+  save_checkpoint:
+    values: [20]
+
+# inference params
+inference_model_path:
+  values: ["tmp/test_lapirn/test_modelstagelvl3_final.pth"]
+result_path:
+  values: ["tmp/test_lapirn"]
