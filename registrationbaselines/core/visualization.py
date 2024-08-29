@@ -453,10 +453,10 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                     ['w', 'crimson', 'cornflowerblue'])
                 ax.imshow(boundaries_slice, cmap=cmap, interpolation='none')
                 ax.set_frame_on(False)
-                ax.title.set_text("diff image after")
                 plt.axis('off')
                 if toprow:
-                    ax.title.set_text("segmentations")
+                    ax.title.set_text(
+                        "segmentations (fixed: blue, warped: red)")
             toprow = False
 
     elif image_dim == 2:
