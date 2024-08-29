@@ -126,6 +126,10 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         self.evaluator.visualize()
 
         # move the results directory one level up
+        if self.path_dir_run.exists():
+            raise FileExistsError(
+                f"Directory {self.path_dir_run} already exists.")
+
         shutil.move(self.path_dir_run, self.path_dir_dataset)
 
         # if the path_dir_method_is empty, delete it
