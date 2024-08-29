@@ -32,6 +32,9 @@ def main() -> None:
     # method = "AffineNiftyReg"
     # method = "VoxelMorph"
 
+    base_dir = Path(__file__).parent.absolute().parent
+    path_config = base_dir / f"registrationbaselines/configs/{method}.yaml"
+
     if socket.gethostname() == "fryderyk":
         path_data = Path("/home/fryderyk/Documents/data/LungCT_preprocessed/")
     elif socket.gethostname() == "janus":
@@ -77,7 +80,7 @@ def main() -> None:
     # with perform_wandb_sweep()
     #############################
     # registration.evaluate_with_zero_displacement()
-    # registration.perform_wandb_sweep()
+    registration.perform_wandb_sweep()
 
 
 if __name__ == "__main__":
