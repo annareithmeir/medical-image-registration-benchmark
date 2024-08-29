@@ -122,6 +122,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         self._create_run_directory()
         self.path_dir_deformations.rmdir()
+        self.path_dir_deformed.rmdir()
 
         self.evaluator = Evaluation(run_path=self.path_dir_run,
                                     dataset_data=self.dataloader,
