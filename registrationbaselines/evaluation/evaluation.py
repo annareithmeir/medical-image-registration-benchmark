@@ -144,6 +144,11 @@ class Evaluation():
                 # deformed_image = utils.deform_image(moving_image, displacement)
                 # utils.save_image(deformed_image,  path_displacement, (1.75, 1.75, 1.75))
 
+            if self.use_masked_evaluation:
+                fixed_mask = utils_metrics.get_convex_hull_mask(
+                    fixed_image.detach().cpu().numpy())
+                displacement *= np.stack([fixed_mask] * 3, axis=-1)
+
             plots_path = self._create_plots_paths(fixed_image_path.name,
                                                   moving_image_path.name,
                                                   extension_overwrite='.nii.gz')
@@ -165,8 +170,8 @@ class Evaluation():
                                                            displacement)
 
                 if self.use_masked_evaluation:
-                    fixed_mask = utils_metrics.get_convex_hull_mask(
-                        fixed_segmentation.detach().cpu().numpy())
+                    # fixed_mask = utils_metrics.get_convex_hull_mask(
+                    #     fixed_segmentation.detach().cpu().numpy())
                     deformed_segmentation *= fixed_mask
 
             fixed_image = fixed_image.to(displacement.device)
