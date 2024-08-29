@@ -65,7 +65,7 @@ class Evaluation():
             if self.use_masked_evaluation:
                 segmentation_fixed = utils.load_image(
                     item["fixed_segmentations"])
-                fixed_evaluation_mask: Union[intArray3D, None] = utils_metrics.get_convex_hull_mask(
+                fixed_evaluation_mask: Union[intArray3D, None] = utils.get_convex_hull_mask(
                     segmentation_fixed.detach().cpu().numpy())
             else:
                 fixed_evaluation_mask = None
@@ -145,7 +145,7 @@ class Evaluation():
                 # utils.save_image(deformed_image,  path_displacement, (1.75, 1.75, 1.75))
 
             if self.use_masked_evaluation:
-                fixed_mask = utils_metrics.get_convex_hull_mask(
+                fixed_mask = utils.get_convex_hull_mask(
                     fixed_image.detach().cpu().numpy())
                 displacement *= np.stack([fixed_mask] * 3, axis=-1)
 
