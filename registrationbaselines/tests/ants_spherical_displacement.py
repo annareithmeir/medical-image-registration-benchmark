@@ -15,7 +15,7 @@ import ants
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.core import utils  # nopep8
-from registrationbaselines.core.visualization import plot_all_registration_results  # nopep8
+from registrationbaselines.evaluation.plot_objects import plot_all_registration_results  # nopep8
 
 
 def create_concentric_ellipsoids(shape: Tuple[int, int, int] = (200, 200, 200),
@@ -139,13 +139,13 @@ displacement_xyz = create_displacement_field_sphere(shape,
 #                                               displacement_xyz.detach().clone())
 
 deformed_image_ants_x = utils.deform_image_ants(image,
-                                                displacement_x.detach().clone())#[..., [2, 1, 0]])
+                                                displacement_x.detach().clone())  # [..., [2, 1, 0]])
 deformed_image_ants_y = utils.deform_image_ants(image,
-                                                displacement_y.detach().clone())#[..., [2, 1, 0]])
+                                                displacement_y.detach().clone())  # [..., [2, 1, 0]])
 deformed_image_ants_z = utils.deform_image_ants(image,
-                                                displacement_z.detach().clone())#[..., [2, 1, 0]])
+                                                displacement_z.detach().clone())  # [..., [2, 1, 0]])
 deformed_image_ants_xyz = utils.deform_image_ants(image,
-                                                  displacement_xyz.detach().clone())#[..., [2, 1, 0]])
+                                                  displacement_xyz.detach().clone())  # [..., [2, 1, 0]])
 
 displacement_unit_x = utils.displacement_to_unit_displacement(
     displacement_x.detach().clone())

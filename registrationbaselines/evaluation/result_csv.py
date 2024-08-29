@@ -1,4 +1,4 @@
-from registrationbaselines.core import visualization
+from registrationbaselines.evaluation import plot_objects
 
 
 import numpy as np
@@ -133,4 +133,4 @@ class EvaluationResults:
         @return:
         """
 
-        visualization.plot_quantitative_results(self.df, plot_path)
+        plot_objects.plot_quantitative_results(self.df, plot_path)

@@ -9,7 +9,7 @@ import torch
 
 from registrationbaselines.evaluation import utils, result_csv
 from registrationbaselines.metrics import metrics, utils_metrics
-from registrationbaselines.core import visualization
+from registrationbaselines.evaluation import plot_objects
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
 from registrationbaselines.core.types import intArray3D
 
@@ -189,16 +189,16 @@ class Evaluation():
 
                 deformed_keypoints = utils.deform_keypoints(
                     moving_keypoints, displacement)
-            visualization.plot_all_registration_results(moving_image,
-                                                        fixed_image,
-                                                        deformed_image,
-                                                        displacement,
-                                                        fixed_segmentations=fixed_segmentation,
-                                                        pred_segmentations=deformed_segmentation,
-                                                        fixed_keypoints=fixed_keypoints,
-                                                        moving_keypoints=moving_keypoints,
-                                                        pred_keypoints=deformed_keypoints,
-                                                        save_path=plots_path)
+            plot_objects.plot_all_registration_results(moving_image,
+                                                       fixed_image,
+                                                       deformed_image,
+                                                       displacement,
+                                                       fixed_segmentations=fixed_segmentation,
+                                                       pred_segmentations=deformed_segmentation,
+                                                       fixed_keypoints=fixed_keypoints,
+                                                       moving_keypoints=moving_keypoints,
+                                                       pred_keypoints=deformed_keypoints,
+                                                       save_path=plots_path)
 
     def _evaluate_displacement(self,
                                path_displacement: Path,

@@ -15,7 +15,7 @@ import ants
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.core import utils  # nopep8
-from registrationbaselines.core.visualization import plot_all_registration_results  # nopep8
+from registrationbaselines.evaluation.plot_objects import plot_all_registration_results  # nopep8
 
 
 def create_concentric_ellipsoids(shape: Tuple[int, int, int] = (200, 200, 200),

@@ -15,7 +15,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 # sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
 # import registrationbaselines.core.utils_nifti as utils_nifti
-from registrationbaselines.core.visualization import plot_all_registration_results
+from registrationbaselines.evaluation.plot_objects import plot_all_registration_results
 import registrationbaselines.core.utils as utils
 
 
@@ -457,8 +457,8 @@ image, keypoints = create_rectangle_and_keypoints(
 # displacement = create_displacement_field_constant(shape, vector=(-10, 0, 0))
 
 displacement = create_displacement_field_sphere(shape,
-                                         semi_axes,
-                                         -max_displacement)
+                                                semi_axes,
+                                                -max_displacement)
 
 ####
 
