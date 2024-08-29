@@ -6,6 +6,7 @@ import torch
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils
 from registrationbaselines.data_loading import data_loaders
+import registrationbaselines.warping.utils_displacement
 
 
 class DemonsSITK(RegistrationInterface):
@@ -74,7 +75,7 @@ class DemonsSITK(RegistrationInterface):
             sitk.GetArrayFromImage(warped_image))
 
         if displacement.min() < -1 or displacement.max() > 1:
-            displacement = utils.displacement_to_unit_displacement(
+            displacement = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
                 displacement)
 
         self._save_results(warped, displacement)
@@ -110,7 +111,7 @@ class DemonsSITK(RegistrationInterface):
             demons = sitk.DiffeomorphicDemonsRegistrationFilter()
         else:
             raise ValueError("Invalid Demons filter type.")
-        
+
         demons.SetNumberOfIterations(
             self.run_configuration['number_of_iterations'])
 

@@ -3,16 +3,16 @@ from pathlib import Path
 
 from typing import Any, Tuple, Dict, Union, List, Optional
 
-from scipy.ndimage import map_coordinates
 import yaml
 import numpy as np
 import SimpleITK as sitk
-import nibabel as nib
 import torch
-import torch.nn.functional as F
 
 
 from registrationbaselines.core.types import floatArray2D, floarArray4Dor5D, array2Dor3D, intArray1D, intArray2D, intArray3D
+from registrationbaselines.warping.utils_displacement import unit_displacement_to_displacement
+from registrationbaselines.warping.utils_displacement import displacement_to_unit_displacement
+from registrationbaselines.warping.utils_displacement import reverse_axis
 
 
 def is_nifti(path: Path) -> None:
@@ -116,22 +116,6 @@ def flip(x: torch.Tensor, dim: int):
     indices[dim] = torch.arange(x.size(dim) - 1, -1, -1,
                                 dtype=torch.long, device=x.device)
     return x[tuple(indices)]
-
-
-def reverse_axis(image: torch.Tensor) -> torch.Tensor:
-    """
-    Flips the order of the axis representing the space dimensions (preceeding dimensions are ignored).
-    Respectively, the axis holding the vectors is flipped as well
-
-    Note: the method is inplace
-    """
-    # reverse order of axis to follow the convention of SimpleITK
-    order = list(reversed(range(image.ndim-1)))
-    order.append(len(order))
-    image = image.squeeze_().permute(tuple(order))
-    image = flip(image, image.ndim-1)
-
-    return image
 
 
 def load_displacement(path: Path) -> torch.Tensor:
@@ -539,333 +523,6 @@ def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, a
     sitk.WriteImage(image, str(filename))
 
 
-def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tensor:
-    """
-    Convert a displacement field to a unit displacement field.
-    The standard unit of displacement is a half-image, so a displacement vector of magnitude 2
-    means that the displacement distance is equal to the side length of the displaced image.
-    """
-
-    disp = torch.zeros_like(displacement)
-
-    for dim in range(displacement.shape[-1]):
-        disp[..., dim] = 2.0 * displacement[..., dim] / \
-            float(displacement.shape[-dim - 2] - 1)
-
-    return disp
-
-
-def unit_displacement_to_displacement(displacement: torch.Tensor) -> torch.Tensor:
-
-    disp = torch.zeros_like(displacement)
-
-    for dim in range(displacement.shape[-1]):
-        disp[..., dim] = float(
-            displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
-
-    return disp
-
-
-def deform_image_niftyreg_path(path_image: Path,
-                               path_deformation: Path) -> Path:
-
-    from registrationbaselines.core import utils_commandline
-
-    path_warped_image = Path(
-        path_image.as_posix().replace(".nii", "_warpedManually.nii"))
-
-    command = ["/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/libraries/NiftyReg/reg_resample_ubuntu",
-               '-ref', path_image.as_posix(),
-               '-flo', path_image.as_posix(),
-               '-trans', path_deformation.as_posix(),
-               '-res', path_warped_image.as_posix()]
-
-    utils_commandline.run_command_in_terminal(command,
-                                              path_warped_image.exists,
-                                              print_command_list=False)
-
-    return path_warped_image
-
-
-def deform_image_niftyreg_nibabel(image: nib.Nifti1Image,
-                                  deformation: nib.Nifti1Image) -> nib.Nifti1Image:
-    path_image = Path("image.nii.gz")
-    nib.save(image, path_image)
-
-    path_deformation = Path("deformation.nii.gz")
-    nib.save(deformation, path_deformation)
-
-    path_warped_image = deform_image_niftyreg_path(path_image,
-                                                   path_deformation)
-
-    warped = nib.load(path_warped_image)
-
-    path_image.unlink()
-    path_deformation.unlink()
-
-    return warped
-
-
-def deform_image_niftyreg_sitk(image: sitk.Image,
-                               deformation: sitk.Image,
-                               image_path: Optional[Path] = None,
-                               deformation_path: Optional[Path] = None) -> sitk.Image:
-
-    if image_path:
-        path_image = image_path
-    else:
-        path_image = Path("image.nii.gz")
-        sitk.WriteImage(image, path_image)
-
-    if deformation_path:
-        path_deformation = deformation_path
-    else:
-        path_deformation = Path("deformation.nii.gz")
-        sitk.WriteImage(deformation, path_deformation)
-
-    path_warped_image = deform_image_niftyreg_path(path_image,
-                                                   path_deformation)
-
-    warped = sitk.ReadImage(path_warped_image)
-
-    if not image_path:
-        path_image.unlink()
-    if not deformation_path:
-        path_deformation.unlink()
-
-    return warped
-
-
-def deform_image_niftyreg_numpy(image: np.ndarray[Any, Any],
-                                deformation: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-
-    image_nib = nib.Nifti1Image(image.astype(np.float32), affine=None)
-    deformation_nib = nib.Nifti1Image(deformation, affine=None)
-
-    warped_nib = deform_image_niftyreg_nibabel(image_nib, deformation_nib)
-
-    warped = warped_nib.get_fdata(dtype=np.float32)
-
-    return warped
-
-
-"""
-def deform_image_niftyreg_numpy(image: np.ndarray[Any, Any],
-                                deformation: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-
-    sitk_image = sitk.GetImageFromArray(image.astype(np.float32))
-    sitk_deformation = sitk.GetImageFromArray(deformation)
-
-    sitk_warped = deform_image_niftyreg_sitk(sitk_image, sitk_deformation)
-
-    warped = sitk.GetArrayFromImage(sitk_warped).astype(np.float32)
-
-    return warped
-"""
-
-"""
-def deform_image_niftyreg_torch(image: torch.Tensor,
-                                deformation: torch.Tensor) -> torch.Tensor:
-
-    sitk_image = sitk.GetImageFromArray(
-        image.detach().cpu().numpy().astype(np.float32))
-    sitk_deformation = sitk.GetImageFromArray(
-        deformation.detach().cpu().numpy())
-
-    sitk_warped = deform_image_niftyreg_sitk(sitk_image, sitk_deformation)
-
-    warped = torch.from_numpy(
-        sitk.GetArrayFromImage(sitk_warped).astype(np.float32))
-
-    return warped
-"""
-
-
-def deform_image_niftyreg_torch(image: torch.Tensor,
-                                deformation: torch.Tensor) -> torch.Tensor:
-
-    image_np = image.detach().cpu().numpy().astype(np.float32)
-    deformation_np = deformation.detach().cpu().numpy()
-
-    image_nib = nib.Nifti1Image(image_np, affine=None)
-    deformation_nib = nib.Nifti1Image(deformation_np, affine=None)
-
-    warped_nib = deform_image_niftyreg_nibabel(image_nib, deformation_nib)
-
-    warped = torch.from_numpy(warped_nib.get_fdata(dtype=np.float32))
-
-    return warped
-
-
-def register_niftyreg(path_fixed: Path,
-                      path_moving: Path) -> Dict[str, Path]:
-
-    from registrationbaselines.core import utils_commandline, utils_niftyreg
-
-    # check that both images exist
-    assert path_fixed.exists(
-    ), f"File {path_fixed} does not exist."
-    assert path_moving.exists(
-    ), f"File {path_moving} does not exist."
-
-    path_reg_f3d = Path(
-        "/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
-
-    path_result_deformed = Path(
-        path_moving.as_posix().replace(".nii", "_warped.nii"))
-    path_result_gird = path_moving.parent / "deformation_temp.nii.gz"
-
-    command = [path_reg_f3d.as_posix(),
-               '-ref', path_fixed.as_posix(),
-               '-flo', path_moving.as_posix(),
-               '-res', path_result_deformed.as_posix(),
-               '-cpp', path_result_gird.as_posix()]
-
-    utils_commandline.run_command_in_terminal(command,
-                                              path_result_deformed.exists,
-                                              print_command_list=False)
-
-    path_result_deformation = utils_niftyreg.convert_transformation_to_displacement_field(
-        path_result_gird, path_fixed)
-
-    return {"warped": path_result_deformed,
-            "deformation": path_result_deformation}
-
-
-def print_histogram(tensor: torch.Tensor, bins: int) -> None:
-    # Flatten the 3D tensor to 1D
-    flattened_tensor = tensor.flatten()
-
-    # Calculate the histogram with 10 bins between 0.0 and 1.0
-    hist = torch.histc(flattened_tensor, bins=10, min=0.0, max=1.0)
-
-    # Normalize the histogram counts to a reasonable scale for display
-    max_count = hist.max().item()
-    scale_factor = 200 / max_count if max_count > 0 else 1
-
-    # Print the histogram with horizontal bars
-    for i in range(bins):
-        bin_start = i / float(bins)
-        bar_length = hist[i].item() * scale_factor
-
-        if 0.1 < bar_length < 1:
-            bar_length = 1
-
-        bar = '█' * int(bar_length)
-        print(f"{bin_start:.1f} [{bar}]")
-
-
-def compute_grid(image_size: torch.Size,
-                 dtype: torch.dtype = torch.float32,
-                 device: Union[str, torch.device] = 'cpu') -> torch.Tensor:
-    """
-    Compute a normalized grid for a given image size.
-
-    @param image_size: The size of the image. Should be a list of two or three integers.
-    @type image_size: List[int]
-
-    @param dtype: The desired data type of the returned grid.
-    @type dtype: torch.dtype
-
-    @param device: The desired device of the returned grid.
-    @type device: Union[str, torch.device]
-
-    @return: A tensor representing the normalized grid.
-    @rtype: torch.Tensor
-    """
-
-    dim = len(image_size)
-
-    if dim == 2:
-        nx = image_size[0]
-        ny = image_size[1]
-
-        x = torch.linspace(-1, 1, steps=ny).to(dtype=dtype)
-        y = torch.linspace(-1, 1, steps=nx).to(dtype=dtype)
-
-        x = x.expand(nx, -1)
-        y = y.expand(ny, -1).transpose(0, 1)
-
-        x.unsqueeze_(0).unsqueeze_(3)
-        y.unsqueeze_(0).unsqueeze_(3)
-
-        return torch.cat((x, y), 3).to(dtype=dtype, device=device)
-
-    elif dim == 3:
-        nz = image_size[0]
-        ny = image_size[1]
-        nx = image_size[2]
-
-        x = torch.linspace(-1, 1, steps=nx).to(dtype=dtype)
-        y = torch.linspace(-1, 1, steps=ny).to(dtype=dtype)
-        z = torch.linspace(-1, 1, steps=nz).to(dtype=dtype)
-
-        x = x.expand(ny, -1).expand(nz, -1, -1)
-        y = y.expand(nx, -1).expand(nz, -1, -1).transpose(1, 2)
-        z = z.expand(nx, -1).transpose(0, 1).expand(ny, -1, -1).transpose(0, 1)
-
-        x.unsqueeze_(0).unsqueeze_(4)
-        y.unsqueeze_(0).unsqueeze_(4)
-        z.unsqueeze_(0).unsqueeze_(4)
-
-        return torch.cat((x, y, z), 4).to(dtype=dtype, device=device)
-    else:
-        raise ValueError(f"Error: {dim} is not a valid grid dimension.")
-
-
-def deform_image(image: torch.Tensor,
-                 displacement: torch.Tensor) -> torch.Tensor:
-    """
-    Apply a deformation to an image using the provided deformation.
-    If the image is of type uint8 ie a segmentation map,
-    it automatically uses mode='nearest' and returns an image of type uint8
-    @param image: if label map then dtype must be torch.uint8, else torch.float
-    @param displacement:
-    @return:
-    """
-
-    # squeeze both image and displacement to ensure we only have spatial dimensions
-    image = image.squeeze()
-    displacement = displacement.squeeze()
-
-    # convert to unit displacement if range is not [-1,1]
-    if displacement.min() < -1 or displacement.max() > 1:
-        displacement = displacement_to_unit_displacement(displacement)
-
-    if image.ndim != displacement.ndim - 1:
-        raise ValueError(
-            "The displacement field should have one more dimension than the image.")
-
-    if image.dtype == torch.uint8:
-        mode = 'nearest'
-        image = image.float()
-    elif image.dtype == torch.float32:
-        mode = 'bilinear'
-    else:
-        raise ValueError(
-            "The image should be either uint8 or float32.")
-
-    grid = compute_grid(
-        image.shape, dtype=image.dtype, device=image.device)
-
-    # unsqueeze image and displacement to conform to grid_sample requirements
-    image = image.unsqueeze(0).unsqueeze(0)
-    displacement = displacement.unsqueeze(0)
-
-    # warp image
-    warped_image = F.grid_sample(
-        image, displacement + grid, mode=mode, align_corners=True).squeeze()
-
-    if warped_image.ndim != image.squeeze().ndim:
-        raise ValueError(
-            "The warped image should have the same number of dimensions as the original image. \
-                Something wen wrong with deforming")
-
-    if mode == 'nearest':
-        warped_image = warped_image.to(dtype=torch.uint8)
-    return warped_image.squeeze()
-
-
 def explore_memory():
     allocated_memory = torch.cuda.memory_allocated()
     print(f"Allocated memory: {allocated_memory / (1024 ** 2)} MB")
@@ -891,121 +548,11 @@ def normalize_tensor_to_0_1(tensor: torch.Tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
 
 
-def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> torch.Tensor:
+def transform_csv(input_csv: Path, output_csv: Path) -> None:
     """
-    Deforms keypoints according to the pull convention using grid_sample.
-
-    @param moving_keypoints: Tensor of shape (N, 3) where N is the number of keypoints (18 in this case).
-    @param displacement: Tensor of shape (201, 201, 201, 3) containing the displacement field.
-    @return: Deformed keypoints as a Tensor of shape (N, 3).
+    Transform to a csv that can be read by Slicer
     """
 
-    if displacement.min() >= -1 and displacement.max() <= 1:
-        displacement = unit_displacement_to_displacement(displacement)
-
-    N = moving_keypoints.shape[0]
-
-    moving_keypoints = moving_keypoints[:, [2, 1, 0]]
-
-    # Normalize moving_keypoints to the range [-1, 1] for grid_sample
-    grid = moving_keypoints.unsqueeze(0)  # Shape (1, N, 3)
-
-    # Normalize the grid to [-1, 1] based on the displacement field size
-    grid = (grid - torch.tensor([displacement.shape[0] / 2, displacement.shape[1] / 2, displacement.shape[2] / 2], device=grid.device)) \
-        / torch.tensor([displacement.shape[0] / 2, displacement.shape[1] / 2, displacement.shape[2] / 2], device=grid.device)
-
-    # Reshape the grid to the correct shape for grid_sample
-    grid = grid.view(1, 1, 1, N, 3)  # Shape (1, 1, 1, N, 3)
-
-    # Prepare displacement field for grid_sample
-    displacement = displacement.permute(3, 0, 1, 2).unsqueeze(
-        0)  # Shape (1, 3, 201, 201, 201)
-
-    # Use grid_sample to sample the displacement field at the keypoints' locations
-    sampled_displacement = F.grid_sample(
-        displacement, grid, mode='bilinear', padding_mode='border', align_corners=True)
-
-    # Reshape the sampled displacement to match the original keypoints shape
-    sampled_displacement = sampled_displacement.squeeze().transpose(0, 1)  # Shape (N, 3)
-
-    # Apply the displacement to the keypoints
-    deformed_keypoints = moving_keypoints - sampled_displacement  # Pull convention
-
-    deformed_keypoints = deformed_keypoints[:, [2, 1, 0]]
-
-    return deformed_keypoints
-
-
-def deform_keypointsOLD(moving_keypoints: torch.Tensor, displacement: torch.Tensor) -> torch.Tensor:
-    """
-    Deforms keypoints according to the pull convention
-
-    Map the moving keypoints to the fixed keypoints using the displacement field
-    The displacement field should be pixel-based for this to work, so in case it is a unit-displacement field, it is first converted...
-    @param moving_keypoints:
-    @param displacement: of shape (...,3) and optimally non-unit displacement (will be converted otherwise)
-    @return:
-    """
-
-    if displacement.min() >= -1 and displacement.max() <= 1:
-        displacement = unit_displacement_to_displacement(displacement)
-
-    # Transpose the keypoints to match the shape for map_coordinates (3, N)
-    moving_keypoints_t = moving_keypoints.transpose(0, 1)
-
-    if moving_keypoints.shape[-1] == 3:
-        mov_lms_disp_x = map_coordinates(
-            displacement[:, :, :, 0], moving_keypoints_t)
-        mov_lms_disp_y = map_coordinates(
-            displacement[:, :, :, 1], moving_keypoints_t)
-        mov_lms_disp_z = map_coordinates(
-            displacement[:, :, :, 2], moving_keypoints_t)
-        mov_lms_disp = torch.tensor(
-            (mov_lms_disp_x, mov_lms_disp_y, mov_lms_disp_z)).transpose(0, 1)
-    elif moving_keypoints.shape[-1] == 2:
-        mov_lms_disp_x = map_coordinates(
-            displacement[:, :, 0], moving_keypoints_t)
-        mov_lms_disp_y = map_coordinates(
-            displacement[:, :, 1], moving_keypoints_t)
-        mov_lms_disp = torch.tensor(
-            (mov_lms_disp_x, mov_lms_disp_y)).transpose(0, 1)
-    else:
-        raise ValueError(
-            "The landmark shape is not supported. It should be either 2 or 3.")
-
-    """
-    ######################################################################################################
-    ###### TEMPORARY  ################
-    ######################################################################################################
-    # Step 2: Get the integer coordinates of landmarks
-    moving_coords = moving_keypoints.long()
-
-    # Ensure the coordinates are within the valid range
-    moving_coords[:, 0] = torch.clamp(
-        moving_coords[:, 0], 0, displacement.shape[1] - 1)
-    moving_coords[:, 1] = torch.clamp(
-        moving_coords[:, 1], 0, displacement.shape[2] - 1)
-    moving_coords[:, 2] = torch.clamp(
-        moving_coords[:, 2], 0, displacement.shape[3] - 1)
-
-    displacement = unit_displacement_to_displacement(displacement)
-
-    # Step 3: Extract the displacements for each landmark
-    displacements = displacement[moving_coords[:, 0],
-                                 moving_coords[:, 1],
-                                 moving_coords[:, 2], :]
-
-    # Step 4: Apply the displacements
-    displaced_landmarks_zyx = moving_coords.float() - displacements
-
-    return displaced_landmarks_zyx
-    """
-
-    deformed_keypoints = moving_keypoints - mov_lms_disp  # pull
-    return deformed_keypoints
-
-
-def transform_csv(input_csv: Path, output_csv: Path):
     # Load the CSV file using np.genfromtxt
     coords = np.genfromtxt(input_csv, delimiter=',')
 
@@ -1107,3 +654,26 @@ def get_convex_hull_mask(image: intArray3D) -> intArray3D:
     out_img = out_img.astype(np.uint8)
 
     return out_img
+
+
+def print_histogram(tensor: torch.Tensor, bins: int) -> None:
+    # Flatten the 3D tensor to 1D
+    flattened_tensor = tensor.flatten()
+
+    # Calculate the histogram with 10 bins between 0.0 and 1.0
+    hist = torch.histc(flattened_tensor, bins=10, min=0.0, max=1.0)
+
+    # Normalize the histogram counts to a reasonable scale for display
+    max_count = hist.max().item()
+    scale_factor = 200 / max_count if max_count > 0 else 1
+
+    # Print the histogram with horizontal bars
+    for i in range(bins):
+        bin_start = i / float(bins)
+        bar_length = hist[i].item() * scale_factor
+
+        if 0.1 < bar_length < 1:
+            bar_length = 1
+
+        bar = '█' * int(bar_length)
+        print(f"{bin_start:.1f} [{bar}]")

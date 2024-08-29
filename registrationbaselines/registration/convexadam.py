@@ -1,4 +1,5 @@
 import gc
+import registrationbaselines.warping.deform_objects
 from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 import registrationbaselines.core.utils as utils
@@ -93,7 +94,7 @@ class ConvexAdam(RegistrationInterface):
                 ic=self.configuration['ic']
             )
 
-        image_deformed = utils.deform_image(image_fixed.numpy(
+        image_deformed = registrationbaselines.warping.deform_objects.deform_image(image_fixed.numpy(
         ), image_moving.numpy(), displacement_field.squeeze(), sitk.sitkLinear)
         self._save_results(image_deformed.squeeze(),
                            displacement_field.squeeze())

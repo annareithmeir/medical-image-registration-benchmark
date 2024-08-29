@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
-from typing import Tuple
+
+from typing import Tuple, Optional
 
 import matplotlib
 import matplotlib.cm as cm
@@ -9,10 +10,11 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import pandas as pd
+import torch
 
 from registrationbaselines.core.types import floatArray2D
-import registrationbaselines.core.utils as utils
-from registrationbaselines.evaluation.utils_evaluation import multilabel_to_boundary
+from registrationbaselines.warping import utils_displacement
+from registrationbaselines.evaluation import utils_evaluation
 from registrationbaselines.metrics import metrics
 
 os.environ['NEURITE_BACKEND'] = "pytorch"
@@ -120,7 +122,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     if pred_keypoints is not None:
         pred_keypoints = pred_keypoints.numpy().squeeze()
 
-    displacement_denorm = utils.unit_displacement_to_displacement(
+    displacement_denorm = utils_displacement.unit_displacement_to_displacement(
         displacement.detach().clone()).numpy().squeeze()
     displacement = displacement.numpy().squeeze()
 
@@ -266,8 +268,10 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             # boundaries
             if (fixed_segmentations is not None) and (pred_segmentations is not None):
                 ax = fig.add_subplot(3, num_cols, (num_cols * d) + 9)
-                fixed_boundary = multilabel_to_boundary(fixed_segmentations)
-                pred_boundary = multilabel_to_boundary(pred_segmentations)
+                fixed_boundary = utils_evaluation.multilabel_to_boundary(
+                    fixed_segmentations)
+                pred_boundary = utils_evaluation.multilabel_to_boundary(
+                    pred_segmentations)
                 fixed_boundary = fixed_boundary.astype(np.int8)
                 pred_boundary = pred_boundary.astype(np.int8)
                 fixed_boundary[fixed_boundary > 0] = 1
@@ -372,8 +376,10 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             fixed_segmentations = fixed_segmentations.squeeze()
             pred_segmentations = pred_segmentations.squeeze()
 
-            fixed_boundary = multilabel_to_boundary(fixed_segmentations)
-            pred_boundary = multilabel_to_boundary(pred_segmentations)
+            fixed_boundary = utils_evaluation.multilabel_to_boundary(
+                fixed_segmentations)
+            pred_boundary = utils_evaluation.multilabel_to_boundary(
+                pred_segmentations)
             fixed_boundary = fixed_boundary.astype(np.int8)
             pred_boundary = pred_boundary.astype(np.int8)
             fixed_boundary[fixed_boundary > 0] = 1

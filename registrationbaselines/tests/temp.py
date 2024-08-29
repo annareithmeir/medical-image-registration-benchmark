@@ -15,8 +15,9 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 # sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
 # import registrationbaselines.core.utils_nifti as utils_nifti
+import registrationbaselines.warping.deform_objects
 from registrationbaselines.evaluation.plot_objects import plot_all_registration_results
-import registrationbaselines.core.utils as utils
+import registrationbaselines.warping.utils_displacement as utils
 
 
 def create_displacement_field_constant(
@@ -465,10 +466,10 @@ displacement = create_displacement_field_sphere(shape,
 displacement_unit = utils.displacement_to_unit_displacement(
     displacement.detach().clone())
 
-deformed_image = utils.deform_image(image,
-                                    displacement_unit.detach().clone())
-deformed_keypoints = utils.deform_keypoints(keypoints,
-                                            displacement_unit.detach().clone())
+deformed_image = registrationbaselines.warping.deform_objects.deform_image(image,
+                                                                           displacement_unit.detach().clone())
+deformed_keypoints = registrationbaselines.warping.deform_objects.deform_keypoints(keypoints,
+                                                                                   displacement_unit.detach().clone())
 
 
 plot_all_registration_results(moving_image=image,

@@ -6,6 +6,8 @@ import nibabel as nib
 import torch
 import numpy as np
 
+import registrationbaselines.warping.deform_objects
+
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
@@ -22,14 +24,16 @@ path_moving = Path(
     "registrationbaselines/tests/images/moving_x_11.nii.gz")
 shape = nib.load(path_fixed).shape
 
-result_registration = utils.register_niftyreg(path_fixed, path_moving)
+result_registration = registrationbaselines.warping.deform_objects.register_niftyreg(
+    path_fixed, path_moving)
 
 # result_registration = {"warped": Path("registrationbaselines/tests/images/moving_x_11_warped.nii.gz"),
 #                        "deformation": Path("registrationbaselines/tests/images/deformation.nii.gz")}
 
 NUMBER_OF_PIXELS = np.prod(shape)
 TRUE_WARPED = nib.load(result_registration["warped"]).get_fdata()
-TRUE_WARPED_SITK = sitk.GetArrayFromImage(sitk.ReadImage(result_registration["warped"]))
+TRUE_WARPED_SITK = sitk.GetArrayFromImage(
+    sitk.ReadImage(result_registration["warped"]))
 
 
 # get amount of valeues in TRUE_WARPED that are not nan
@@ -39,8 +43,8 @@ TRUE_WARPED_NOT_NAN = np.sum(~np.isnan(TRUE_WARPED))
 # LOAD WITH NiftyReg AND DEFORM WITH NiftyReg
 ###########################################################################################################################################
 
-result_warping_manual_path = utils.deform_image_niftyreg_path(path_moving,
-                                                              result_registration["deformation"])
+result_warping_manual_path = registrationbaselines.warping.deform_objects.deform_image_niftyreg_path(path_moving,
+                                                                                                     result_registration["deformation"])
 diff = TRUE_WARPED - nib.load(result_warping_manual_path).get_fdata()
 
 print("\nLOAD WITH NiftyReg AND DEFORM WITH NiftyReg")
@@ -62,8 +66,8 @@ utils.print_histogram(torch.from_numpy(
 nib_deformation = nib.load(result_registration["deformation"])
 nib_moving = nib.load(path_moving)
 
-result_warping_manual_nibabel = utils.deform_image_niftyreg_nibabel(nib_moving,
-                                                                    nib_deformation)
+result_warping_manual_nibabel = registrationbaselines.warping.deform_objects.deform_image_niftyreg_nibabel(nib_moving,
+                                                                                                           nib_deformation)
 
 diff = TRUE_WARPED - result_warping_manual_nibabel.get_fdata()
 print("\nLOAD WITH nibabel AND DEFORM WITH NiftyReg")
@@ -83,8 +87,8 @@ utils.print_histogram(torch.from_numpy(
 numpy_deformation = nib.load(result_registration["deformation"]).get_fdata()
 numpy_moving = nib.load(path_moving).get_fdata()
 
-result_warping_manual_numpy = utils.deform_image_niftyreg_numpy(numpy_moving,
-                                                                numpy_deformation)
+result_warping_manual_numpy = registrationbaselines.warping.deform_objects.deform_image_niftyreg_numpy(numpy_moving,
+                                                                                                       numpy_deformation)
 
 diff = TRUE_WARPED - result_warping_manual_numpy
 print("\nLOAD WITH NUMPY AND DEFORM WITH NiftyReg")
@@ -94,7 +98,8 @@ print(np.sum(np.abs(diff))/NUMBER_OF_PIXELS)
 nib.save(nib.Nifti1Image(result_warping_manual_numpy,
                          nib_moving.affine), "registrationbaselines/tests/images/warped_numpy.nii.gz")
 
-utils.print_histogram(torch.from_numpy(result_warping_manual_numpy), 10)
+utils.print_histogram(
+    torch.from_numpy(result_warping_manual_numpy), 10)
 
 ###########################################################################################################################################
 # LOAD WITH TORCH AND DEFORM WITH NiftyReg
@@ -104,8 +109,8 @@ torch_deformation = torch.from_numpy(
     nib.load(result_registration["deformation"]).get_fdata())
 torch_moving = torch.from_numpy(
     nib.load(path_moving).get_fdata())
-result_warping_manual_torch = utils.deform_image_niftyreg_torch(torch_moving,
-                                                                torch_deformation)
+result_warping_manual_torch = registrationbaselines.warping.deform_objects.deform_image_niftyreg_torch(torch_moving,
+                                                                                                       torch_deformation)
 diff = TRUE_WARPED - result_warping_manual_torch.cpu().numpy()
 print("\nLOAD WITH TORCH AND DEFORM WITH NiftyReg")
 print(np.sum(np.abs(diff))/NUMBER_OF_PIXELS)

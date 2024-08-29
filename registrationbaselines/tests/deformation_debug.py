@@ -10,6 +10,8 @@ import torch
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 
+import registrationbaselines.warping.deform_objects
+
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
@@ -58,7 +60,8 @@ ours_original_warped = utils.load_image(path_original_warped)
 ours_moving = utils.load_image(path_moving)
 ours_fixed = utils.load_image(path_fixed)
 
-ours_warped = utils.deform_image(ours_moving, ours_displacement)
+ours_warped = registrationbaselines.warping.deform_objects.deform_image(
+    ours_moving, ours_displacement)
 
 # cretae figure with three subplots in one row
 fig, axs = plt.subplots(1, 5, figsize=(10, 5))

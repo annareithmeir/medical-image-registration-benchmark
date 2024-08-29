@@ -12,6 +12,8 @@ import math
 import torch.nn.functional as F
 import ants
 
+import registrationbaselines.warping.utils_displacement
+
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.core import utils  # nopep8
@@ -147,13 +149,13 @@ deformed_image_ants_z = utils.deform_image_ants(image,
 deformed_image_ants_xyz = utils.deform_image_ants(image,
                                                   displacement_xyz.detach().clone())  # [..., [2, 1, 0]])
 
-displacement_unit_x = utils.displacement_to_unit_displacement(
+displacement_unit_x = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
     displacement_x.detach().clone())
-displacement_unit_y = utils.displacement_to_unit_displacement(
+displacement_unit_y = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
     displacement_y.detach().clone())
-displacement_unit_z = utils.displacement_to_unit_displacement(
+displacement_unit_z = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
     displacement_z.detach().clone())
-displacement_unit_xyz = utils.displacement_to_unit_displacement(
+displacement_unit_xyz = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
     displacement_xyz.detach().clone())
 
 # plot_all_registration_results(moving_image=image,

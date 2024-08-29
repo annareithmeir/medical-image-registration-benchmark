@@ -7,6 +7,8 @@ import torch
 import SimpleITK as sitk
 import torchio as tio
 
+import registrationbaselines.warping.utils_displacement
+
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
 import registrationbaselines.core.utils as utils
@@ -221,7 +223,8 @@ class TestSaveLoad(unittest.TestCase):
 
         # saved has right intent code
         image = torch.rand(10, 10, 10, 3, dtype=torch.float32)
-        image = utils.displacement_to_unit_displacement(image)
+        image = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+            image)
 
         utils.save_displacement(image, dummy_path, (1, 1, 1, 1))
 
