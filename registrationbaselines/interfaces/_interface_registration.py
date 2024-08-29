@@ -34,6 +34,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
     evaluator: Evaluation
     use_masked_evaluation: bool
 
+    model_path: Path
+
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
@@ -171,13 +173,13 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         # SAVE DEFORMED IMAGE
         save.save_image(deformed,
-                                               self.path_result_deformed,
-                                               self.dataloader.spacing)
+                        self.path_result_deformed,
+                        self.dataloader.spacing)
 
         # SAVE DEFORMATION
         save.save_displacement(deformation,
-                                                      self.path_result_deformation,
-                                                      self.dataloader.spacing + (1,))
+                               self.path_result_deformation,
+                               self.dataloader.spacing + (1,))
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(
