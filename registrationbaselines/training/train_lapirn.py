@@ -26,7 +26,7 @@ gc.collect()
 torch.cuda.empty_cache()
 
 
-class LapIRNTraining(TrainingInterface):
+class LapIRN(TrainingInterface):
     """
     Training procedure for LapIRN network (https://github.com/cwmok/LapIRN)
     """
