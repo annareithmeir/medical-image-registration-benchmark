@@ -65,10 +65,10 @@ class Evaluation():
             fixed_name = str(item["fixed_image"].stem).split('.')[0]
 
             if self.use_masked_evaluation:
-                segmentation_fixed = load.load_image(
-                    item["fixed_segmentations"])
+                image_fixed = load.load_image(
+                    item["fixed_image"])
                 fixed_evaluation_mask: Union[intArray3D, None] = utils.get_convex_hull_mask(
-                    segmentation_fixed.detach().cpu().numpy())
+                    image_fixed.detach().cpu().numpy())
             else:
                 fixed_evaluation_mask = None
 
@@ -142,9 +142,9 @@ class Evaluation():
                                                                     moving_image_path.name,
                                                                     extension_overwrite=''.join(path_displacement.suffixes))
                 # todo check that loaded is the same as deformed up to some epsilon
-                deformed_image = load.load_image(deformed_image_path)
-                # deformed_image = utils.deform_image(moving_image, displacement)
-                # utils.save_image(deformed_image,  path_displacement, (1.75, 1.75, 1.75))
+                # deformed_image = load.load_image(deformed_image_path)
+                deformed_image = deform_objects.deform_image(moving_image,
+                                                             displacement)
 
             if self.use_masked_evaluation:
                 fixed_mask = utils.get_convex_hull_mask(
