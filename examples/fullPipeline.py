@@ -43,12 +43,11 @@ def main() -> None:
     Main function to run the full registration and evaluation pipeline.
     """
 
-    base_dir = Path(__file__).parent.parent.absolute()
-
-    method = "BSplineNiftyReg"
-
-    path_config = base_dir / f"registrationbaselines/configs/{method}.yaml"
-    config = utils.read_config(path_config)
+    # method = "SyNANTs"
+    method = "DemonsSITK"
+    # method = "BSplineNiftyReg"
+    # method = "AffineNiftyReg"
+    # method = "VoxelMorph"
 
     config = get_non_wand_config(config)
 
@@ -58,45 +57,47 @@ def main() -> None:
     elif machine_name == "janus":
         path_data = Path("/data/LungCT_preprocessed")
     else:
-        path_data = Path("/home/anna/datasets/LungCT_preprocessed")
-        # path_data = Path("/home/anna/datasets/FIRE")
+        path_data = Path("/home/anna/datasets/AbdomenMRCT_preprocessed")
 
+    #####################################################################################################
+    # REGISTER A REAL DATASET
+    #####################################################################################################
     loader_data = data_loaders.L2RLungCTDataset(path_data,
                                                 return_type="path_dict",
-                                                indices=[0])
-    # loader_data.preprocess(Path("/home/anna/datasets/LungCT_preprocessed"))
-    use_wandb = False
-    registration = BSplineNiftyReg(config,
-                                   loader_data,
-                                   use_wandb=False)
+                                                indices=[i for i in range(2)])
+    # loader_data = data_loaders.L2RAbdominalMRCTDataset(path_data,
+    #                                                    return_type="path_dict",
+    #                                                    indices=[0, 1])
+    # loader_data = data_loaders.ImagePairDataset([[Path("/u/home/koeglf/Documents/code/registrationbaselines/fixed_x_11.nii.gz"),
+    #                                               Path("/u/home/koeglf/Documents/code/registrationbaselines/moving_x_11.nii.gz")]],
+    #                                             return_type="path_dict")
 
-    registration._create_result_directories(method)
+    if method == "BSplineNiftyReg":
+        registration_object = BSplineNiftyReg
+    elif method == "SyNANTs":
+        registration_object = SyNANTs
+    elif method == "VoxelMorph":
+        registration_object = VoxelMorph
+    elif method == "DemonsSITK":
+        registration_object = DemonsSITK
+    elif method == "AffineNiftyReg":
+        registration_object = AffineNiftyReg
 
-    for item in loader_data:
-        break
-        fixed = item["fixed_image"]
-        moving = item["moving_image"]
-        registration.register(fixed, moving)
+    registration = registration_object(path_config,
+                                       loader_data,
+                                       use_masked_evaluation=True)
 
-    # registration.register_all_parametr_sets(loader_data)
+    #############################
+    # with register_dataset()
+    #############################
+    registration.evaluate_with_zero_displacement()
+    registration.execute_with_one_parameter_set()
 
-    print("\nevaluate...")
-
-    result_path = Path(config["parameters"]["result_path"]
-                       ["value"]) if use_wandb else Path(config["result_path"])
-
-    loader_transformations = data_loaders.BaselineTransformations(
-        registration.method_dir)
-
-    evaluation = Evaluation(result_path,
-                            method,
-                            loader_data,
-                            loader_transformations)
-    # evaluation.evaluate()
-    print("\nplot...")
-
-    evaluation.visualize()
-    print("\ndone\n\n")
+    #############################
+    # with perform_wandb_sweep()
+    #############################
+    # registration.evaluate_with_zero_displacement()
+    # registration.perform_wandb_sweep()
 
 
 if __name__ == "__main__":
