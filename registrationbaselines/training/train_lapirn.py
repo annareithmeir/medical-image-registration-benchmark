@@ -13,7 +13,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))
 # if we dont do this then LapIRN.Code.miccai2020_model_stage.py can't import Functions
 sys.path.append(str(Path(__file__).parent.parent.absolute() / "dl_repos/LapIRN/Code"))
 
-from registrationbaselines.training._interface_training import TrainingInterface
+from registrationbaselines.interfaces._interface_training import TrainingInterface
 from registrationbaselines.dl_repos.LapIRN.Code.Functions import generate_grid, transform_unit_flow_to_flow_cuda
 from registrationbaselines.dl_repos.LapIRN.Code.miccai2020_model_stage import Miccai2020_LDR_laplacian_unit_disp_add_lvl1, \
     Miccai2020_LDR_laplacian_unit_disp_add_lvl2, Miccai2020_LDR_laplacian_unit_disp_add_lvl3, SpatialTransform_unit, \

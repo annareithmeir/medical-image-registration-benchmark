@@ -1,13 +1,12 @@
 from pathlib import Path
 
-from typing import Union, Tuple, Any
+from typing import Tuple, Any
 
 import numpy as np
-from scipy.ndimage import zoom
 import ants.utils as utils_ants
 import SimpleITK as sitk
 
-from registrationbaselines.core import utils
+from registrationbaselines.io import load
 from registrationbaselines.core.types import floatArray2Dor3D
 
 # intent codes for nifti files - at the moment we only need NIFTI_INTENT_DISPVECT for setting the displacement field
@@ -60,7 +59,7 @@ def transform_nifti_image_with_matrix(path_image: Path,
         ".nii", ".gz"], "The image file must be a NIfTI file."
 
     # Load the image
-    image = utils.load_image(path_image)
+    image = load.load_image(path_image)
 
     # Get the current affine transform
     current_affine = np.array(image.GetDirection(),
@@ -109,7 +108,7 @@ def resample_nifti_image_isotropically(path_image: Path,
         ".nii", ".gz"], "The image file must be a NIfTI file."
 
     # Load the image
-    image = utils.load_image(path_image)
+    image = load.load_image(path_image)
 
     # Get the current spacing
     spacing = image.GetSpacing()  # type: ignore
@@ -183,13 +182,8 @@ def set_intent_code(path: Path, intent_code: str) -> None:
     header = image.header
     data: np.ndarray[Any, Any] = image.get_fdata()  # type: ignore
 
-    data=data.astype(np.float32)
-
     # set the code
     header.set_intent(nib.nifti1.intent_codes[intent_code])
-
-    # set dtype to float32
-    header.set_data_dtype(np.float32)
 
     # create new image
     new_image = nib.Nifti1Image(data, image.affine, header)
@@ -199,6 +193,41 @@ def set_intent_code(path: Path, intent_code: str) -> None:
         nib.save(new_image, path.as_posix())
     except Exception as e:
         print(f"Error saving the file: {e}")
+
+
+def set_nifti_metadata_key_nibabel(path: Path, key: str, value: str) -> None:
+    import nibabel as nib
+    from nibabel.nifti1 import Nifti1Image
+
+    image: Nifti1Image = nib.load(path)  # type: ignore
+
+    # we have to construct a new image with the new intent code, otherwise we cannot overwrite
+    header = image.header
+    data: np.ndarray[Any, Any] = image.get_fdata()  # type: ignore
+
+    # create new image
+    new_image = nib.Nifti1Image(data, image.affine, header)
+
+    # save the new image
+    try:
+        nib.save(new_image, path.as_posix())
+    except Exception as e:
+        print(f"Error saving the file: {e}")
+
+
+def set_nifti_metadata_key_sitk(path: Path, key: str, value: str) -> None:
+    image = sitk.ReadImage(path)
+
+    # Set the metadata key
+    image.SetMetaData(key, value)
+
+    # Write the image
+    sitk.WriteImage(image, path)
+
+    # check that it worked
+    image_test = sitk.ReadImage(path)
+    if image_test.GetMetaData(key) != value:
+        raise ValueError(f"Metadata key {key} was not set to {value}.")
 
 
 def convert_h5_to_nii(path_fixed: Path, path_h5: Path, path_niigz: Path) -> None:

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import SimpleITK as sitk
 
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 
 
 class AffineSITK(RegistrationInterface):

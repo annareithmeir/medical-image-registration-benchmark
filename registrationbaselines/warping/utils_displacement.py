@@ -1,6 +1,8 @@
-from typing import List, Union
+from typing import Union
 
 import torch
+
+from registrationbaselines.core import utils
 
 
 def compute_grid(image_size: torch.Size,
@@ -59,3 +61,46 @@ def compute_grid(image_size: torch.Size,
         return torch.cat((x, y, z), 4).to(dtype=dtype, device=device)
     else:
         raise ValueError(f"Error: {dim} is not a valid grid dimension.")
+
+
+def displacement_to_unit_displacement(displacement: torch.Tensor) -> torch.Tensor:
+    """
+    Convert a displacement field to a unit displacement field.
+    The standard unit of displacement is a half-image, so a displacement vector of magnitude 2
+    means that the displacement distance is equal to the side length of the displaced image.
+    """
+
+    disp = torch.zeros_like(displacement)
+
+    for dim in range(displacement.shape[-1]):
+        disp[..., dim] = 2.0 * displacement[..., dim] / \
+            float(displacement.shape[-dim - 2] - 1)
+
+    return disp
+
+
+def unit_displacement_to_displacement(displacement: torch.Tensor) -> torch.Tensor:
+
+    disp = torch.zeros_like(displacement)
+
+    for dim in range(displacement.shape[-1]):
+        disp[..., dim] = float(
+            displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
+
+    return disp
+
+
+def reverse_axis(image: torch.Tensor) -> torch.Tensor:
+    """
+    Flips the order of the axis representing the space dimensions (preceeding dimensions are ignored).
+    Respectively, the axis holding the vectors is flipped as well
+
+    Note: the method is inplace
+    """
+    # reverse order of axis to follow the convention of SimpleITK
+    order = list(reversed(range(image.ndim-1)))
+    order.append(len(order))
+    image = image.squeeze_().permute(tuple(order))
+    image = utils.flip(image, image.ndim-1)
+
+    return image

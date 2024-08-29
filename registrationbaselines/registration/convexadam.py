@@ -1,7 +1,8 @@
 import gc
+import registrationbaselines.io.io
+import registrationbaselines.warping.deform_objects
 from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
-from registrationbaselines.registration._interface_registration import RegistrationInterface
-import registrationbaselines.core.utils as utils
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 import time
 from pathlib import Path
 from typing import Optional, Union
@@ -51,9 +52,9 @@ class ConvexAdam(RegistrationInterface):
         ), f"File {self.moving_path} does not exist."
 
         image_moving = torch.from_numpy(
-            utils.load_image(self.moving_path))
+            registrationbaselines.io.io.load_image(self.moving_path))
         image_fixed = torch.from_numpy(
-            utils.load_image(self.fixed_path))
+            registrationbaselines.io.io.load_image(self.fixed_path))
         assert image_fixed.shape == image_moving.shape
 
         self.result_transformed_image_path, \
@@ -93,7 +94,7 @@ class ConvexAdam(RegistrationInterface):
                 ic=self.configuration['ic']
             )
 
-        image_deformed = utils.deform_image(image_fixed.numpy(
+        image_deformed = registrationbaselines.warping.deform_objects.deform_image(image_fixed.numpy(
         ), image_moving.numpy(), displacement_field.squeeze(), sitk.sitkLinear)
         self._save_results(image_deformed.squeeze(),
                            displacement_field.squeeze())
@@ -140,9 +141,9 @@ class ConvexAdam(RegistrationInterface):
 
         if use_mask:
             mask_fixed = torch.from_numpy(
-                utils.load_image(path_fixed_mask).astype(float))
+                registrationbaselines.io.io.load_image(path_fixed_mask).astype(float))
             mask_moving = torch.from_numpy(
-                utils.load_image(path_moving_mask).astype(float))
+                registrationbaselines.io.io.load_image(path_moving_mask).astype(float))
         else:
             mask_fixed = None
             mask_moving = None
@@ -297,9 +298,9 @@ class ConvexAdam(RegistrationInterface):
                                       ".nii.gz",
                                       ".nii.gz")
 
-        utils.save_image(
+        registrationbaselines.io.io.save_image(
             image_deformed, self.result_transformed_image_path)
-        utils.save_image(
+        registrationbaselines.io.io.save_image(
             displacement_field, self.result_transformation_path)
 
     def _extract_features_mind(self,

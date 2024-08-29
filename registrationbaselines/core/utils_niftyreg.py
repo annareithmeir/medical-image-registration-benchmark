@@ -4,35 +4,33 @@ import os
 from registrationbaselines.core import utils_commandline
 
 
-def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
-                                                     fixed_path: Path) -> Path:
+def convert_transformation_to_displacement_field(transformation_path: Path,
+                                                 fixed_path: Path) -> Path:
     """
     Helper function for NiftyReg.
     """
 
-    assert control_grid_path.exists(
-    ), f"File {control_grid_path} does not exist."
+    assert transformation_path.exists(
+    ), f"File {transformation_path} does not exist."
     assert fixed_path.exists(), f"File {fixed_path} does not exist."
 
-    assert control_grid_path.suffix == '.nii' or control_grid_path.suffixes == ['.nii', '.gz'], \
-        f"File {control_grid_path} is not a nifti file."
     assert fixed_path.suffix == '.nii' or fixed_path.suffixes == ['.nii', '.gz'], \
         f"File {fixed_path} is not a nifti file."
 
     # create command
-    if control_grid_path.suffixes == ['.nii', '.gz']:
+    if transformation_path.suffixes == ['.txt']:
         path_displacement = Path(
-            control_grid_path.as_posix().replace("_temp.nii", ".nii"))
+            transformation_path.as_posix().replace("_temp.txt", ".nii.gz"))
     else:
         path_displacement = Path(
-            control_grid_path.as_posix().replace("_temp.nii", ".nii"))
+            transformation_path.as_posix().replace("_temp.nii", ".nii"))
 
     base_dir = Path(__file__).parent.parent.parent.absolute()
     path_reg_transform = Path(
         base_dir / "registrationbaselines/libraries/NiftyReg/reg_transform_ubuntu")
     command_line_list = [path_reg_transform.as_posix(),
                          "-ref", fixed_path.as_posix(),
-                         "-disp", control_grid_path.as_posix(),
+                         "-disp", transformation_path.as_posix(),
                          path_displacement]
 
     utils_commandline.run_command_in_terminal(command_line_list,
@@ -40,7 +38,7 @@ def convert_control_point_grid_to_displacement_field(control_grid_path: Path,
                                               print_command_list=False)
 
     # remove the temporary control point grid
-    os.remove(control_grid_path)
+    os.remove(transformation_path)
 
     return path_displacement
 

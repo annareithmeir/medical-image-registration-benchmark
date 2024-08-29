@@ -3,9 +3,10 @@ import sys
 import os
 
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
-from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils, utils_voxelmorph
+from registrationbaselines.core import utils_voxelmorph
 from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
+from registrationbaselines.io import load
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'
@@ -14,27 +15,29 @@ os.environ['VXM_BACKEND'] = 'pytorch'
 sys.path.append(str(Path(__file__).parent.absolute().parent))
 
 
-class VoxelMorphReg(RegistrationInterface):
+class VoxelMorph(RegistrationInterface):
     def __init__(self,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset):
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True):
         """
         Initialize the registration model - inference is performed here.
         """
 
         super().__init__("VoxelMorph",
                          configuration_path,
-                         dataloader)
+                         dataloader,
+                         use_masked_evaluation)
 
         # from config
         self.path_model = Path(
-            self.configuration["parameters"]["model_path"]["values"][0])
+            self.general_configuration["parameters"]["model_path"]["values"][0])
 
-        self.gpu_number = self.configuration["parameters"]['gpu_number']["values"][0]
+        self.gpu_number = self.general_configuration["parameters"]['gpu_number']["values"][0]
         self.device = self.__handle_device_selection()
 
         self.number_of_layers = len(
-            self.configuration["parameters"]['enc']["values"][0])
+            self.general_configuration["parameters"]['enc']["values"][0])
 
     def _register(self,
                   fixed_image_path: Path,
@@ -44,8 +47,8 @@ class VoxelMorphReg(RegistrationInterface):
         self.path_moving = moving_image_path
 
         # load moving and fixed images
-        fixed = utils.load_image(self.path_fixed).to(self.device)
-        moving = utils.load_image(self.path_moving).to(self.device)
+        fixed = load.load_image(self.path_fixed).to(self.device)
+        moving = load.load_image(self.path_moving).to(self.device)
         ori_shape = moving.shape
 
         # convert tensors to shapes accepted by voxelmorph, by padding
