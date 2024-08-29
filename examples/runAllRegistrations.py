@@ -30,12 +30,19 @@ def main() -> None:
 
     base_dir = Path(__file__).parent.absolute().parent
 
-    methods: Dict[Type[Union[SyNANTs, DemonsSITK]], Path] = {
+    methods: Dict[Type[Union[VoxelMorph, SyNANTs, DemonsSITK]], Path] = {
+        VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
         SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
         DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
     }
 
-    indices = random.sample(range(1, 9), 2)
+    models = [
+        [base_dir / "tmp/test_all_trains/LungCT/VoxelMorph/train/VoxelMorph_ethereal-sweep-1/model_epoch00001_final.pt"],
+        [base_dir / "tmp/test_all_trains/AbdomenMRCT/VoxelMorph/train/VoxelMorph_smooth-sweep-1/model_epoch00001_final.pt"],
+        [base_dir / "tmp/test_all_trains/image_pairs/VoxelMorph/train/VoxelMorph_96cdca95-03ef-4654-a663-c65c557ccccf/model_epoch00001_final.pt"]
+    ]
+
+    indices = random.sample(range(1, 8), 2)
     datasets = [
         data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed"),
                                       return_type="path_dict",
@@ -52,14 +59,21 @@ def main() -> None:
 
     first_dataset_evaluation = True
 
-    for dataset in datasets:
+    for i, dataset in enumerate(datasets):
         first_dataset_evaluation = True
 
-        for method, config_path in methods.items():
+        for j, (method, config_path) in enumerate(methods.items()):
 
-            registration = method(config_path,
-                                  dataset,
-                                  use_masked_evaluation=True)
+            # get method name
+            if method.__name__ in ["VoxelMorph"]:
+                registration = method(config_path,
+                                      dataset,
+                                      use_masked_evaluation=True,
+                                      model_path=models[i][j])
+            else:
+                registration = method(config_path,
+                                      dataset,
+                                      use_masked_evaluation=True)
 
             if first_dataset_evaluation and dataset.name != "image_pairs":
                 registration.evaluate_with_zero_displacement()
@@ -67,7 +81,8 @@ def main() -> None:
 
             registration.execute_with_one_parameter_set()
 
-            registration.perform_wandb_sweep()
+            if not hasattr(registration, "model_path"):
+                registration.perform_wandb_sweep()
 
 
 if __name__ == "__main__":
