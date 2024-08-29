@@ -18,7 +18,7 @@ class DemonsSITK(RegistrationInterface):
     sitk.SymmetricForcesDemonsRegistrationFilter
     sitk.FastSymmetricForcesDemonsRegistrationFilter
     """
-    
+
     def __init__(self,
                  configuration_path: Path,
                  dataloader: data_loaders.GenericDataset,
@@ -98,7 +98,19 @@ class DemonsSITK(RegistrationInterface):
 
     def _create_displacement_field(self) -> sitk.DisplacementFieldTransform:
 
-        demons = sitk.FastSymmetricForcesDemonsRegistrationFilter()
+        filter_type = self.run_configuration['filter_type']
+
+        if filter_type == "DemonsRegistrationFilter":
+            demons = sitk.DemonsRegistrationFilter()
+        elif filter_type == "SymmetricForcesDemonsRegistrationFilter":
+            demons = sitk.SymmetricForcesDemonsRegistrationFilter()
+        elif filter_type == "FastSymmetricForcesDemonsRegistrationFilter":
+            demons = sitk.FastSymmetricForcesDemonsRegistrationFilter()
+        elif filter_type == "DiffeomorphicDemonsRegistrationFilter":
+            demons = sitk.DiffeomorphicDemonsRegistrationFilter()
+        else:
+            raise ValueError("Invalid Demons filter type.")
+        
         demons.SetNumberOfIterations(
             self.run_configuration['number_of_iterations'])
 
