@@ -1,14 +1,10 @@
 from pathlib import Path
-from tqdm import tqdm
 
-from typing import List, Dict, Any
+from typing import List
 
-import wandb
-
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
-from registrationbaselines.evaluation.evaluation import Evaluation
 
 
 class BSplineNiftyReg(RegistrationInterface):
@@ -18,31 +14,24 @@ class BSplineNiftyReg(RegistrationInterface):
     """
 
     def __init__(self,
-                 configuration: Dict[str, Any],
+                 configuration_path: Path,
                  dataloader: data_loaders.GenericDataset,
-                 use_wandb: bool) -> None:
+                 use_masked_evaluation: bool = True) -> None:
 
-        self.use_wandb = use_wandb
+        super().__init__("BSplineNiftyReg",
+                         configuration_path,
+                         dataloader,
+                         use_masked_evaluation)
 
-        self.method_name = "BSplineNiftyReg"
-
-        self.configuration = configuration
-
-        self.dataloader = dataloader
-
-        base_dir = Path(__file__).parent.parent.absolute().parent
-        self.path_reg_f3d = base_dir / Path(
+        self.path_reg_f3d = self.base_dir / Path(
             "registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
-
-        # paths
-        self.path_working_dir_path = Path()
 
         # command to call NiftyReg
         self.command: List[str] = []
 
-    def register(self,
-                 fixed_image_path: Path,
-                 moving_image_path: Path) -> None:
+    def _register(self,
+                  fixed_image_path: Path,
+                  moving_image_path: Path) -> None:
         """
             Test
         """
@@ -63,47 +52,14 @@ class BSplineNiftyReg(RegistrationInterface):
                                                   print_command_list=False)
 
         self.path_result_deformation = \
-            utils_niftyreg.convert_control_point_grid_to_displacement_field(
+            utils_niftyreg.convert_transformation_to_displacement_field(
                 self.result_control_grid_path, self.path_fixed)
 
         # assign intent code to the displacement field
         utils_nifti.set_intent_code(
             self.path_result_deformation, "NIFTI_INTENT_DISPVECT")
 
-    def _register_wandb_wrapper(self) -> None:
-        """
-        Register and evaluate all files and log to wand.
-
-        @return: None
-        """
-
-        # IMPORTANT: this has to be called after creating wandb.agent()
-        wandb.init(mode="offline")
-
-        method_name_encoded = self.method_name + \
-            f"_sim{wandb.config.similarity_metric.replace('-', '').replace(' ', '_')}"
-
-        self._create_result_directories(method_name_encoded)
-
-        for item in tqdm(self.dataloader):
-            # break
-            self.register(item["fixed_image"], item["moving_image"])
-
-        loader_transformations = data_loaders.BaselineTransformations(
-            self.method_dir)
-
-        evaluation = Evaluation(Path(wandb.config.result_path),
-                                self.method_dir.name,
-                                self.dataloader,
-                                loader_transformations)
-
-        evaluation.evaluate()
-
-        evaluation.visualize()
-
-        evaluation.wandb_log()
-
-    def __create_registration_command_list(self):
+    def __create_registration_command_list(self) -> None:
         """
         Create the command line list for the registration.
         """
@@ -124,13 +80,11 @@ class BSplineNiftyReg(RegistrationInterface):
                         '-res', self.path_result_deformed.as_posix(),
                         '-cpp', self.result_control_grid_path.as_posix()]
 
-        config: Any = self.configuration if not self.use_wandb else wandb.config
-
         self.command = utils_commandline.add_configuration_to_command(self.command,
-                                                                      config,
+                                                                      self.run_configuration,
                                                                       only_value=True)
 
-    def __outputs_exist(self):
+    def __outputs_exist(self) -> bool:
         """
         We need this because it's not clear that blockmatching returns non-zero
         when failed

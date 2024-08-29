@@ -1,22 +1,28 @@
 from pathlib import Path
 import sys
 import os
-import wandb
 import time
+
+from typing import Optional
+
+import wandb
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+import gc
+
+from registrationbaselines.interfaces._interface_training import TrainingInterface
+from registrationbaselines.core import utils_voxelmorph
+import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
+from registrationbaselines.data_loading import data_loaders
 
 os.environ['NEURITE_BACKEND'] = 'pytorch'
 os.environ['VXM_BACKEND'] = 'pytorch'
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
-import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
-from registrationbaselines.core.training_interface import TrainingInterface
 
-import gc
 gc.collect()
 torch.cuda.empty_cache()
 
@@ -26,21 +32,22 @@ class VoxelmorphTraining(TrainingInterface):
     Training for voxelmorph.
     """
 
-    def __init__(self, train_dataset: Dataset, config_path: Path(), val_dataset: Dataset = None):
+    def __init__(self,
+                 train_dataset: data_loaders.GenericDataset,
+                 configuration_path: Path,
+                 val_dataset: Optional[data_loaders.GenericDataset] = None):
 
-        self.method = "voxelmorph"
+        super().__init__("VoxelMorph",
+                         configuration_path,
+                         train_dataset,
+                         val_dataset)
 
-        # paths
-        self.train_dataset = train_dataset
-        self.val_dataset = val_dataset
-        self.config = self.read_config(config_path)
-        self.base_dir = Path(__file__).parent.parent.absolute().parent
+        new_shape = utils_voxelmorph.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
+                                                                    len(self.general_configuration["parameters"]["enc"]["values"][0]))
 
-        print(self.config)
-        print(type(self.config['enc']))
-
-        if self.config['use_wandb']:
-            self.init_wandb(self.base_dir / self.config['wandb_config_path'])
+        self.train_dataset.image_shape = new_shape
+        if self.val_dataset:
+            self.val_dataset.image_shape = new_shape
 
     def scan_to_scan_generator(self, dataset: Dataset):
         """
@@ -54,19 +61,30 @@ class VoxelmorphTraining(TrainingInterface):
         """
 
         dataloader = DataLoader(
-            dataset, batch_size=self.config['batch_size'], shuffle=True)
+            dataset, batch_size=self.run_configuration['batch_size'], shuffle=True)
         while True:
-            x, y = next(iter(dataloader))
+            item = next(iter(dataloader))
+
+            y = item['fixed_image']
+            x = item['moving_image']
+
+            x = x.unsqueeze(0)
+            y = y.unsqueeze(0)
+
+            x = utils_voxelmorph.pad_tensor_to_shape(
+                x, self.train_dataset.image_shape)
+            y = utils_voxelmorph.pad_tensor_to_shape(
+                y, self.train_dataset.image_shape)
 
             shape = x.shape[2:]
             zeros = torch.from_numpy(
-                np.zeros((self.config['batch_size'], len(shape), *shape)))
+                np.zeros((self.run_configuration['batch_size'], len(shape), *shape)))
 
             invols = [x, y]
             outvols = [y, zeros]
             yield (invols, outvols)
 
-    def train(self):
+    def _train(self) -> None:
 
         assert len(self.train_dataset) > 0, 'Could not find any training data.'
         print('Training with dataset of length ', len(self.train_dataset))
@@ -79,45 +97,41 @@ class VoxelmorphTraining(TrainingInterface):
             val_generator = self.scan_to_scan_generator(self.val_dataset)
 
         # extract shape from sampled input
-        inshape = self.train_dataset.img_shape
-
-        # prepare model folder
-        model_dir = self.base_dir / self.config['result_model_path']
-        os.makedirs(model_dir, exist_ok=True)
+        inshape = self.train_dataset.image_shape
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print('Using device:', device)
         print()
 
         # device handling
-        gpus = self.config['gpu'].split(',')
+        gpus = self.run_configuration['gpu'].split(',')
         nb_gpus = len(gpus)
         print('nb_gpus: ', nb_gpus)
         # device = 'cuda'
-        os.environ['CUDA_VISIBLE_DEVICES'] = self.config['gpu']
-        assert np.mod(self.config['batch_size'], nb_gpus) == 0, \
+        os.environ['CUDA_VISIBLE_DEVICES'] = self.run_configuration['gpu']
+        assert np.mod(self.run_configuration['batch_size'], nb_gpus) == 0, \
             'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (
-                self.config['batch_size'], nb_gpus)
+                self.run_configuration['batch_size'], nb_gpus)
 
         # enabling cudnn determinism appears to speed up training by a lot
-        torch.backends.cudnn.deterministic = not self.config['cudnn_nondet']
+        torch.backends.cudnn.deterministic = not self.run_configuration['cudnn_nondet']
 
         # unet architecture
-        enc_nf = self.config['enc']
-        dec_nf = self.config['dec']
+        enc_nf = self.run_configuration['enc']
+        dec_nf = self.run_configuration['dec']
 
-        if self.config['load_model']:
+        if self.run_configuration['load_model']:
             # load initial model (if specified)
             model = vxm.networks.VxmDense.load(
-                self.config['load_model'], device)
+                self.run_configuration['load_model'], device)
         else:
             # otherwise configure new model
             model = vxm.networks.VxmDense(
                 inshape=inshape,
                 nb_unet_features=[enc_nf, dec_nf],
-                bidir=self.config['bidir'],
-                int_steps=self.config['int_steps'],
-                int_downsize=self.config['int_downsize']
+                bidir=self.run_configuration['bidir'],
+                int_steps=self.run_configuration['int_steps'],
+                int_downsize=self.run_configuration['int_downsize']
             )
 
         if nb_gpus > 1:
@@ -128,24 +142,24 @@ class VoxelmorphTraining(TrainingInterface):
         # prepare the model for training and send to device
         model.to(device)
         self.model = model
-        if self.config['initial_weights_path'] is not None:
-            self.save_initial_weights()
+        self.save_initial_weights()
         model.train()
 
         # set optimizer
-        optimizer = torch.optim.Adam(model.parameters(), lr=self.config['lr'])
+        optimizer = torch.optim.Adam(
+            model.parameters(), lr=self.run_configuration['lr'])
 
         # prepare image loss
-        if self.config['sim_loss'] == 'ncc':
+        if self.run_configuration['sim_loss'] == 'ncc':
             image_loss_func = vxm.losses.NCC().loss
-        elif self.config['sim_loss'] == 'mse':
+        elif self.run_configuration['sim_loss'] == 'mse':
             image_loss_func = vxm.losses.MSE().loss
         else:
             raise ValueError(
-                'Image loss should be "mse" or "ncc", but found "%s"' % self.config['image_loss'])
+                'Image loss should be "mse" or "ncc", but found "%s"' % self.run_configuration['image_loss'])
 
         # need two image loss functions if bidirectional
-        if self.config['bidir']:
+        if self.run_configuration['bidir']:
             losses = [image_loss_func, image_loss_func]
             weights = [0.5, 0.5]
         else:
@@ -154,23 +168,24 @@ class VoxelmorphTraining(TrainingInterface):
 
         # prepare deformation loss
         losses += [vxm.losses.Grad('l2',
-                                   loss_mult=self.config['int_downsize']).loss]
-        weights += [self.config['reg_weight']]
+                                   loss_mult=self.run_configuration['int_downsize']).loss]
+        weights += [self.run_configuration['reg_weight']]
 
         # training loops
-        for epoch in range(self.config['initial_epoch'], self.config['epochs']):
+        for epoch in range(self.run_configuration['initial_epoch'], self.run_configuration['epochs']):
 
             model.train()
 
             # save model checkpoint
-            if epoch % self.config['save_checkpoint'] == 0:
-                model.save(os.path.join(model_dir, '%04d.pt' % epoch))
+            if epoch != 0 and epoch % self.run_configuration['save_checkpoint'] == 0:
+                model.save(os.path.join(
+                    self.run_directory, f"model_{epoch:05d}.pt"))
 
             epoch_loss = []
             epoch_total_loss = []
             epoch_step_time = []
 
-            for step in range(self.config['steps_per_epoch']):
+            for step in range(self.run_configuration['steps_per_epoch']):
 
                 step_start_time = time.time()
 
@@ -225,7 +240,8 @@ class VoxelmorphTraining(TrainingInterface):
                         val_loss_list.append(val_loss.item())
 
             # print epoch info
-            epoch_info = 'Epoch %d/%d' % (epoch + 1, self.config['epochs'])
+            epoch_info = 'Epoch %d/%d' % (epoch + 1,
+                                          self.run_configuration['epochs'])
             time_info = '%.4f sec/step' % np.mean(epoch_step_time)
             mean_loss = np.mean(epoch_loss, axis=0)
             losses_info = ', '.join(['%.4e' % f for f in mean_loss])
@@ -238,7 +254,7 @@ class VoxelmorphTraining(TrainingInterface):
             print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
 
             # wandb logging
-            if self.config['use_wandb']:
+            if self.use_wandb:
                 if self.val_dataset is not None:
                     wandb.log({"loss": np.mean(
                         epoch_total_loss), "sim-loss": mean_loss[0], "grad-loss": mean_loss[1], "val-loss": np.mean(val_loss_list)})
@@ -247,29 +263,8 @@ class VoxelmorphTraining(TrainingInterface):
                               "sim-loss": mean_loss[0], "grad-loss": mean_loss[1]})
 
         # final model save
-        model.save(os.path.join(model_dir, '%04d_final.pt' %
-                   self.config['epochs']))
+        model.save(self.get_trained_model_path())
         self.model = model
 
-        if self.config['use_wandb']:
+        if self.use_wandb:
             wandb.finish()
-
-    def get_trained_model_path(self):
-        return self.config['result_model_path']
-
-    def get_initial_weights_path(self):
-        return self.initial_weights_path
-
-    def save_initial_weights(self):
-        assert self.model is not None, "Model is not yet initialized!"
-        torch.save(self.model.state_dict(), self.base_dir /
-                   self.config['initial_weights_path'])  # '.pth'
-
-    def init_wandb(self, wandb_config_path):
-        wandb_config = self.read_config(wandb_config_path)
-        wandb.init(
-            project=wandb_config['project'],
-            group=wandb_config['group'],
-            name=wandb_config['name'],
-            config=wandb_config['config_dict']
-        )

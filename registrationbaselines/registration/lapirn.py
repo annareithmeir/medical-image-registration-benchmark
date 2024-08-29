@@ -2,14 +2,16 @@ from registrationbaselines.dl_repos.LapIRN.Code.miccai2020_model_stage import Mi
     Miccai2020_LDR_laplacian_unit_add_lvl2, Miccai2020_LDR_laplacian_unit_add_lvl3, SpatialTransform_unit
 from registrationbaselines.dl_repos.LapIRN.Code.Functions import generate_grid, Dataset_epoch, transform_unit_flow_to_flow_cuda, \
     generate_grid_unit, transform_unit_flow_to_flow
+
 import os
 import torchio as tio
 import numpy as np
 
 from pathlib import Path
 import torch
-from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core.utils_niftyreg import set_intent_code
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
+from registrationbaselines.core.utils_nifti import set_intent_code
+from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.dl_repos.LapIRN.Code.Functions import save_img, save_flow
 from registrationbaselines.core.utils_nifti import transform_nifti_image_with_matrix
 
@@ -21,11 +23,22 @@ sys.path.append(
     str(Path(__file__).parent.parent.absolute() / "dl_repos/LapIRN/Code"))
 
 
-class LapIRNReg(RegistrationInterface):
-    def __init__(self, configuration_path: Path):
+class LapIRN(RegistrationInterface):
+    """
+    Laplacian Image Registration Network (LapIRN, https://github.com/cwmok/LapIRN).
+    """
+
+    def __init__(self, path_configuration: Path,
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
         """
         Initialize the registration model - inference is performed here.
         """
+
+        super().__init__("LapIRN",
+                         path_configuration,
+                         dataloader,
+                         use_masked_evaluation)
 
         self.method = "LapIRN"
 

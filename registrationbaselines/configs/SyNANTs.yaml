@@ -1,11 +1,20 @@
-method_name: SyNANTs
+method: grid
+name: SyNANTs
 
 parameters:
   result_path:
 #    value:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/exp
-    value: /home/anna/PycharmProjects/registrationbaselines/tmp/results/
-#result_path: /home/fryderyk/Documents/data/results/
+    values: [/home/anna/PycharmProjects/registrationbaselines/tmp/results]
+#   value: /home/fryderyk/Documents/data/results/
 
-grad_step: 0.2 # 0.2
-flow_sigma: 3 #3 smoothing of incremental update field
-total_sigma: 0 # 0 smoothing of combined field
+  grad_step:
+    values: [2] # 0.2
+#    values: [0.02, 2] # 0.2
+
+  flow_sigma:
+    values: [0, 3, 30] #3 smoothing of incremental update field
+#    values: [0, 3, 30] #3 smoothing of incremental update field
+
+  total_sigma:
+    values: [0, 1, 10] # 0 smoothing of combined field
+#    values: [0, 1, 10] # 0 smoothing of combined field

@@ -2,10 +2,9 @@ import glob
 import random
 from itertools import combinations
 from pathlib import Path
-from typing import List, Union, Tuple
 import shutil
 
-from typing import Dict, Union
+from typing import List, Dict, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +16,8 @@ from torchvision import datasets, transforms
 from tqdm import tqdm
 import SimpleITK as sitk
 
-from . import utils as dataloader_utils
+
+from registrationbaselines.io import load
 import registrationbaselines.core.utils as utils
 from registrationbaselines.core.types import datasetReturnType, floatArray2D
 
@@ -33,19 +33,25 @@ Parent class datasets
 
 class GenericDataset(Dataset[datasetReturnType]):
 
-    def __init__(self, name: str, return_type: str = None, indices: list[int] = None, **kwargs) -> None:
+    image_shape: Tuple[int, ...]
+
+    def __init__(self,
+                 name: str,
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None) -> None:
         super().__init__()
 
         self.images_path = None
         self.images_path_preprocessed = None
         self.indices = indices
         self.ndim = None
-        self.spacing: Tuple[int, ...]
-        self.image_shape = None
+        self.spacing: Tuple[float, ...]
         self.return_type = return_type
         if return_type is None:
             self.return_type = "torch_tensor_dict"
         self.images_list = list()
+        self.segmentations_list = list()
+        self.keypoints_list = list()
 
         self.has_segmentations = False
         self.has_keypoints = False
@@ -59,9 +65,9 @@ class GenericDataset(Dataset[datasetReturnType]):
 
     def _get_image_pair_as_tensors(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        image_fixed = utils.load_image(
+        image_fixed = load.load_image(
             self.images_path / self.images_list[idx][0])
-        image_moving = utils.load_image(
+        image_moving = load.load_image(
             self.images_path / self.images_list[idx][1])
 
         return image_fixed, image_moving
@@ -71,9 +77,9 @@ class GenericDataset(Dataset[datasetReturnType]):
 
     def _get_segmentation_pair_as_tensors(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        segmentation_fixed = utils.load_image(
+        segmentation_fixed = load.load_image(
             self.images_path / self.segmentations_list[idx][0])
-        segmentation_moving = utils.load_image(
+        segmentation_moving = load.load_image(
             self.images_path / self.segmentations_list[idx][1])
 
         return segmentation_fixed, segmentation_moving
@@ -82,12 +88,17 @@ class GenericDataset(Dataset[datasetReturnType]):
         return self.images_path / self.segmentations_list[idx][0], self.images_path / self.segmentations_list[idx][1]
 
     def _get_keypoint_pair_as_tensors(self, idx):
-        pass
+        keypoints_f = load.load_keypoints(
+            self.images_path / self.keypoints_list[idx][0])
+
+        keypoints_m = load.load_keypoints(
+            self.images_path / self.keypoints_list[idx][1])
+        return keypoints_f, keypoints_m
 
     def _get_keypoint_pair_as_paths(self, idx):
-        pass
+        return self.images_path / self.keypoints_list[idx][0], self.images_path / self.keypoints_list[idx][1]
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> datasetReturnType:
         if (self.has_keypoints is False) and (self.has_segmentations is False):
             if self.return_type == "path_dict":
                 fixed_image, moving_image = self._get_image_pair_as_paths(idx)
@@ -283,14 +294,18 @@ class MNISTDataset(GenericDataset):
     The images are of shape (32,32) and normalized to [0,1]
     """
 
-    def __init__(self, num_pairs: int, return_type: str = None):
+    def __init__(self,
+                 num_pairs: int,
+                 return_type: Optional[str] = None) -> None:
         """
 
         @param num_pairs: Amount of image pairs to use from the overall dataset
         @param return_type: in what data format the images should be returned in __getitem__()
         """
 
-        super().__init__("MNIST", return_type, None)
+        super().__init__("MNIST",
+                         return_type,
+                         None)
 
         assert return_type == "torch_tensor"  # path is not applicable for MNIST dataset
 
@@ -342,8 +357,8 @@ class MNISTDataset(GenericDataset):
         fixed_image = self.transforms(fixed_image)
         moving_image = self.transforms(moving_image)
 
-        moving_image = dataloader_utils.normalize_tensor_to_0_1(moving_image)
-        fixed_image = dataloader_utils.normalize_tensor_to_0_1(fixed_image)
+        moving_image = utils.normalize_tensor_to_0_1(moving_image)
+        fixed_image = utils.normalize_tensor_to_0_1(fixed_image)
 
         return fixed_image.squeeze(), moving_image.squeeze()
 
@@ -351,6 +366,33 @@ class MNISTDataset(GenericDataset):
 """
 Medical datasets
 """
+
+
+class ImagePairDataset(GenericDataset):
+    def __init__(self,
+                 image_pairs: List[List[Path]],
+                 segmentation_pairs: Optional[List[List[Path]]] = None,
+                 keypoint_pairs: Optional[List[List[Path]]] = None,
+                 return_type: str = "",
+                 name: str = "image_pairs") -> None:
+        super().__init__(name,
+                         return_type,
+                         [])
+
+        self.images_path = image_pairs[0][0].parent
+
+        self.images_list = image_pairs
+        self.segmentations_list = segmentation_pairs
+        self.keypoints_list = keypoint_pairs
+
+        if self.segmentations_list:
+            self.has_segmentations = True
+        if self.keypoints_list:
+            self.has_keypoints = True
+
+        self.spacing = utils.get_image_spacing(self.images_list[0][0])
+        self.image_shape = load.load_image(
+            self.images_list[0][0]).shape
 
 
 class L2RLungCTDataset(GenericDataset):
@@ -362,7 +404,10 @@ class L2RLungCTDataset(GenericDataset):
     We assume the data is preprocessed with preprocess() before use
     """
 
-    def __init__(self, dataset_path: Path, return_type: str = None, indices: list[int] = None) -> None:
+    def __init__(self,
+                 dataset_path: Path,
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None) -> None:
         """
 
         @param dataset_path: Path to the original or pre-processed dataset
@@ -371,23 +416,27 @@ class L2RLungCTDataset(GenericDataset):
         @param indices: If desired, only specific indices can be used for the dataset creation (e.g. for train/val/test split)
         """
 
-        super().__init__("LungCT", return_type, indices)
+        super().__init__("LungCT",
+                         return_type,
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
         self.ndim = 3
+        self.spacing = (1.75, 1.75, 1.75)
+        # self.spacing = (1.75, 1.25, 1.75)
+        self.image_shape = (160, 192, 224)
+        # self.image_shape = (192, 138, 208)
+        # self.image_shape = (192, 192, 208)
 
         self.has_segmentations = True
         self.has_keypoints = True
 
-        self.segmentation_segmentations = {
+        self.segmentation_labels = {
             0: "background",
             1: "lung"
         }
 
-        self.images_list = None
-        self.segmentations_list = None
-        self.keypoints_list = None
         self._load_images_list()
         self._load_segmentations_list()
         self._load_keypoints_list()
@@ -396,17 +445,6 @@ class L2RLungCTDataset(GenericDataset):
             self.segmentations_list = [
                 self.segmentations_list[i] for i in indices]
             self.keypoints_list = [self.keypoints_list[i] for i in indices]
-
-    def _get_keypoint_pair_as_tensors(self, idx):
-        keypoints_f = utils.load_keypoints(
-            self.images_path / self.keypoints_list[idx][0])
-
-        keypoints_m = utils.load_keypoints(
-            self.images_path / self.keypoints_list[idx][1])
-        return keypoints_f, keypoints_m
-
-    def _get_keypoint_pair_as_paths(self, idx) -> Tuple[Path, Path]:
-        return self.images_path / self.keypoints_list[idx][0], self.images_path / self.keypoints_list[idx][1]
 
     def preprocess(self, save_path: Path) -> None:
         """
@@ -490,10 +528,10 @@ class L2RLungCTDataset(GenericDataset):
             self.images_list.append([file_f, file_m])
 
         import SimpleITK as sitk
-        self.spacing = sitk.ReadImage(
-            self.images_path / self.images_list[0][0]).GetSpacing()
-        self.image_shape = sitk.GetArrayFromImage(
-            sitk.ReadImage(self.images_path / self.images_list[0][0])).shape
+        self.spacing = utils.get_image_spacing(
+            self.images_path / self.images_list[0][0])
+        self.image_shape = load.load_image(
+            self.images_path / self.images_list[0][0]).shape
 
     def _load_segmentations_list(self) -> None:
         """
@@ -530,8 +568,10 @@ class L2RAbdominalMRCTDataset(GenericDataset):
     preprocess() optional, since already isotropic pixel size
     """
 
-    def __init__(self, dataset_path: Path, return_type: str = None,
-                 indices: list[int] = None) -> None:
+    def __init__(self,
+                 dataset_path: Path,
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None) -> None:
         """
 
         @param dataset_path: path to the original or preprocessed dataset
@@ -540,7 +580,9 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         @param indices: list of indices which form the dataset (e.g. for train/val/test split)
         """
 
-        super().__init__("AbdomenMRCT", return_type, indices)
+        super().__init__("AbdomenMRCT",
+                         return_type,
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -549,7 +591,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         self.has_segmentations = True
         self.has_keypoints = False
 
-        self.segmentation_segmentations = {
+        self.segmentation_labels = {
             0: "background",
             1: "liver",
             2: "spleen",
@@ -557,8 +599,6 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             4: "left kidney"
         }
 
-        self.images_list = None
-        self.segmentations_list = None
         self._load_images_list()
         self._load_segmentations_list()
         if indices is not None:  # create subsets for e.g. validation and training
@@ -659,8 +699,10 @@ class L2RAbdominalCTCTDataset(GenericDataset):
     preprocess() optional since already isotropic pixel size
     """
 
-    def __init__(self, dataset_path: Path, return_type: str = None,
-                 indices: list[int] = None) -> None:
+    def __init__(self,
+                 dataset_path: Path,
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None) -> None:
         """
 
         @param dataset_path: path to the original or preprocessed dataset
@@ -669,7 +711,9 @@ class L2RAbdominalCTCTDataset(GenericDataset):
         @param indices: list of indices which form the dataset (e.g. for train/val/test split)
         """
 
-        super().__init__("AbdomenCTCT", return_type, indices)
+        super().__init__("AbdomenCTCT",
+                         return_type,
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -693,8 +737,6 @@ class L2RAbdominalCTCTDataset(GenericDataset):
                         12: "left adrenal gland",
                         13: "right adrenal gland"}
 
-        self.images_list = None
-        self.segmentations_list = None
         self._load_images_list()
         self._load_segmentations_list()
         if indices is not None:  # create subsets for e.g. validation and training
@@ -1063,8 +1105,6 @@ class FIREDataset(GenericDataset):
         self.has_segmentations = False
 
         self.images_path = dataset_path
-        self.images_list = None
-        self.keypoints_list = None
         self.__load_imgs_list__()
         self.__load_kps_list__()
 
@@ -1157,9 +1197,9 @@ class FIREDataset(GenericDataset):
             moving_imageoving = moving_imageoving.convert('L')
             fixed_imageixed = torch.tensor(fixed_imageixed)
             moving_imageoving = torch.tensor(moving_imageoving)
-            fixed_imageixed = dataloader_utils.normalize_tensor_to_0_1(
+            fixed_imageixed = utils.normalize_tensor_to_0_1(
                 fixed_imageixed)
-            moving_imageoving = dataloader_utils.normalize_tensor_to_0_1(
+            moving_imageoving = utils.normalize_tensor_to_0_1(
                 moving_imageoving)
 
         if self.rgb:

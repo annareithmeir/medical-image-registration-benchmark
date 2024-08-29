@@ -8,8 +8,8 @@ import torch
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
 from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset
-from registrationbaselines.core.visualization import plot_all_registration_results
-import registrationbaselines.core.utils as utils
+from registrationbaselines.evaluation.plot_objects import plot_all_registration_results
+import registrationbaselines.warping.utils_displacement as utils
 
 machine_name = socket.gethostname()
 if machine_name == "fryderyk":

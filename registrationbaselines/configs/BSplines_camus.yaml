@@ -1,9 +1,0 @@
-method_name:             BSplines_camus
-# result_path:            /home/anna/PycharmProjects/registrationbaselines/tmp/results
-result_path:             /u/home/koeglf/Documents/code/registrationbaselines/tmp/results_camus
-encoders:                [no_encoder]
-metrics:                 [NCC]
-lrs:                     [0.001]
-regularisation_weights:  [[40]]
-iterationss:             [[1500]]
-sigmas:                  [[[4, 4]]]

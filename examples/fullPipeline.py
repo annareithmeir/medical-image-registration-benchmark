@@ -5,8 +5,6 @@ import socket
 import os
 import time
 
-from typing import Any, Dict
-
 import SimpleITK as sitk
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
@@ -14,28 +12,13 @@ os.environ['NEURITE_BACKEND'] = 'pytorch'
 os.environ['VXM_BACKEND'] = 'pytorch'
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
-sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent))  # nopep8
-sys.path.append(str(Path(__file__).parent.absolute().parent.parent.parent / "latent_space_registration"))  # nopep8
 
-from registrationbaselines.core import utils  # nopep8
 from registrationbaselines.data_loading import data_loaders  # nopep8
-from registrationbaselines.evaluation.evaluation import Evaluation  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
-
-
-def get_non_wand_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Get the config without the wandb config.
-    """
-
-    config = config["parameters"]
-
-    new_config: Dict[str, str] = {}
-
-    for key, value in config.items():
-        new_config[key] = value["values"][0]
-
-    return new_config
+from registrationbaselines.registration.affine_niftyreg import AffineNiftyReg  # nopep8
+from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
+from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
+from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
 
 
 def main() -> None:
@@ -49,12 +32,9 @@ def main() -> None:
     # method = "AffineNiftyReg"
     # method = "VoxelMorph"
 
-    config = get_non_wand_config(config)
-
-    machine_name = socket.gethostname()
-    if machine_name == "fryderyk":
+    if socket.gethostname() == "fryderyk":
         path_data = Path("/home/fryderyk/Documents/data/LungCT_preprocessed/")
-    elif machine_name == "janus":
+    elif socket.gethostname() == "janus":
         path_data = Path("/data/LungCT_preprocessed")
     else:
         path_data = Path("/home/anna/datasets/AbdomenMRCT_preprocessed")

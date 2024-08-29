@@ -1,15 +1,32 @@
-method_name: DemonsSITK
-result_path: /home/fryderyk/Documents/code/registrationbaselines/tmp/results
+method: grid
+name: DemonsSITK
 
-# matcher
-histogram_levels_int8:  128
-histogram_levels_float: 1024
-number_of_match_points: 7
+parameters:
+  result_path: 
+    values:               [/u/home/koeglf/Documents/code/registrationbaselines/tmp/results]
 
-# demons
-number_of_iterations:   200
-standard_deviations:    1.0
+  filter_type:
+    values:               [FastSymmetricForcesDemonsRegistrationFilter]
+                          #  SymmetricForcesDemonsRegistrationFilter,
+                          #  DiffeomorphicDemonsRegistrationFilter,
+                          #  DemonsRegistrationFilter]
 
-# resampler
-interpolator:           sitkHammingWindowedSinc
-default_pixel_value:    0
+  # matcher
+  histogram_levels_int8:  
+    values:               [128]
+  histogram_levels_float: 
+    values:               [1024]
+  number_of_match_points: 
+    values:               [7]
+
+  # demons
+  number_of_iterations:   
+    values:               [1]
+  standard_deviations:    
+    values:               [1.0]
+
+  # resampler
+  interpolator:           
+    values:               [sitkHammingWindowedSinc]
+  default_pixel_value:    
+    values:               [0]

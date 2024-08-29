@@ -15,30 +15,14 @@ sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 # sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
 # import registrationbaselines.core.utils_nifti as utils_nifti
-from registrationbaselines.core.visualization import plot_all_registration_results
-import registrationbaselines.core.utils as utils
+import registrationbaselines.warping.deform_objects
+from registrationbaselines.evaluation.plot_objects import plot_all_registration_results
+import registrationbaselines.warping.utils_displacement as utils
 
 
 def create_displacement_field_constant(
         shape: Tuple[int, int, int] = (201, 201, 201),
-        vector: Tuple[float, float, float] = (10.0, 10., 10.)
-) -> torch.Tensor:
-
-    device = "cpu"
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    disp = torch.zeros(*shape, 3)
-
-    disp[..., 0] = vector[0]
-    disp[..., 1] = vector[1]
-    disp[..., 2] = vector[2]
-
-    return disp
-
-
-def create_displacement_field_constant(
-        shape: Tuple[int, int, int] = (201, 201, 201),
-        vector: Tuple[float, float, float] = (10.0, 10., 10.)
+        vector: Tuple[float, float, float] = (10., 10., 10.)
 ) -> torch.Tensor:
 
     device = "cpu"
@@ -441,47 +425,51 @@ shape = (201, 201, 201)
 thickness = 1
 sphere_spacing = 30
 num_ellipsoids = 3
-semi_axes = np.asarray([80, 80, 80])
+semi_axes = np.asarray([80, 40, 15])
 displacement_size = np.asarray([90, 90, 90])
-max_displacement = -20
+max_displacement = 11
 
-image = create_concentric_cuboids(shape,
-                                  semi_axes/2,
-                                  thickness,
-                                  sphere_spacing,
-                                  num_ellipsoids + 1)
+# image = create_concentric_cuboids(shape,
+#                                   semi_axes/2,
+#                                   thickness,
+#                                   sphere_spacing,
+#                                   num_ellipsoids + 1)
 # image = create_concentric_ellipsoids(shape,
 #                                      semi_axes,
 #                                      thickness,
 #                                      sphere_spacing,
 #                                      num_ellipsoids + 1)
 
-keypoints = create_cuboid_keypoints(shape,
-                                  semi_axes/2,
-                                  thickness,
-                                  sphere_spacing,
-                                  num_ellipsoids)
+# keypoints = create_cuboid_keypoints(shape,
+#                                   semi_axes/2,
+#                                   thickness,
+#                                   sphere_spacing,
+#                                   num_ellipsoids)
 # keypoints = create_ellipsoid_keypoints(shape,
 #                                        semi_axes,
 #                                        thickness,
 #                                        sphere_spacing,
 #                                        num_ellipsoids + 1)
 
-displacement = create_displacement_field_sphere(shape,
-                                         semi_axes,
-                                         -max_displacement)
 
-# image, keypoints = create_rectangle_and_keypoints(
-#     shape=(201, 201, 201), rect_shape=(100, 50, 24))
+image, keypoints = create_rectangle_and_keypoints(
+    shape=(201, 201, 201), rect_shape=(100, 50, 24))
+
 # displacement = create_displacement_field_constant(shape, vector=(-10, 0, 0))
+
+displacement = create_displacement_field_sphere(shape,
+                                                semi_axes,
+                                                -max_displacement)
+
+####
 
 displacement_unit = utils.displacement_to_unit_displacement(
     displacement.detach().clone())
 
-deformed_image = utils.deform_image(image,
-                                    displacement_unit.detach().clone())
-deformed_keypoints = utils.deform_keypoints(keypoints,
-                                            displacement_unit.detach().clone())
+deformed_image = registrationbaselines.warping.deform_objects.deform_image(image,
+                                                                           displacement_unit.detach().clone())
+deformed_keypoints = registrationbaselines.warping.deform_objects.deform_keypoints(keypoints,
+                                                                                   displacement_unit.detach().clone())
 
 
 plot_all_registration_results(moving_image=image,
