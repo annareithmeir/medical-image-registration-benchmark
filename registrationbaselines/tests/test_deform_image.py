@@ -11,7 +11,7 @@ import registrationbaselines.warping.utils_displacement
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
 from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset
-import registrationbaselines.core.utils as utils
+import registrationbaselines.io.io as utils
 from registrationbaselines.evaluation.plot_objects import plot_all_registration_results
 
 machine_name = socket.gethostname()

@@ -10,13 +10,13 @@ import torch
 import SimpleITK as sitk
 import matplotlib.pyplot as plt
 
+import registrationbaselines.io.io
 import registrationbaselines.warping.deform_objects
 
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.data_loading import data_loaders  # nopep8
-from registrationbaselines.core import utils  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
 from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
@@ -55,10 +55,12 @@ resampler.SetTransform(outTx)
 
 sitk_warped = resampler.Execute(sitk_moving)
 
-ours_displacement = utils.load_displacement(path_displacement)
-ours_original_warped = utils.load_image(path_original_warped)
-ours_moving = utils.load_image(path_moving)
-ours_fixed = utils.load_image(path_fixed)
+ours_displacement = registrationbaselines.io.io.load_displacement(
+    path_displacement)
+ours_original_warped = registrationbaselines.io.io.load_image(
+    path_original_warped)
+ours_moving = registrationbaselines.io.io.load_image(path_moving)
+ours_fixed = registrationbaselines.io.io.load_image(path_fixed)
 
 ours_warped = registrationbaselines.warping.deform_objects.deform_image(
     ours_moving, ours_displacement)

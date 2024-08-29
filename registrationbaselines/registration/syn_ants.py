@@ -1,15 +1,14 @@
 import shutil
 from pathlib import Path
 
-from typing import Dict, Any
-
 import ants
 import torch
 import SimpleITK as sitk
 
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_nifti, utils
+from registrationbaselines.io import save
+from registrationbaselines.core import utils_nifti
 
 
 class SyNANTs(RegistrationInterface):
@@ -111,5 +110,5 @@ class SyNANTs(RegistrationInterface):
             self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
 
         # save transformed image
-        utils.save_image(
+        save.save_image(
             deformed, self.result_transformed_image_path, self.dataloader.spacing)

@@ -3,13 +3,13 @@ from pathlib import Path
 import SimpleITK as sitk
 import torch
 
-from registrationbaselines.interfaces._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils
 from registrationbaselines.data_loading import data_loaders
-import registrationbaselines.warping.utils_displacement
+from registrationbaselines.interfaces import _interface_registration
+from registrationbaselines.io import load
+from registrationbaselines.warping import utils_displacement
 
 
-class DemonsSITK(RegistrationInterface):
+class DemonsSITK(_interface_registration.RegistrationInterface):
     """
     Demosn registration using SimpleITK.
     No default initialisation, as the choice of registration and resampling should be concious.
@@ -49,9 +49,9 @@ class DemonsSITK(RegistrationInterface):
         ), f"File {self.path_moving} does not exist."
 
         self.image_fixed = sitk.GetImageFromArray(
-            utils.load_image(fixed_image_path).numpy())
+            load.load_image(fixed_image_path).numpy())
         self.image_moving = sitk.GetImageFromArray(
-            utils.load_image(moving_image_path).numpy())
+            load.load_image(moving_image_path).numpy())
 
         # match images
         self._match_images()
@@ -75,7 +75,7 @@ class DemonsSITK(RegistrationInterface):
             sitk.GetArrayFromImage(warped_image))
 
         if displacement.min() < -1 or displacement.max() > 1:
-            displacement = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+            displacement = utils_displacement.displacement_to_unit_displacement(
                 displacement)
 
         self._save_results(warped, displacement)

@@ -1,18 +1,14 @@
-import pandas as pd
 from pathlib import Path
 
-from typing import Any, Tuple, Dict, Union, List, Optional
+from typing import Any, Tuple, List
 
-import yaml
 import numpy as np
 import SimpleITK as sitk
 import torch
+import scipy.spatial
 
 
-from registrationbaselines.core.types import floatArray2D, floarArray4Dor5D, array2Dor3D, intArray1D, intArray2D, intArray3D
-from registrationbaselines.warping.utils_displacement import unit_displacement_to_displacement
-from registrationbaselines.warping.utils_displacement import displacement_to_unit_displacement
-from registrationbaselines.warping.utils_displacement import reverse_axis
+from registrationbaselines.core.types import floatArray2D, intArray1D, intArray2D, intArray3D
 
 
 def is_nifti(path: Path) -> None:
@@ -118,122 +114,6 @@ def flip(x: torch.Tensor, dim: int):
     return x[tuple(indices)]
 
 
-def load_displacement(path: Path) -> torch.Tensor:
-    """
-    Load a displacement field from a file and return it as a torch tensor in the shape H,W,D,3
-
-    @param path: The path to the displacement field file.
-
-    @return: The displacement field.
-
-    @raise ValueError: If the intent code of the displacement field is not NIFTI_INTENT_DISPVECT.
-    @raise ValueError: If the displacement field has wrong dimensions.
-    """
-
-    is_nifti(path)
-
-    displacement_sitk: sitk.Image = sitk.ReadImage(path)
-
-    is_isotropic(displacement_sitk)
-    is_direction_identity(displacement_sitk)
-    are_offdiagonal_direction_elements_zero(displacement_sitk)
-
-    displacement_array: floarArray4Dor5D = sitk.GetArrayFromImage(
-        displacement_sitk)
-
-    # check intent code
-    # 1006 = NIFTI_INTENT_DISPVECT
-    if displacement_sitk.GetMetaData("intent_code") != "1006":
-        raise ValueError(
-            "The intent code of the displacement field should be NIFTI_INTENT_DISPVECT.")
-
-    # check dimensions
-    shape = displacement_array.shape
-
-    # check that it is 5D
-    if len(shape) != 5:
-        raise ValueError(
-            f"Dimension is not 5D: {len(shape)}"
-        )
-
-    separating_dimension_correct = shape[1] == 1  # dim 1 is dummy
-    # dim 0 is vector dimension, which has to correspond to spatial dimensions
-    vector_dimension_correct = shape[0] == len(shape) - 2
-
-    if not separating_dimension_correct or not vector_dimension_correct:
-        raise ValueError(
-            "The displacement field should have spatial dimensions as the last dimensions \
-                and a vector dimension as the first dimension and separated by a dummy dimension.")
-
-    displacement_tensor = torch.from_numpy(displacement_array)
-    if displacement_tensor.dtype != torch.float32:
-        raise TypeError(
-            f"Dsiplacement is not torch.float32: {displacement_tensor.dtype}"
-        )
-
-    # remove separating dummy dimension
-    displacement_tensor = displacement_tensor.squeeze()
-
-    # move the vector dimension to the last dimension
-    new_order = list(range(1, displacement_tensor.dim())) + [0]
-    displacement_tensor = displacement_tensor.permute(new_order)
-
-    # should be unit displacement
-    displacement_tensor = displacement_to_unit_displacement(
-        displacement_tensor)
-
-    displacement_tensor = reverse_axis(displacement_tensor)
-
-    return displacement_tensor
-
-
-def load_image(image_path: Path) -> torch.Tensor:
-    """
-    Load a nifti image from a file and return it as a numpy array.
-
-    The file should be in .nii or .nii.gz format.
-    The voxel size should be isotropic.
-    The direction should be identity.
-    The image should be 2D, 3D or 4D.
-    The image should be float or integer.
-
-    @param image_path: The path to the image file.
-    @type image_path: Path
-
-    @return: The image.
-    @rtype: floatArray2Dor3Dor4D
-    """
-
-    is_nifti(image_path)
-
-    image_sitk: sitk.Image = sitk.ReadImage(image_path)
-
-    is_isotropic(image_sitk)
-    is_direction_identity(image_sitk)
-    are_offdiagonal_direction_elements_zero(image_sitk)
-
-    image_array: array2Dor3D = sitk.GetArrayFromImage(image_sitk)
-
-    dimension = image_array.ndim
-
-    # check that it 3D
-    if dimension != 3:
-        raise ValueError(
-            f"Dimension of {image_path} is not 3D: {dimension}"
-        )
-
-    return_tensor = torch.from_numpy(image_array).squeeze()
-    # check that image is float or int
-    if not (return_tensor.dtype == torch.uint8 or return_tensor.dtype == torch.float32):
-        raise TypeError(
-            f"Image is not float or int: {return_tensor.dtype}"
-        )
-
-    return_tensor = return_tensor.permute(2, 1, 0)
-
-    return return_tensor
-
-
 def get_image_spacing(image_path: Path) -> Tuple[float, float, float]:
     """
     Get the spacing of an image.
@@ -255,145 +135,6 @@ def get_image_spacing(image_path: Path) -> Tuple[float, float, float]:
         raise ValueError(f"Spacing is not 3D: {spacing}")
 
     return spacing[2], spacing[1], spacing[1]
-
-
-def load_keypoints(keypoints_path: Path) -> torch.Tensor:
-    """
-    Load keypoints from a csv file to a torch tensor of shape [N,3].
-
-    dtype: float32
-
-    The keypoints have to be in x,y,z order and they will be converted to z,y,x.
-    The switch happens because extracting a np array from an sitk image does that too.
-
-    @param keypoints_path: Path to the .txt keypoints file
-    @return: Keypoints as a torch tensor of shape [N,3].
-    """
-
-    if not keypoints_path.exists():
-        raise FileNotFoundError(f"Keypoints file not found: {keypoints_path}")
-
-    keypoints = np.loadtxt(keypoints_path, delimiter=',', dtype=np.float32)
-    keypoints = torch.from_numpy(keypoints)
-
-    if keypoints.ndim != 2:  # this is enforced by numpy, but let's keep it here
-        raise ValueError(f"Keypoints should be 2D: {keypoints.ndim}")
-    if keypoints.shape[1] != 3:
-        raise ValueError(
-            f"Keypoints should have 3 columns: {keypoints.shape[1]}")
-
-    # switch x and z
-    # keypoints[:, [0, 2]] = keypoints[:, [2, 0]]
-
-    return keypoints
-
-
-def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]) -> None:
-    """
-    Save a numpy array as a nifti image.
-
-    The voxel size will be isotropic.
-    The direction will be identity.
-    The image can be 2D, 3D or 4D.
-    """
-
-    # check that file is .nii or .nii.gz
-    if not image_path.suffix == '.nii' and not image_path.suffixes == ['.nii', '.gz']:
-        raise ValueError(
-            "The path should be in .nii or .nii.gz format.")
-
-    # check that it is 3D
-    if image.ndim != 3:
-        raise ValueError(
-            f"Dimension of image is not 3D: {image.ndim}"
-        )
-
-    # spacing has to match the image
-    if len(spacing) != image.ndim:
-        raise ValueError(
-            "The spacing does not match the image dimensions."
-        )
-
-    image = image.permute(2, 1, 0)
-    spacing = list(reversed(spacing))
-
-    sitk_image = sitk.GetImageFromArray(image.detach().cpu().numpy())
-    sitk_image.SetSpacing(spacing)
-
-    sitk.WriteImage(sitk_image, image_path)
-
-    # check that file was written
-    if not image_path.exists():
-        raise FileNotFoundError(f"File {image_path} was not written.")
-
-
-def save_displacement(displacement: torch.Tensor,
-                      image_path: Path,
-                      spacing: Tuple[float, ...]) -> None:
-    """
-    Save a displacement field as a nifti image.
-
-    The voxel size will be isotropic.
-    The direction will be identity.
-
-    BUGFIX_0: we have to reverse the axis of the displacement (and in the spacing),
-              to match the reversal in loading
-    """
-    from registrationbaselines.core import utils_nifti
-
-    # check that file is .nii or .nii.gz
-    if not image_path.suffix == '.nii' and not image_path.suffixes == ['.nii', '.gz']:
-        raise ValueError(
-            "The path should be in .nii or .nii.gz format.")
-
-    # check dimensions
-    shape = displacement.shape
-
-    # check that it is 4D
-    if len(shape) != 4:
-        raise ValueError(f"Dimension of displacement is not 4D: {len(shape)}")
-    if shape[-1] != 3:
-        raise ValueError(
-            "The displacement field should have the vector dimension as the last dimension.")
-
-    if displacement.dtype != torch.float32:
-        raise TypeError(
-            f"Dsiplacement is not torch.float32: {displacement.dtype}"
-        )
-
-    # spacing has to match the image
-    if len(spacing) != len(shape):
-        raise ValueError(
-            "The spacing does not match the image dimensions."
-        )
-
-    # BUGFIX_0
-    displacement = reverse_axis(displacement)
-
-    # should be unit displacement
-    displacement = unit_displacement_to_displacement(displacement)
-
-    # move vector dimension from back to front
-    displacement = displacement.permute(3, 0, 1, 2)
-    spacing = (spacing[-1],) + spacing[:-1]
-
-    # insert separating dimension
-    displacement = displacement.unsqueeze(1)
-
-    # add dummy spacing
-    spacing = (spacing[0], 1) + spacing[1:]
-
-    # BUGFIX_0
-    # reverse spacing
-    spacing = (spacing[4], spacing[3], spacing[2], spacing[1], spacing[0])
-
-    sitk_displacement = sitk.GetImageFromArray(
-        displacement.detach().cpu().numpy())
-    sitk_displacement.SetSpacing(spacing)
-
-    sitk.WriteImage(sitk_displacement, image_path)
-
-    utils_nifti.set_intent_code(image_path, 'NIFTI_INTENT_DISPVECT')
 
 
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:
@@ -420,48 +161,6 @@ def get_affine_from_image(image: sitk.Image) -> floatArray2D:
     affine[:3, 3] = origin
 
     return affine
-
-
-def read_config(file_path: Path) -> dict[str, Any]:
-    """
-    Read the configuration file.
-
-    @param file_path: The path to the configuration file.
-    @rtype file_path: Path
-
-    @return: The configuration.
-    @rtype: dict[str, Any]
-    """
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"File {file_path} does not exist.")
-
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return yaml.safe_load(file)
-
-
-def save_array_to_nii_gz_image(array: np.ndarray, filename: Path, affine: np.ndarray = None) -> None:
-    """
-    Saves a 3D numpy array to a .nii.gz file
-    @param array: array
-    @param filename: filename for daving
-    @param affine: affine matrix of shaoe (4,4)
-    @return:
-    """
-    assert array.ndim == 3
-    image = sitk.GetImageFromArray(array)
-
-    if affine is not None:
-        # SimpleITK uses the direction cosine matrix, origin, and spacing to set the affine
-        direction = affine[:3, :3].flatten()
-        origin = affine[:3, 3]
-        spacing = np.linalg.norm(affine[:3, :3], axis=0)
-
-        image.SetDirection(direction)
-        image.SetOrigin(origin)
-        image.SetSpacing(spacing)
-
-    sitk.WriteImage(image, str(filename))
 
 
 def get_sitk_header(sitk_image: sitk.Image) -> dict[str, Any]:
@@ -498,31 +197,6 @@ def compare_sitk_headers(header1: dict[str, Any], header2: dict[str, Any]) -> Li
     return differences
 
 
-def save_array_to_nii_gz_displacement_field(array: np.ndarray, filename: Path, affine: np.ndarray = None) -> None:
-    """
-    Saves a displacement field in form of np array to a .nii.gz file
-    @param array: np array of shape (H,W,D,3)
-    @param filename: filename for saving
-    @param affine: affine matrix of shape (4,4)
-    @return:
-    """
-    assert array.ndim == 4
-    assert array.shape[-1] == 3
-    image = sitk.GetImageFromArray(array, isVector=True)
-
-    if affine is not None:
-        # SimpleITK uses the direction cosine matrix, origin, and spacing to set the affine
-        direction = affine[:3, :3].flatten()
-        origin = affine[:3, 3]
-        spacing = np.linalg.norm(affine[:3, :3], axis=0)
-
-        image.SetDirection(direction)
-        image.SetOrigin(origin)
-        image.SetSpacing(spacing)
-
-    sitk.WriteImage(image, str(filename))
-
-
 def explore_memory():
     allocated_memory = torch.cuda.memory_allocated()
     print(f"Allocated memory: {allocated_memory / (1024 ** 2)} MB")
@@ -546,56 +220,6 @@ def rgb_to_grayscale(rgb_image):
 
 def normalize_tensor_to_0_1(tensor: torch.Tensor) -> torch.Tensor:
     return (tensor - tensor.min()) / (tensor.max() - tensor.min())
-
-
-def transform_csv(input_csv: Path, output_csv: Path) -> None:
-    """
-    Transform to a csv that can be read by Slicer
-    """
-
-    # Load the CSV file using np.genfromtxt
-    coords = np.genfromtxt(input_csv, delimiter=',')
-
-    # Prepare the data for the new format
-    data = {
-        'label': [f'F-{i+1}' for i in range(coords.shape[0])],
-        'l': coords[:, 0],
-        'p': coords[:, 1],
-        's': coords[:, 2],
-        'defined': [1] * coords.shape[0],
-        'selected': [1] * coords.shape[0],
-        'visible': [1] * coords.shape[0],
-        'locked': [0] * coords.shape[0],
-        'description': [''] * coords.shape[0]
-    }
-
-    # Create a DataFrame
-    df = pd.DataFrame(data)
-
-    # Save to the output CSV file
-    df.to_csv(output_csv, index=False)
-
-
-def create_method_name_for_wandb(method_name: str, wandb_config: Dict[str, Union[str, int, float, bool]]) -> str:
-    """
-    Create the method name for wandb.
-    """
-
-    for key, value in wandb_config.items():
-
-        if key not in ['result_path', 'method_name'] and 'path' not in key:
-            if isinstance(value, bool) or isinstance(value, int) or isinstance(value, float):
-                method_name += f"___{key}_{str(value).lower()}"
-            elif isinstance(value, list):
-                method_name += f"___{key}_{value}"
-            elif value is not None:
-                beautified_param = value.replace('-', '').replace(' ', '_')
-                method_name += f"___{key}_{beautified_param}"
-
-        if len(method_name) > 100:
-            break
-
-    return method_name
 
 
 def find_points_inside_convex_hull(points: intArray2D,

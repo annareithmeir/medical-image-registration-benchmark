@@ -1,4 +1,3 @@
-import registrationbaselines.core.utils as utils
 import unittest
 from pathlib import Path
 import sys
@@ -6,6 +5,7 @@ import socket
 
 import torch
 
+import registrationbaselines.io.io
 import registrationbaselines.warping.utils_displacement
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
@@ -70,8 +70,8 @@ class TestKeypoints(unittest.TestCase):
     def test_deform_loaded_keypoints_zero_and_translation(self):
         kps_file = path_data / "LungCT_preprocessed/keypointsTr/LungCT_0001_0000.csv"
         image_file = path_data / "LungCT_preprocessed/imagesTr/LungCT_0001_0000.nii.gz"
-        shape = utils.load_image(image_file).shape
-        kps_x = utils.load_keypoints(kps_file)
+        shape = registrationbaselines.io.io.load_image(image_file).shape
+        kps_x = registrationbaselines.io.io.load_keypoints(kps_file)
         assert kps_x.shape[1] == 3
 
         # deform with zero displacement

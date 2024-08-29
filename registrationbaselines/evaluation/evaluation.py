@@ -7,9 +7,11 @@ import wandb
 import numpy as np
 import torch
 
-from registrationbaselines.evaluation import utils, result_csv
-from registrationbaselines.metrics import metrics, utils_metrics
-from registrationbaselines.evaluation import plot_objects
+from registrationbaselines.evaluation import result_csv, plot_objects
+from registrationbaselines.io import load, save
+from registrationbaselines.core import utils
+from registrationbaselines.warping import deform_objects
+from registrationbaselines.metrics import metrics
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
 from registrationbaselines.core.types import intArray3D
 
@@ -63,7 +65,7 @@ class Evaluation():
             fixed_name = str(item["fixed_image"].stem).split('.')[0]
 
             if self.use_masked_evaluation:
-                segmentation_fixed = utils.load_image(
+                segmentation_fixed = load.load_image(
                     item["fixed_segmentations"])
                 fixed_evaluation_mask: Union[intArray3D, None] = utils.get_convex_hull_mask(
                     segmentation_fixed.detach().cpu().numpy())
@@ -125,8 +127,8 @@ class Evaluation():
             fixed_image_path = item["fixed_image"]
             moving_image_path = item["moving_image"]
 
-            fixed_image = utils.load_image(fixed_image_path)
-            moving_image = utils.load_image(moving_image_path)
+            fixed_image = load.load_image(fixed_image_path)
+            moving_image = load.load_image(moving_image_path)
 
             if self.use_zero_displacement:
                 shape = self.dataset_data.image_shape
@@ -134,13 +136,13 @@ class Evaluation():
                 deformed_image = moving_image.detach().clone()
             else:
                 path_displacement = self.dataset_transformations[i]
-                displacement = utils.load_displacement(path_displacement)
+                displacement = load.load_displacement(path_displacement)
 
                 deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
                                                                     moving_image_path.name,
                                                                     extension_overwrite=''.join(path_displacement.suffixes))
                 # todo check that loaded is the same as deformed up to some epsilon
-                deformed_image = utils.load_image(deformed_image_path)
+                deformed_image = load.load_image(deformed_image_path)
                 # deformed_image = utils.deform_image(moving_image, displacement)
                 # utils.save_image(deformed_image,  path_displacement, (1.75, 1.75, 1.75))
 
@@ -162,12 +164,12 @@ class Evaluation():
             if self.dataset_data.has_segmentations:
                 path_segmentation_fixed = item["fixed_segmentations"]
                 path_segmentation_moving = item["moving_segmentations"]
-                fixed_segmentation = utils.load_image(path_segmentation_fixed)
-                moving_segmentation = utils.load_image(
+                fixed_segmentation = load.load_image(path_segmentation_fixed)
+                moving_segmentation = load.load_image(
                     path_segmentation_moving)
 
-                deformed_segmentation = utils.deform_image(moving_segmentation,
-                                                           displacement)
+                deformed_segmentation = deform_objects.deform_image(moving_segmentation,
+                                                                    displacement)
 
                 if self.use_masked_evaluation:
                     # fixed_mask = utils_metrics.get_convex_hull_mask(
@@ -181,13 +183,13 @@ class Evaluation():
                 path_fixed_keypoints = item["fixed_keypoints"]
                 path_moving_keypoints = item["moving_keypoints"]
 
-                fixed_keypoints = utils.load_keypoints(path_fixed_keypoints)
-                moving_keypoints = utils.load_keypoints(path_moving_keypoints)
+                fixed_keypoints = load.load_keypoints(path_fixed_keypoints)
+                moving_keypoints = load.load_keypoints(path_moving_keypoints)
 
                 assert moving_keypoints.shape == moving_keypoints.shape
                 assert fixed_keypoints.shape[-1] == 3 or fixed_keypoints.shape[-1] == 2
 
-                deformed_keypoints = utils.deform_keypoints(
+                deformed_keypoints = deform_objects.deform_keypoints(
                     moving_keypoints, displacement)
             plot_objects.plot_all_registration_results(moving_image,
                                                        fixed_image,
@@ -221,7 +223,7 @@ class Evaluation():
             raise ValueError(
                 f"Displacement file should have suffixes  '.nii' or '.nii.gz' but has {suffixes}.")
 
-        displacement = utils.load_displacement(path_displacement)
+        displacement = load.load_displacement(path_displacement)
 
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
             displacement,
@@ -257,22 +259,22 @@ class Evaluation():
         utils.is_nifti(path_segmentation_fixed)
         utils.is_nifti(path_segmentation_moving)
 
-        segmentation_fixed = utils.load_image(path_segmentation_fixed)
-        segmentation_moving = utils.load_image(path_segmentation_moving)
+        segmentation_fixed = load.load_image(path_segmentation_fixed)
+        segmentation_moving = load.load_image(path_segmentation_moving)
 
         if not self.use_zero_displacement and path_displacement:
             utils.is_nifti(path_displacement)
-            displacement = utils.load_displacement(path_displacement)
-            segmentation_warped = utils.deform_image(segmentation_moving,
-                                                     displacement)
+            displacement = load.load_displacement(path_displacement)
+            segmentation_warped = deform_objects.deform_image(segmentation_moving,
+                                                              displacement)
             # save the deformed segmentation
             deformed_segmentation_path = self._get_deformed_image_path(path_segmentation_fixed.name,
                                                                        path_segmentation_moving.name,
                                                                        extension_overwrite='.nii.gz')
             deformed_segmentation_path = Path(
                 deformed_segmentation_path.as_posix().replace(".nii", "_seg.nii"))
-            utils.save_image(segmentation_warped, deformed_segmentation_path,
-                             spacing=self.dataset_data.spacing)
+            save.save_image(segmentation_warped, deformed_segmentation_path,
+                            spacing=self.dataset_data.spacing)
 
         elif self.use_zero_displacement and not path_displacement:
             shape = self.dataset_data.image_shape
@@ -339,12 +341,12 @@ class Evaluation():
                 raise FileNotFoundError(
                     f"File {path.as_posix()} does not exist.")
 
-        displacement = utils.load_displacement(path_displacement)
-        keypoints_fixed = utils.load_keypoints(path_fixed_keypoints)
-        keypoints_moving = utils.load_keypoints(path_moving_keypoints)
+        displacement = load.load_displacement(path_displacement)
+        keypoints_fixed = load.load_keypoints(path_fixed_keypoints)
+        keypoints_moving = load.load_keypoints(path_moving_keypoints)
 
-        keypoints_moving_warped = utils.deform_keypoints(keypoints_moving,
-                                                         displacement.detach().cpu().numpy())
+        keypoints_moving_warped = deform_objects.deform_keypoints(keypoints_moving,
+                                                                  displacement.detach().cpu().numpy())
 
         warped_keypoints_path = self._get_deformed_image_path(path_fixed_keypoints.name,
                                                               path_moving_keypoints.name,

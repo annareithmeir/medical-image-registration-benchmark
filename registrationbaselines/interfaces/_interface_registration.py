@@ -8,10 +8,11 @@ import torch
 import wandb
 from tqdm import tqdm
 
-from registrationbaselines.core import utils, utils_wandb
+from registrationbaselines.core import utils_wandb
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import Evaluation
 from registrationbaselines.interfaces import _interface_core
+from registrationbaselines.io import save
 
 
 class RegistrationInterface(_interface_core.InterfaceCore):
@@ -168,14 +169,14 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                                                      ".nii.gz")
 
         # SAVE DEFORMED IMAGE
-        utils.save_image(deformed,
-                         self.path_result_deformed,
-                         self.dataloader.spacing)
+        save.save_image(deformed,
+                                               self.path_result_deformed,
+                                               self.dataloader.spacing)
 
         # SAVE DEFORMATION
-        utils.save_displacement(deformation,
-                                self.path_result_deformation,
-                                self.dataloader.spacing + (1,))
+        save.save_displacement(deformation,
+                                                      self.path_result_deformation,
+                                                      self.dataloader.spacing + (1,))
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(

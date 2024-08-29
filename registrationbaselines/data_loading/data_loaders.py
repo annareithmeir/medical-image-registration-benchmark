@@ -16,7 +16,8 @@ from torchvision import datasets, transforms
 from tqdm import tqdm
 import SimpleITK as sitk
 
-from . import utils as dataloader_utils
+
+from registrationbaselines.io import load
 import registrationbaselines.core.utils as utils
 from registrationbaselines.core.types import datasetReturnType, floatArray2D
 
@@ -64,9 +65,9 @@ class GenericDataset(Dataset[datasetReturnType]):
 
     def _get_image_pair_as_tensors(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        image_fixed = utils.load_image(
+        image_fixed = load.load_image(
             self.images_path / self.images_list[idx][0])
-        image_moving = utils.load_image(
+        image_moving = load.load_image(
             self.images_path / self.images_list[idx][1])
 
         return image_fixed, image_moving
@@ -76,9 +77,9 @@ class GenericDataset(Dataset[datasetReturnType]):
 
     def _get_segmentation_pair_as_tensors(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        segmentation_fixed = utils.load_image(
+        segmentation_fixed = load.load_image(
             self.images_path / self.segmentations_list[idx][0])
-        segmentation_moving = utils.load_image(
+        segmentation_moving = load.load_image(
             self.images_path / self.segmentations_list[idx][1])
 
         return segmentation_fixed, segmentation_moving
@@ -87,10 +88,10 @@ class GenericDataset(Dataset[datasetReturnType]):
         return self.images_path / self.segmentations_list[idx][0], self.images_path / self.segmentations_list[idx][1]
 
     def _get_keypoint_pair_as_tensors(self, idx):
-        keypoints_f = utils.load_keypoints(
+        keypoints_f = load.load_keypoints(
             self.images_path / self.keypoints_list[idx][0])
 
-        keypoints_m = utils.load_keypoints(
+        keypoints_m = load.load_keypoints(
             self.images_path / self.keypoints_list[idx][1])
         return keypoints_f, keypoints_m
 
@@ -356,8 +357,8 @@ class MNISTDataset(GenericDataset):
         fixed_image = self.transforms(fixed_image)
         moving_image = self.transforms(moving_image)
 
-        moving_image = dataloader_utils.normalize_tensor_to_0_1(moving_image)
-        fixed_image = dataloader_utils.normalize_tensor_to_0_1(fixed_image)
+        moving_image = utils.normalize_tensor_to_0_1(moving_image)
+        fixed_image = utils.normalize_tensor_to_0_1(fixed_image)
 
         return fixed_image.squeeze(), moving_image.squeeze()
 
@@ -390,7 +391,8 @@ class ImagePairDataset(GenericDataset):
             self.has_keypoints = True
 
         self.spacing = utils.get_image_spacing(self.images_list[0][0])
-        self.image_shape = utils.load_image(self.images_list[0][0]).shape
+        self.image_shape = load.load_image(
+            self.images_list[0][0]).shape
 
 
 class L2RLungCTDataset(GenericDataset):
@@ -528,7 +530,7 @@ class L2RLungCTDataset(GenericDataset):
         import SimpleITK as sitk
         self.spacing = utils.get_image_spacing(
             self.images_path / self.images_list[0][0])
-        self.image_shape = utils.load_image(
+        self.image_shape = load.load_image(
             self.images_path / self.images_list[0][0]).shape
 
     def _load_segmentations_list(self) -> None:
@@ -1195,9 +1197,9 @@ class FIREDataset(GenericDataset):
             moving_imageoving = moving_imageoving.convert('L')
             fixed_imageixed = torch.tensor(fixed_imageixed)
             moving_imageoving = torch.tensor(moving_imageoving)
-            fixed_imageixed = dataloader_utils.normalize_tensor_to_0_1(
+            fixed_imageixed = utils.normalize_tensor_to_0_1(
                 fixed_imageixed)
-            moving_imageoving = dataloader_utils.normalize_tensor_to_0_1(
+            moving_imageoving = utils.normalize_tensor_to_0_1(
                 moving_imageoving)
 
         if self.rgb:
