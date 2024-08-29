@@ -76,7 +76,7 @@ def main() -> None:
                                       use_masked_evaluation=True)
 
             if first_dataset_evaluation and dataset.name != "image_pairs":
-                registration.evaluate_with_zero_displacement()
+                # registration.evaluate_with_zero_displacement()
                 first_dataset_evaluation = False
 
             registration.execute_with_one_parameter_set()

@@ -34,8 +34,6 @@ class RegistrationInterface(_interface_core.InterfaceCore):
     evaluator: Evaluation
     use_masked_evaluation: bool
 
-    model_path: Path
-
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
@@ -77,7 +75,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         @return: None
         """
 
-        if "model_path" in self.general_configuration["parameters"] and self.use_wandb:
+        if self.model_path and self.use_wandb:
             wandb.finish()
             raise ValueError(
                 "DL mode can't be used with wandb sweeps for registration, because the sweep was done in training.")
@@ -86,7 +84,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         self._create_run_directory()
 
-        self._save_run_configuration()
+        if not self.model_path:
+            self._save_run_configuration()
 
         for item in tqdm(self.dataloader):
             self._register(item["fixed_image"], item["moving_image"])
@@ -219,11 +218,6 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         """
         Create the run directory in the method directory.
         """
-
-        # if we are in DL mode, we want to copy the run name from the model path
-        if "model_path" in self.run_configuration:
-            self.run_name = Path(
-                self.run_configuration["model_path"]).parent.name
 
         self.path_dir_run = self.path_dir_method / self.run_name
         self.path_dir_run.mkdir(parents=True, exist_ok=True)

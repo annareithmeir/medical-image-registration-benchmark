@@ -4,7 +4,7 @@ import json
 import uuid
 
 from abc import ABC, abstractmethod
-from typing import Dict, Union, List
+from typing import Dict, Union, List, Optional
 
 import wandb
 import wandb.sdk
@@ -30,6 +30,8 @@ class InterfaceCore(ABC):
     path_dir_run: Path
 
     use_wandb: bool = False
+
+    model_path: Optional[Path] = None
 
     def __init__(self,
                  method_name: str,
@@ -110,7 +112,11 @@ class InterfaceCore(ABC):
         else:
             self.run_configuration = utils_wandb.convert_to_non_wandb_config(
                 self.general_configuration)
-            self.run_name = self.method_name + f"_{uuid.uuid4()}"
+            # if we are in DL mode, we want to copy the run name from the model path
+            if self.model_path is not None:
+                self.run_name = self.model_path.parent.name
+            else:
+                self.run_name = self.method_name + f"_{uuid.uuid4()}"
 
     def _save_run_configuration(self) -> None:
         """

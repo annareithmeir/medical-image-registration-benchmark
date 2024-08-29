@@ -33,7 +33,7 @@ class VoxelMorph(RegistrationInterface):
                          use_masked_evaluation)
 
         # from config
-        self.path_model = model_path
+        self.model_path = model_path
 
         self.gpu_number = self.general_configuration["parameters"]['gpu_number']["values"][0]
         self.device = self.__handle_device_selection()
@@ -62,7 +62,7 @@ class VoxelMorph(RegistrationInterface):
         moving = utils_voxelmorph.pad_tensor_to_shape(moving, padded_shape)
 
         # load and set up model
-        model = vxm.torch.networks.VxmDense.load(self.path_model, self.device)
+        model = vxm.torch.networks.VxmDense.load(self.model_path, self.device)
         model.to(self.device)
         model.eval()
 
