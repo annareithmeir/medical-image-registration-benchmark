@@ -12,15 +12,22 @@ class DemonsSITK(RegistrationInterface):
     """
     Demosn registration using SimpleITK.
     No default initialisation, as the choice of registration and resampling should be concious.
-    """
 
+    # ToDo implement reamining demons
+    sitk.DiffeomorphicDemonsRegistrationFilter
+    sitk.SymmetricForcesDemonsRegistrationFilter
+    sitk.FastSymmetricForcesDemonsRegistrationFilter
+    """
+    
     def __init__(self,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
 
         super().__init__("DemonsSITK",
                          configuration_path,
-                         dataloader)
+                         dataloader,
+                         use_masked_evaluation)
 
         self.image_fixed: sitk.Image
         self.image_moving: sitk.Image

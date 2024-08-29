@@ -17,14 +17,16 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))
 class VoxelMorph(RegistrationInterface):
     def __init__(self,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset):
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True):
         """
         Initialize the registration model - inference is performed here.
         """
 
         super().__init__("VoxelMorph",
                          configuration_path,
-                         dataloader)
+                         dataloader,
+                         use_masked_evaluation)
 
         # from config
         self.path_model = Path(

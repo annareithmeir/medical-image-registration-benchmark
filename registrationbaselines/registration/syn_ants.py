@@ -20,7 +20,8 @@ class SyNANTs(RegistrationInterface):
 
     def __init__(self,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
         """
         Initialize the registration model.
 
@@ -29,7 +30,8 @@ class SyNANTs(RegistrationInterface):
 
         super().__init__("SyNANTs",
                          configuration_path,
-                         dataloader)
+                         dataloader,
+                         use_masked_evaluation)
 
     def _register(self, fixed_image_path: Path, moving_image_path: Path) -> None:
         """

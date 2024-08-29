@@ -37,8 +37,7 @@ class GenericDataset(Dataset[datasetReturnType]):
     def __init__(self,
                  name: str,
                  return_type: Optional[str] = None,
-                 indices: Optional[list[int]] = None,
-                 masked_evaluation: Optional[bool] = None) -> None:
+                 indices: Optional[list[int]] = None) -> None:
         super().__init__()
 
         self.images_path = None
@@ -59,8 +58,6 @@ class GenericDataset(Dataset[datasetReturnType]):
         self.name = name
 
         assert self.return_type in ["torch_tensor_dict", "path_dict"]
-
-        self.masked_evaluation = False if masked_evaluation is None else masked_evaluation
 
     def __len__(self):
         return len(self.images_list)
@@ -298,8 +295,7 @@ class MNISTDataset(GenericDataset):
 
     def __init__(self,
                  num_pairs: int,
-                 return_type: Optional[str] = None,
-                 masked_evaluation: Optional[bool] = None) -> None:
+                 return_type: Optional[str] = None) -> None:
         """
 
         @param num_pairs: Amount of image pairs to use from the overall dataset
@@ -308,8 +304,7 @@ class MNISTDataset(GenericDataset):
 
         super().__init__("MNIST",
                          return_type,
-                         None,
-                         masked_evaluation)
+                         None)
 
         assert return_type == "torch_tensor"  # path is not applicable for MNIST dataset
 
@@ -378,12 +373,10 @@ class ImagePairDataset(GenericDataset):
                  segmentation_pairs: Optional[List[List[Path]]] = None,
                  keypoint_pairs: Optional[List[List[Path]]] = None,
                  return_type: str = "",
-                 name: str = "image_pairs",
-                 masked_evaluation: Optional[bool] = None) -> None:
+                 name: str = "image_pairs") -> None:
         super().__init__(name,
                          return_type,
-                         [],
-                         masked_evaluation)
+                         [])
 
         self.images_path = image_pairs[0][0].parent
 
@@ -412,8 +405,7 @@ class L2RLungCTDataset(GenericDataset):
     def __init__(self,
                  dataset_path: Path,
                  return_type: Optional[str] = None,
-                 indices: Optional[list[int]] = None,
-                 masked_evaluation: Optional[bool] = None) -> None:
+                 indices: Optional[list[int]] = None) -> None:
         """
 
         @param dataset_path: Path to the original or pre-processed dataset
@@ -424,8 +416,7 @@ class L2RLungCTDataset(GenericDataset):
 
         super().__init__("LungCT",
                          return_type,
-                         indices,
-                         masked_evaluation)
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -578,8 +569,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
     def __init__(self,
                  dataset_path: Path,
                  return_type: Optional[str] = None,
-                 indices: Optional[list[int]] = None,
-                 masked_evaluation: Optional[bool] = None) -> None:
+                 indices: Optional[list[int]] = None) -> None:
         """
 
         @param dataset_path: path to the original or preprocessed dataset
@@ -590,8 +580,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
 
         super().__init__("AbdomenMRCT",
                          return_type,
-                         indices,
-                         masked_evaluation)
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -711,8 +700,7 @@ class L2RAbdominalCTCTDataset(GenericDataset):
     def __init__(self,
                  dataset_path: Path,
                  return_type: Optional[str] = None,
-                 indices: Optional[list[int]] = None,
-                 masked_evaluation: Optional[bool] = None) -> None:
+                 indices: Optional[list[int]] = None) -> None:
         """
 
         @param dataset_path: path to the original or preprocessed dataset
@@ -723,8 +711,7 @@ class L2RAbdominalCTCTDataset(GenericDataset):
 
         super().__init__("AbdomenCTCT",
                          return_type,
-                         indices,
-                         masked_evaluation)
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None

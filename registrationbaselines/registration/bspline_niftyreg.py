@@ -15,11 +15,13 @@ class BSplineNiftyReg(RegistrationInterface):
 
     def __init__(self,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
 
         super().__init__("BSplineNiftyReg",
                          configuration_path,
-                         dataloader)
+                         dataloader,
+                         use_masked_evaluation)
 
         self.path_reg_f3d = self.base_dir / Path(
             "registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")

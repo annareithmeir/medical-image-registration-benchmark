@@ -2,6 +2,7 @@ from pathlib import Path
 import shutil
 
 from abc import abstractmethod
+from typing import Optional
 
 import torch
 import wandb
@@ -30,11 +31,13 @@ class RegistrationInterface(_interface_core.InterfaceCore):
     path_result_deformed: Path = Path()
 
     evaluator: Evaluation
+    use_masked_evaluation: bool
 
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
         """
         Initialize the registration model.
         """
@@ -44,6 +47,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                          dataloader.name)
 
         self.dataloader = dataloader
+        self.use_masked_evaluation = use_masked_evaluation
 
     @abstractmethod
     def _register(self,
@@ -87,9 +91,11 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         loader_transformations = data_loaders.BaselineTransformations(
             self.path_dir_run)
 
-        self.evaluator = Evaluation(self.path_dir_run,
-                                    self.dataloader,
-                                    loader_transformations)
+        self.evaluator = Evaluation(run_path=self.path_dir_run,
+                                    dataset_data=self.dataloader,
+                                    dataset_transformations=loader_transformations,
+                                    use_zero_displacement=False,
+                                    use_masked_evaluation=self.use_masked_evaluation)
 
         self.evaluator.evaluate()
 
@@ -116,10 +122,11 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         self._create_run_directory()
         self.path_dir_deformations.rmdir()
 
-        self.evaluator = Evaluation(self.path_dir_run,
-                                    self.dataloader,
-                                    None,
-                                    True)
+        self.evaluator = Evaluation(run_path=self.path_dir_run,
+                                    dataset_data=self.dataloader,
+                                    dataset_transformations=None,
+                                    use_zero_displacement=True,
+                                    use_masked_evaluation=self.use_masked_evaluation)
 
         self.evaluator.evaluate()
 

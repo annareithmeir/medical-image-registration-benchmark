@@ -1,5 +1,4 @@
 from pathlib import Path
-import warnings
 
 from typing import Optional
 
@@ -25,12 +24,14 @@ class Evaluation():
                  run_path: Path,
                  dataset_data: GenericDataset,
                  dataset_transformations: Optional[BaselineTransformations] = None,
-                 use_zero_displacement: bool = False) -> None:
+                 use_zero_displacement: bool = False,
+                 use_masked_evaluation: Optional[bool] = None) -> None:
         """
         Initialize the evaluatin model.
         """
 
         self.use_zero_displacement = use_zero_displacement
+        self.use_masked_evaluation = use_masked_evaluation
 
         # create the csv file and all its parents if doesn't exist
         self.path_results = run_path / 'results.csv'
@@ -59,7 +60,6 @@ class Evaluation():
 
             item = self.dataset_data[i]
             fixed_name = str(item["fixed_image"].stem).split('.')[0]
-            masked_evaluation = self.dataset_data.masked_evaluation
 
             if not self.use_zero_displacement:
                 path_displacement = self.dataset_transformations[i]
@@ -71,14 +71,14 @@ class Evaluation():
                                                 item["moving_segmentations"],
                                                 fixed_name,
                                                 path_displacement,
-                                                masked_evaluation)
+                                                self.use_masked_evaluation)
             else:
                 if self.dataset_data.has_segmentations:
                     self._evaluate_segmentation(item["fixed_segmentations"],
                                                 item["moving_segmentations"],
                                                 fixed_name,
                                                 None,
-                                                masked_evaluation)
+                                                self.use_masked_evaluation)
 
             """
             if self.dataset_data.has_keypoints:
@@ -153,7 +153,7 @@ class Evaluation():
                 deformed_segmentation = utils.deform_image(moving_segmentation,
                                                            displacement)
 
-                if self.dataset_data.masked_evaluation:
+                if self.use_masked_evaluation:
                     fixed_mask = utils_metrics.get_convex_hull_mask(
                         fixed_segmentation.detach().cpu().numpy())
                     deformed_segmentation *= fixed_mask
@@ -215,7 +215,7 @@ class Evaluation():
                                path_segmentation_moving: Path,
                                name: str,
                                path_displacement: Optional[Path] = None,
-                               masked_evaluation: Optional[bool] = None) -> None:
+                               use_masked_evaluation: Optional[bool] = None) -> None:
         """
         Evaluate segmentations.
 
@@ -261,7 +261,7 @@ class Evaluation():
         else:
             raise ValueError("Displacement field not found.")
 
-        if masked_evaluation:
+        if use_masked_evaluation:
             fixed_mask = utils_metrics.get_convex_hull_mask(
                 segmentation_fixed.detach().cpu().numpy())
             segmentation_warped *= fixed_mask
