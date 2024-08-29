@@ -66,24 +66,6 @@ class TrainingInterface(_interface_core.InterfaceCore):
 
         self._train()
 
-    def _handle_device_selection(self) -> str:
-        """
-        Handle device selection.
-        If GPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to the selected GPU and return 'cuda'.
-        If CPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to -1 and return 'cpu'.
-        """
-
-        num = self.general_configuration['gpu']
-
-        if num and (num != '-1'):
-            device = 'cuda'
-            os.environ['CUDA_VISIBLE_DEVICES'] = num
-        else:
-            device = 'cpu'
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-        return device
-
     def _create_train_results_directory(self) -> None:
         """
         Create the directories to save the results.

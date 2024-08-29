@@ -1,8 +1,9 @@
-from abc import ABC, abstractmethod
+import os
 from pathlib import Path
 import json
 import uuid
 
+from abc import ABC, abstractmethod
 from typing import Dict, Union, List
 
 import wandb
@@ -128,3 +129,21 @@ class InterfaceCore(ABC):
 
         with open(config_path, "w") as file:
             json.dump(config, file, indent=4)
+
+    def _handle_device_selection(self) -> str:
+        """
+        Handle device selection.
+        If GPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to the selected GPU and return 'cuda'.
+        If CPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to -1 and return 'cpu'.
+        """
+
+        num = self.general_configuration['gpu']
+
+        if num and (num != '-1'):
+            device = 'cuda'
+            os.environ['CUDA_VISIBLE_DEVICES'] = num
+        else:
+            device = 'cpu'
+            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+        return device
