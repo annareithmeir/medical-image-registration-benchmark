@@ -2,6 +2,8 @@ from pathlib import Path
 import sys
 import os
 
+from typing import Optional
+
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.core import utils_voxelmorph
 from registrationbaselines.data_loading import data_loaders
@@ -19,7 +21,8 @@ class VoxelMorph(RegistrationInterface):
     def __init__(self,
                  configuration_path: Path,
                  dataloader: data_loaders.GenericDataset,
-                 use_masked_evaluation: bool = True):
+                 model_path: Path,
+                 use_masked_evaluation: bool = True) -> None:
         """
         Initialize the registration model - inference is performed here.
         """
@@ -30,8 +33,7 @@ class VoxelMorph(RegistrationInterface):
                          use_masked_evaluation)
 
         # from config
-        self.path_model = Path(
-            self.general_configuration["parameters"]["model_path"]["values"][0])
+        self.path_model = model_path
 
         self.gpu_number = self.general_configuration["parameters"]['gpu_number']["values"][0]
         self.device = self.__handle_device_selection()
