@@ -27,7 +27,7 @@ gc.collect()
 torch.cuda.empty_cache()
 
 
-class VoxelmorphTraining(TrainingInterface):
+class VoxelMorph(TrainingInterface):
     """
     Training for voxelmorph.
     """
