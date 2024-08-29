@@ -128,15 +128,16 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                     use_zero_displacement=True,
                                     use_masked_evaluation=self.use_masked_evaluation)
 
+        # if a zero displacement evaluation is already present, raise
+        if (self.path_dir_dataset / self.path_dir_run.name).exists():
+            raise FileExistsError(
+                f"Directory {self.path_dir_run} already exists.")
+
         self.evaluator.evaluate()
 
         self.evaluator.visualize()
 
         # move the results directory one level up
-        if self.path_dir_run.exists():
-            raise FileExistsError(
-                f"Directory {self.path_dir_run} already exists.")
-
         shutil.move(self.path_dir_run, self.path_dir_dataset)
 
         # if the path_dir_method_is empty, delete it
