@@ -1,9 +1,10 @@
-from abc import ABC, abstractmethod
+import os
 from pathlib import Path
 import json
 import uuid
 
-from typing import Dict, Union, List
+from abc import ABC, abstractmethod
+from typing import Dict, Union, List, Optional
 
 import wandb
 import wandb.sdk
@@ -29,6 +30,8 @@ class InterfaceCore(ABC):
     path_dir_run: Path
 
     use_wandb: bool = False
+
+    model_path: Optional[Path] = None
 
     def __init__(self,
                  method_name: str,
@@ -109,7 +112,11 @@ class InterfaceCore(ABC):
         else:
             self.run_configuration = utils_wandb.convert_to_non_wandb_config(
                 self.general_configuration)
-            self.run_name = self.method_name + f"_{uuid.uuid4()}"
+            # if we are in DL mode, we want to copy the run name from the model path
+            if self.model_path is not None:
+                self.run_name = self.model_path.parent.name
+            else:
+                self.run_name = self.method_name + f"_{uuid.uuid4()}"
 
     def _save_run_configuration(self) -> None:
         """
@@ -128,3 +135,21 @@ class InterfaceCore(ABC):
 
         with open(config_path, "w") as file:
             json.dump(config, file, indent=4)
+
+    def _handle_device_selection(self) -> str:
+        """
+        Handle device selection.
+        If GPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to the selected GPU and return 'cuda'.
+        If CPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to -1 and return 'cpu'.
+        """
+
+        num = str(self.general_configuration["parameters"]["gpu"]["values"][0])
+
+        if num and (num != '-1'):
+            device = 'cuda'
+            os.environ['CUDA_VISIBLE_DEVICES'] = num
+        else:
+            device = 'cpu'
+            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+        return device

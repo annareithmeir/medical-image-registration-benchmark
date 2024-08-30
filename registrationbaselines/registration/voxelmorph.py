@@ -2,8 +2,10 @@ from pathlib import Path
 import sys
 import os
 
+from typing import Optional
+
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
-from registrationbaselines.core import utils_voxelmorph
+from registrationbaselines.core import utils_dl
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.io import load
@@ -19,7 +21,8 @@ class VoxelMorph(RegistrationInterface):
     def __init__(self,
                  configuration_path: Path,
                  dataloader: data_loaders.GenericDataset,
-                 use_masked_evaluation: bool = True):
+                 model_path: Path,
+                 use_masked_evaluation: bool = True) -> None:
         """
         Initialize the registration model - inference is performed here.
         """
@@ -30,11 +33,10 @@ class VoxelMorph(RegistrationInterface):
                          use_masked_evaluation)
 
         # from config
-        self.path_model = Path(
-            self.general_configuration["parameters"]["model_path"]["values"][0])
+        self.model_path = model_path
 
         self.gpu_number = self.general_configuration["parameters"]['gpu_number']["values"][0]
-        self.device = self.__handle_device_selection()
+        self.device = self._handle_device_selection()
 
         self.number_of_layers = len(
             self.general_configuration["parameters"]['enc']["values"][0])
@@ -52,15 +54,15 @@ class VoxelMorph(RegistrationInterface):
         ori_shape = moving.shape
 
         # convert tensors to shapes accepted by voxelmorph, by padding
-        padded_shape = utils_voxelmorph.get_new_voxelmorph_image_shape(list(fixed.shape),
-                                                                       self.number_of_layers)
+        padded_shape = utils_dl.get_new_voxelmorph_image_shape(list(fixed.shape),
+                                                               self.number_of_layers)
         fixed.unsqueeze_(0).unsqueeze_(0)
         moving.unsqueeze_(0).unsqueeze_(0)
-        fixed = utils_voxelmorph.pad_tensor_to_shape(fixed, padded_shape)
-        moving = utils_voxelmorph.pad_tensor_to_shape(moving, padded_shape)
+        fixed = utils_dl.pad_tensor_to_shape(fixed, padded_shape)
+        moving = utils_dl.pad_tensor_to_shape(moving, padded_shape)
 
         # load and set up model
-        model = vxm.torch.networks.VxmDense.load(self.path_model, self.device)
+        model = vxm.torch.networks.VxmDense.load(self.model_path, self.device)
         model.to(self.device)
         model.eval()
 
@@ -71,26 +73,10 @@ class VoxelMorph(RegistrationInterface):
 
         # convert tensors to a format accepted by our framework, by cropping
         warped = warped.detach().cpu().squeeze()
-        warped = utils_voxelmorph.crop_tensor_to_shape(warped, list(ori_shape))
+        warped = utils_dl.crop_tensor_to_shape(warped, list(ori_shape))
         displacement = displacement.detach().cpu().squeeze()
         displacement = displacement.permute(1, 2, 3, 0)
-        displacement = utils_voxelmorph.crop_tensor_to_shape(
+        displacement = utils_dl.crop_tensor_to_shape(
             displacement, list(ori_shape) + [3])
 
         self._save_results(warped, displacement)
-
-    def __handle_device_selection(self) -> str:
-        """
-        Handle device selection.
-        If GPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to the selected GPU and return 'cuda'.
-        If CPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to -1 and return 'cpu'.
-        """
-
-        if self.gpu_number and (self.gpu_number != '-1'):
-            device = 'cuda'
-            os.environ['CUDA_VISIBLE_DEVICES'] = self.gpu_number
-        else:
-            device = 'cpu'
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-        return device

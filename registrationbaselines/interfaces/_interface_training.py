@@ -17,6 +17,8 @@ class TrainingInterface(_interface_core.InterfaceCore):
     Abstract base class for training procedure.
     """
 
+    # todo init wandb with project, group and name
+
     train_dataset: data_loaders.GenericDataset
     val_dataset: Optional[data_loaders.GenericDataset] = None
 
@@ -25,8 +27,9 @@ class TrainingInterface(_interface_core.InterfaceCore):
     initial_weights_path: Path
     train_data_path: Path
     base_dir: Path
-
     path_dir_train_results: Path
+
+    device: str
 
     sweep_id: str = ""
 
@@ -47,6 +50,11 @@ class TrainingInterface(_interface_core.InterfaceCore):
         self.train_dataset = train_dataset
         self.val_dataset = val_dataset
 
+        if (len(self.train_dataset) == 0) or (self.val_dataset is not None and len(self.val_dataset) == 0):
+            raise ValueError("The dataset is empty.")
+
+        self.device = self._handle_device_selection()
+
     @abstractmethod
     def _train(self) -> None:
         """
@@ -65,24 +73,6 @@ class TrainingInterface(_interface_core.InterfaceCore):
         self._save_run_configuration()
 
         self._train()
-
-    def _handle_device_selection(self) -> str:
-        """
-        Handle device selection.
-        If GPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to the selected GPU and return 'cuda'.
-        If CPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to -1 and return 'cpu'.
-        """
-
-        num = self.general_configuration['gpu']
-
-        if num and (num != '-1'):
-            device = 'cuda'
-            os.environ['CUDA_VISIBLE_DEVICES'] = num
-        else:
-            device = 'cpu'
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-        return device
 
     def _create_train_results_directory(self) -> None:
         """
