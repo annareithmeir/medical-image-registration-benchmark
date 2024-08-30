@@ -7,6 +7,7 @@ from registrationbaselines.core import utils_dl
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.io import load
+from registrationbaselines.warping import utils_displacement
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'
@@ -68,10 +69,14 @@ class VoxelMorph(RegistrationInterface):
         # convert tensors to a format accepted by our framework, by cropping
         warped = warped.detach().cpu().squeeze()
         warped = utils_dl.crop_tensor_to_shape(warped, list(ori_shape))
+
         displacement = displacement.detach().cpu().squeeze()
         displacement = utils_displacement.displacement_to_unit_displacement(
             displacement)
+
         displacement = displacement.permute(1, 2, 3, 0)
+        displacement = displacement[..., [2, 1, 0]]
+
         displacement = utils_dl.crop_tensor_to_shape(
             displacement, list(ori_shape) + [3])
 
