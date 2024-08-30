@@ -149,7 +149,7 @@ class Evaluation():
             if self.use_masked_evaluation:
                 fixed_mask = utils.get_convex_hull_mask(
                     fixed_image.detach().cpu().numpy())
-                displacement *= np.stack([fixed_mask] * 3, axis=-1)
+                # displacement *= np.stack([fixed_mask] * 3, axis=-1)
 
             plots_path = self._create_plots_paths(fixed_image_path.name,
                                                   moving_image_path.name,
@@ -227,7 +227,7 @@ class Evaluation():
 
         sd_log_det, fraction_foldings = metrics.displacement_field_metrics(
             displacement,
-            fixed_evaluation_mask)
+            None)  # fixed_evaluation_mask)
 
         self.results.add_value("sdlogj", sd_log_det, name)
         self.results.add_value("frac_foldings", fraction_foldings, name)
