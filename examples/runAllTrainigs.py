@@ -17,8 +17,8 @@ def main() -> None:
     base_dir = Path(__file__).parent.parent.absolute()
 
     methods: Dict[Type[Union[VoxelMorph, LapIRN]], Path] = {
+        LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
-        # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
     }
 
     idxs = np.arange(5)
@@ -45,15 +45,15 @@ def main() -> None:
                                               return_type="torch_tensor_dict")),
 
         (data_loaders.ImagePairDataset(image_pairs=[
-            [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{train_idx[0]:02}_0000.nii.gz"),
-             Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{train_idx[0]:02}_0001.nii.gz")],
-            [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{train_idx[1]:02}_0000.nii.gz"),
-             Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{train_idx[1]:02}_0001.nii.gz")]
+            [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{train_idx[0]+1:02}_0000.nii.gz"),
+             Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{train_idx[0]+1:02}_0001.nii.gz")],
+            [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{train_idx[1]+1:02}_0000.nii.gz"),
+             Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{train_idx[1]+1:02}_0001.nii.gz")]
         ],
             return_type="torch_tensor_dict"),
             data_loaders.ImagePairDataset(image_pairs=[
-                [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{val_idx[0]:02}_0000.nii.gz"),
-                 Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{val_idx[0]:02}_0001.nii.gz")]
+                [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{val_idx[0]+1:02}_0000.nii.gz"),
+                 Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{val_idx[0]+1:02}_0001.nii.gz")]
             ],
             return_type="torch_tensor_dict"))
     ]
@@ -68,7 +68,6 @@ def main() -> None:
                               val_dataset)
 
             training.execute_with_one_parameter_set()
-
             training.perform_wandb_sweep()
 
 
