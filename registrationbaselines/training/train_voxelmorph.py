@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 import gc
 
 from registrationbaselines.interfaces._interface_training import TrainingInterface
-from registrationbaselines.core import utils_voxelmorph
+from registrationbaselines.core import utils_dl
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.data_loading import data_loaders
 
@@ -27,7 +27,7 @@ gc.collect()
 torch.cuda.empty_cache()
 
 
-class VoxelmorphTraining(TrainingInterface):
+class VoxelMorph(TrainingInterface):
     """
     Training for voxelmorph.
     """
@@ -35,15 +35,15 @@ class VoxelmorphTraining(TrainingInterface):
     def __init__(self,
                  train_dataset: data_loaders.GenericDataset,
                  configuration_path: Path,
-                 val_dataset: Optional[data_loaders.GenericDataset] = None):
+                 val_dataset: Optional[data_loaders.GenericDataset] = None) -> None:
 
         super().__init__("VoxelMorph",
                          configuration_path,
                          train_dataset,
                          val_dataset)
 
-        new_shape = utils_voxelmorph.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
-                                                                    len(self.general_configuration["parameters"]["enc"]["values"][0]))
+        new_shape = utils_dl.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
+                                                            len(self.general_configuration["parameters"]["enc"]["values"][0]))
 
         self.train_dataset.image_shape = new_shape
         if self.val_dataset:
@@ -71,9 +71,9 @@ class VoxelmorphTraining(TrainingInterface):
             x = x.unsqueeze(0)
             y = y.unsqueeze(0)
 
-            x = utils_voxelmorph.pad_tensor_to_shape(
+            x = utils_dl.pad_tensor_to_shape(
                 x, self.train_dataset.image_shape)
-            y = utils_voxelmorph.pad_tensor_to_shape(
+            y = utils_dl.pad_tensor_to_shape(
                 y, self.train_dataset.image_shape)
 
             shape = x.shape[2:]
@@ -86,11 +86,6 @@ class VoxelmorphTraining(TrainingInterface):
 
     def _train(self) -> None:
 
-        assert len(self.train_dataset) > 0, 'Could not find any training data.'
-        print('Training with dataset of length ', len(self.train_dataset))
-        if self.val_dataset is not None:
-            print('Validation with dataset of length ', len(self.val_dataset))
-
         # scan-to-scan generator
         generator = self.scan_to_scan_generator(self.train_dataset)
         if self.val_dataset is not None:
@@ -100,13 +95,10 @@ class VoxelmorphTraining(TrainingInterface):
         inshape = self.train_dataset.image_shape
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print('Using device:', device)
-        print()
 
         # device handling
         gpus = self.run_configuration['gpu'].split(',')
         nb_gpus = len(gpus)
-        print('nb_gpus: ', nb_gpus)
         # device = 'cuda'
         os.environ['CUDA_VISIBLE_DEVICES'] = self.run_configuration['gpu']
         assert np.mod(self.run_configuration['batch_size'], nb_gpus) == 0, \
@@ -251,7 +243,7 @@ class VoxelmorphTraining(TrainingInterface):
             else:
                 loss_info = 'loss: %.4e  (%s)' % (
                     np.mean(epoch_total_loss), losses_info)
-            print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
+            # print(' - '.join((epoch_info, time_info, loss_info)), flush=True)
 
             # wandb logging
             if self.use_wandb:

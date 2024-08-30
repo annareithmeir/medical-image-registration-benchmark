@@ -110,5 +110,6 @@ class SyNANTs(RegistrationInterface):
             self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
 
         # save transformed image
+        deformed = deformed.permute(2,1,0)
         save.save_image(
             deformed, self.result_transformed_image_path, self.dataloader.spacing)

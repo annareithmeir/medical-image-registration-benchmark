@@ -3,12 +3,12 @@ name: SyNANTs
 
 parameters:
   result_path:
-#    value:            /u/home/koeglf/Documents/code/registrationbaselines/tmp/exp
-    values: [/home/anna/PycharmProjects/registrationbaselines/tmp/results]
+    values:            [/u/home/koeglf/Documents/code/registrationbaselines/tmp/test_all_regs]
+    # values: [/home/anna/PycharmProjects/registrationbaselines/tmp/results]
 #   value: /home/fryderyk/Documents/data/results/
 
   grad_step:
-    values: [2] # 0.2
+    values: [2, 0.5] # 0.2
 #    values: [0.02, 2] # 0.2
 
   flow_sigma:

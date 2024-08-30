@@ -38,7 +38,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                  method_name: str,
                  configuration_path: Path,
                  dataloader: data_loaders.GenericDataset,
-                 use_masked_evaluation: bool = True) -> None:
+                 use_masked_evaluation: bool = True,
+                 model_path: Optional[Path] = None) -> None:
         """
         Initialize the registration model.
         """
@@ -49,6 +50,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         self.dataloader = dataloader
         self.use_masked_evaluation = use_masked_evaluation
+
+        self.model_path = model_path
 
     @abstractmethod
     def _register(self,
@@ -75,7 +78,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         @return: None
         """
 
-        if "model_path" in self.general_configuration["parameters"] and self.use_wandb:
+        if self.model_path and self.use_wandb:
             wandb.finish()
             raise ValueError(
                 "DL mode can't be used with wandb sweeps for registration, because the sweep was done in training.")
@@ -84,7 +87,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         self._create_run_directory()
 
-        self._save_run_configuration()
+        if not self.model_path:
+            self._save_run_configuration()
 
         for item in tqdm(self.dataloader):
             self._register(item["fixed_image"], item["moving_image"])
@@ -122,6 +126,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         self._create_run_directory()
         self.path_dir_deformations.rmdir()
+        self.path_dir_deformed.rmdir()
 
         self.evaluator = Evaluation(run_path=self.path_dir_run,
                                     dataset_data=self.dataloader,
@@ -170,13 +175,13 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         # SAVE DEFORMED IMAGE
         save.save_image(deformed,
-                                               self.path_result_deformed,
-                                               self.dataloader.spacing)
+                        self.path_result_deformed,
+                        self.dataloader.spacing)
 
         # SAVE DEFORMATION
         save.save_displacement(deformation,
-                                                      self.path_result_deformation,
-                                                      self.dataloader.spacing + (1,))
+                               self.path_result_deformation,
+                               self.dataloader.spacing + (1,))
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(
@@ -216,11 +221,6 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         """
         Create the run directory in the method directory.
         """
-
-        # if we are in DL mode, we want to copy the run name from the model path
-        if "model_path" in self.run_configuration:
-            self.run_name = Path(
-                self.run_configuration["model_path"]).parent.name
 
         self.path_dir_run = self.path_dir_method / self.run_name
         self.path_dir_run.mkdir(parents=True, exist_ok=True)

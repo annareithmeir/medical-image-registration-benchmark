@@ -3,7 +3,7 @@ name: DemonsSITK
 
 parameters:
   result_path: 
-    values:               [/u/home/koeglf/Documents/code/registrationbaselines/tmp/results]
+    values:               [/u/home/koeglf/Documents/code/registrationbaselines/tmp/test_all_regs]
 
   filter_type:
     values:               [FastSymmetricForcesDemonsRegistrationFilter]
@@ -21,7 +21,7 @@ parameters:
 
   # demons
   number_of_iterations:   
-    values:               [1]
+    values:               [200, 0.5]
   standard_deviations:    
     values:               [1.0]
 
