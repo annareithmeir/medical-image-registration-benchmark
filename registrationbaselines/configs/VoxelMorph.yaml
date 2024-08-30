@@ -2,7 +2,7 @@ method: grid
 name: VoxelMorph
 parameters:
   result_path:
-    values:     [/u/home/koeglf/Documents/code/registrationbaselines/tmp/test_all_trains]
+    values:     [/u/home/koeglf/Documents/code/registrationbaselines/tmp/overfit]
   gpu_number:
     values:     ["0"]
   multichannel:
@@ -10,7 +10,7 @@ parameters:
   batch_size:
     values:     [1]
   epochs:
-    values:     [1]
+    values:     [1000]
   steps_per_epoch:
     values:     [3]
   load_model:
@@ -18,7 +18,7 @@ parameters:
   initial_epoch:
     values:     [0]
   lr:
-    values:     [0.0001, 0.7]
+    values:     [0.0001]
   int_steps:
     values:     [7]
   int_downsize:
@@ -30,7 +30,7 @@ parameters:
   bidir:
     values:     [False]
   sim_loss:
-    values:     ["mse"]
+    values:     ["mse", "ncc"]
   reg_weight:
     values:     [0.01]
   gpu:
@@ -38,4 +38,4 @@ parameters:
   cudnn_nondet:
     values:     [False]
   save_checkpoint:
-    values:     [20]
+    values:     [100]

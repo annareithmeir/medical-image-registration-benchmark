@@ -31,35 +31,36 @@ def main() -> None:
 
     methods: Dict[Type[Union[VoxelMorph, LapIRN, SyNANTs, DemonsSITK]], Path] = {
         VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
-        LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
+        # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
         DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
     }
 
     models = [
-        [base_dir / "tmp/test_all_trains/LungCT/VoxelMorph/train/VoxelMorph_dark-sweep-2/model_epoch00001_final.pt",
-         base_dir / "tmp/test_all_trains/LungCT/LapIRN/train/LapIRN_3fff0db0-39ee-4947-a6d3-67904c4b4a55/model_level3_final.pt"],
+        [base_dir / "tmp/overfit_vxm/LungCT/VoxelMorph/train/VoxelMorph_comic-sweep-1/model_epoch01000_final.pt"]  # ,
+        #  base_dir / "tmp/test_all_trains/LungCT/LapIRN/train/LapIRN_3fff0db0-39ee-4947-a6d3-67904c4b4a55/model_level3_final.pt"],
 
-        [base_dir / "tmp/test_all_trains/AbdomenMRCT/VoxelMorph/train/VoxelMorph_gallant-sweep-1/model_epoch00001_final.pt",
-         base_dir / "tmp/test_all_trains/AbdomenMRCT/LapIRN/train/LapIRN_valiant-sweep-1/model_level3_final.pt"],
+        # [base_dir / "tmp/test_all_trains/AbdomenMRCT/VoxelMorph/train/VoxelMorph_gallant-sweep-1/model_epoch00001_final.pt",
+        #  base_dir / "tmp/test_all_trains/AbdomenMRCT/LapIRN/train/LapIRN_valiant-sweep-1/model_level3_final.pt"],
 
-        [base_dir / "tmp/test_all_trains/image_pairs/VoxelMorph/train/VoxelMorph_a32fedfc-bff3-43a5-afda-c9e0b60523e3/model_epoch00001_final.pt",
-         base_dir / "tmp/test_all_trains/image_pairs/LapIRN/train/LapIRN_025a7ac9-e1ef-4344-a67c-92c8f9512232/model_level3_final.pt"]
+        # [base_dir / "tmp/test_all_trains/image_pairs/VoxelMorph/train/VoxelMorph_a32fedfc-bff3-43a5-afda-c9e0b60523e3/model_epoch00001_final.pt",
+        #  base_dir / "tmp/test_all_trains/image_pairs/LapIRN/train/LapIRN_025a7ac9-e1ef-4344-a67c-92c8f9512232/model_level3_final.pt"]
     ]
 
     indices = random.sample(range(1, 8), 2)
+    indices = [0, 1, 2, 3, 4]
     datasets = [
         data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed"),
                                       return_type="path_dict",
                                       indices=indices),
-        data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT_preprocessed"),
-                                             return_type="path_dict",
-                                             indices=indices),
-        data_loaders.ImagePairDataset(image_pairs=[
-            [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{indices[0]:02}_0000.nii.gz"),
-             Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{indices[0]:02}_0001.nii.gz")]
-        ],
-            return_type="path_dict")
+        # data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT_preprocessed"),
+        #                                      return_type="path_dict",
+        #                                      indices=indices),
+        # data_loaders.ImagePairDataset(image_pairs=[
+        #     [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{indices[0]:02}_0000.nii.gz"),
+        #      Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{indices[0]:02}_0001.nii.gz")]
+        # ],
+        #     return_type="path_dict")
     ]
 
     first_dataset_evaluation = True
@@ -68,9 +69,6 @@ def main() -> None:
         first_dataset_evaluation = True
 
         for j, (method, config_path) in enumerate(methods.items()):
-            if j == 0:
-                continue
-
             # get method name
             if method.__name__ in ["VoxelMorph", "LapIRN"]:
                 registration = method(config_path,
@@ -83,13 +81,13 @@ def main() -> None:
                                       use_masked_evaluation=True)
 
             if first_dataset_evaluation and dataset.name != "image_pairs":
-                # registration.evaluate_with_zero_displacement()
+                registration.evaluate_with_zero_displacement()
                 first_dataset_evaluation = False
 
             registration.execute_with_one_parameter_set()
 
-            if not hasattr(registration, "model_path"):
-                registration.perform_wandb_sweep()
+            # if not hasattr(registration, "model_path"):
+            #     registration.perform_wandb_sweep()
 
 
 if __name__ == "__main__":
