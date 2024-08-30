@@ -16,9 +16,8 @@ os.environ['VXM_BACKEND'] = 'pytorch'
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.data_loading import data_loaders  # nopep8
-from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
-from registrationbaselines.registration.affine_niftyreg import AffineNiftyReg  # nopep8
 from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
+from registrationbaselines.registration.lapirn import LapIRN  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
 from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
 
@@ -30,16 +29,22 @@ def main() -> None:
 
     base_dir = Path(__file__).parent.absolute().parent
 
-    methods: Dict[Type[Union[VoxelMorph, SyNANTs, DemonsSITK]], Path] = {
+    methods: Dict[Type[Union[VoxelMorph, LapIRN, SyNANTs, DemonsSITK]], Path] = {
         VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
+        LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
         DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
     }
 
     models = [
-        [base_dir / "tmp/test_all_trains/LungCT/VoxelMorph/train/VoxelMorph_ethereal-sweep-1/model_epoch00001_final.pt"],
-        [base_dir / "tmp/test_all_trains/AbdomenMRCT/VoxelMorph/train/VoxelMorph_smooth-sweep-1/model_epoch00001_final.pt"],
-        [base_dir / "tmp/test_all_trains/image_pairs/VoxelMorph/train/VoxelMorph_96cdca95-03ef-4654-a663-c65c557ccccf/model_epoch00001_final.pt"]
+        [base_dir / "tmp/test_all_trains/LungCT/VoxelMorph/train/VoxelMorph_dark-sweep-2/model_epoch00001_final.pt",
+         base_dir / "tmp/test_all_trains/LungCT/LapIRN/train/LapIRN_3fff0db0-39ee-4947-a6d3-67904c4b4a55/model_level3_final.pt"],
+
+        [base_dir / "tmp/test_all_trains/AbdomenMRCT/VoxelMorph/train/VoxelMorph_gallant-sweep-1/model_epoch00001_final.pt",
+         base_dir / "tmp/test_all_trains/AbdomenMRCT/LapIRN/train/LapIRN_valiant-sweep-1/model_level3_final.pt"],
+
+        [base_dir / "tmp/test_all_trains/image_pairs/VoxelMorph/train/VoxelMorph_a32fedfc-bff3-43a5-afda-c9e0b60523e3/model_epoch00001_final.pt",
+         base_dir / "tmp/test_all_trains/image_pairs/LapIRN/train/LapIRN_025a7ac9-e1ef-4344-a67c-92c8f9512232/model_level3_final.pt"]
     ]
 
     indices = random.sample(range(1, 8), 2)
@@ -63,9 +68,11 @@ def main() -> None:
         first_dataset_evaluation = True
 
         for j, (method, config_path) in enumerate(methods.items()):
+            if j == 0:
+                continue
 
             # get method name
-            if method.__name__ in ["VoxelMorph"]:
+            if method.__name__ in ["VoxelMorph", "LapIRN"]:
                 registration = method(config_path,
                                       dataset,
                                       use_masked_evaluation=True,
