@@ -69,6 +69,8 @@ class VoxelMorph(RegistrationInterface):
         warped = warped.detach().cpu().squeeze()
         warped = utils_dl.crop_tensor_to_shape(warped, list(ori_shape))
         displacement = displacement.detach().cpu().squeeze()
+        displacement = utils_displacement.displacement_to_unit_displacement(
+            displacement)
         displacement = displacement.permute(1, 2, 3, 0)
         displacement = utils_dl.crop_tensor_to_shape(
             displacement, list(ori_shape) + [3])
