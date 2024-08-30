@@ -53,8 +53,6 @@ class TrainingInterface(_interface_core.InterfaceCore):
         if (len(self.train_dataset) == 0) or (self.val_dataset is not None and len(self.val_dataset) == 0):
             raise ValueError("The dataset is empty.")
 
-        self.device = self._handle_device_selection()
-
     @abstractmethod
     def _train(self) -> None:
         """
