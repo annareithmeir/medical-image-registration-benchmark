@@ -4,9 +4,7 @@ name: LapIRN
 
 parameters:
   result_path:
-    values: [/u/home/koeglf/Documents/code/registrationbaselines/tmp/reg_interface_rewrite]
-  gpu_number:
-    values: ["0"]
+    values: [/u/home/koeglf/Documents/code/registrationbaselines/tmp/test_all_trains]
   multichannel:
     values: [False]
   batch_size:
@@ -20,13 +18,13 @@ parameters:
   initial_epoch:
     values: [0]
   lr:
-    values: [0.0001]
+    values: [0.0001, 0.005]
   iteration_lvl1:
-    values: [30]
+    values: [1]
   iteration_lvl2:
-    values: [30]
+    values: [1]
   iteration_lvl3:
-    values: [60]
+    values: [1]
   antifold_weight:
     values: [0.0]
   smooth_weight:
@@ -47,9 +45,3 @@ parameters:
     values: [False]
   save_checkpoint:
     values: [20]
-
-# inference params
-inference_model_path:
-  values: ["tmp/test_lapirn/test_modelstagelvl3_final.pth"]
-result_path:
-  values: ["tmp/test_lapirn"]
