@@ -143,7 +143,7 @@ class InterfaceCore(ABC):
         If CPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to -1 and return 'cpu'.
         """
 
-        num = self.general_configuration['gpu']
+        num = str(self.general_configuration["parameters"]["gpu"]["values"][0])
 
         if num and (num != '-1'):
             device = 'cuda'

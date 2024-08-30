@@ -36,7 +36,7 @@ class VoxelMorph(RegistrationInterface):
         self.model_path = model_path
 
         self.gpu_number = self.general_configuration["parameters"]['gpu_number']["values"][0]
-        self.device = self.__handle_device_selection()
+        self.device = self._handle_device_selection()
 
         self.number_of_layers = len(
             self.general_configuration["parameters"]['enc']["values"][0])
@@ -80,19 +80,3 @@ class VoxelMorph(RegistrationInterface):
             displacement, list(ori_shape) + [3])
 
         self._save_results(warped, displacement)
-
-    def __handle_device_selection(self) -> str:
-        """
-        Handle device selection.
-        If GPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to the selected GPU and return 'cuda'.
-        If CPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to -1 and return 'cpu'.
-        """
-
-        if self.gpu_number and (self.gpu_number != '-1'):
-            device = 'cuda'
-            os.environ['CUDA_VISIBLE_DEVICES'] = self.gpu_number
-        else:
-            device = 'cpu'
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-        return device
