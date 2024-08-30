@@ -171,7 +171,7 @@ class VoxelMorph(TrainingInterface):
             # save model checkpoint
             if epoch != 0 and epoch % self.run_configuration['save_checkpoint'] == 0:
                 model.save(os.path.join(
-                    self.run_directory, f"model_{epoch:05d}.pt"))
+                    self.path_dir_run, f"model_{epoch:05d}.pt"))
 
             epoch_loss = []
             epoch_total_loss = []
