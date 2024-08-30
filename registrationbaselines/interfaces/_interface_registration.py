@@ -38,7 +38,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                  method_name: str,
                  configuration_path: Path,
                  dataloader: data_loaders.GenericDataset,
-                 use_masked_evaluation: bool = True) -> None:
+                 use_masked_evaluation: bool = True,
+                 model_path: Optional[Path] = None) -> None:
         """
         Initialize the registration model.
         """
@@ -49,6 +50,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         self.dataloader = dataloader
         self.use_masked_evaluation = use_masked_evaluation
+
+        self.model_path = model_path
 
     @abstractmethod
     def _register(self,

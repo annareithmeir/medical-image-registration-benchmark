@@ -2,8 +2,6 @@ from pathlib import Path
 import sys
 import os
 
-from typing import Optional
-
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.core import utils_dl
 from registrationbaselines.data_loading import data_loaders
@@ -30,14 +28,10 @@ class VoxelMorph(RegistrationInterface):
         super().__init__("VoxelMorph",
                          configuration_path,
                          dataloader,
-                         use_masked_evaluation)
-
-        # from config
-        self.model_path = model_path
+                         use_masked_evaluation,
+                         model_path)
 
         self.gpu_number = self.general_configuration["parameters"]['gpu_number']["values"][0]
-        self.device = self._handle_device_selection()
-
         self.number_of_layers = len(
             self.general_configuration["parameters"]['enc']["values"][0])
 

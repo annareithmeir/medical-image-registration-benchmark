@@ -32,6 +32,7 @@ class InterfaceCore(ABC):
     use_wandb: bool = False
 
     model_path: Optional[Path] = None
+    device: str
 
     def __init__(self,
                  method_name: str,
@@ -48,6 +49,8 @@ class InterfaceCore(ABC):
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
         self._created_method_directory(dataset_name)
+
+        self._handle_device_selection()
 
     def perform_wandb_sweep(self) -> None:
         """
@@ -136,7 +139,7 @@ class InterfaceCore(ABC):
         with open(config_path, "w") as file:
             json.dump(config, file, indent=4)
 
-    def _handle_device_selection(self) -> str:
+    def _handle_device_selection(self) -> None:
         """
         Handle device selection.
         If GPU is selected, set the CUDA_VISIBLE_DEVICES environment variable to the selected GPU and return 'cuda'.
@@ -146,10 +149,8 @@ class InterfaceCore(ABC):
         num = str(self.general_configuration["parameters"]["gpu"]["values"][0])
 
         if num and (num != '-1'):
-            device = 'cuda'
+            self.device = 'cuda'
             os.environ['CUDA_VISIBLE_DEVICES'] = num
         else:
-            device = 'cpu'
+            self.device = 'cpu'
             os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-        return device
