@@ -58,8 +58,7 @@ def main() -> None:
             return_type="torch_tensor_dict"))"""
     ]
 
-    for dataset in datasets:
-        train_dataset, val_dataset = dataset
+    for train_dataset, val_dataset in datasets:
 
         for method, config_path in methods.items():
 
