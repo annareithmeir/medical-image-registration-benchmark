@@ -56,8 +56,8 @@ class BSplineNiftyReg(RegistrationInterface):
                 self.result_control_grid_path, self.path_fixed)
 
         # assign intent code to the displacement field
-        utils_nifti.set_intent_code(
-            self.path_result_deformation, "NIFTI_INTENT_DISPVECT")
+        # utils_nifti.set_intent_code(
+        #     self.path_result_deformation, "NIFTI_INTENT_DISPVECT")
 
     def __create_registration_command_list(self) -> None:
         """
