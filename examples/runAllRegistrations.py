@@ -20,6 +20,7 @@ from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
 from registrationbaselines.registration.lapirn import LapIRN  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
 from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
+from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
 
 
 def main() -> None:
@@ -29,11 +30,12 @@ def main() -> None:
 
     base_dir = Path(__file__).parent.absolute().parent
 
-    methods: Dict[Type[Union[VoxelMorph, LapIRN, SyNANTs, DemonsSITK]], Path] = {
-        VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
+    methods: Dict[Type[Union[VoxelMorph, LapIRN, SyNANTs, DemonsSITK, BSplineNiftyReg]], Path] = {
+        # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
         # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
-        SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
-        DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
+        # SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
+        # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
+        BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
     }
 
     models = [
@@ -48,7 +50,7 @@ def main() -> None:
     ]
 
     indices = random.sample(range(1, 8), 2)
-    indices = [0, 1, 2, 3, 4]
+    indices = [0]
     datasets = [
         data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed"),
                                       return_type="path_dict",
@@ -81,7 +83,7 @@ def main() -> None:
                                       use_masked_evaluation=True)
 
             if first_dataset_evaluation and dataset.name != "image_pairs":
-                registration.evaluate_with_zero_displacement()
+                # registration.evaluate_with_zero_displacement()
                 first_dataset_evaluation = False
 
             registration.execute_with_one_parameter_set()
