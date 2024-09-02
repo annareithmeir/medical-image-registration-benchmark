@@ -28,7 +28,8 @@ class Evaluation():
                  dataset_data: GenericDataset,
                  dataset_transformations: Optional[BaselineTransformations] = None,
                  use_zero_displacement: bool = False,
-                 use_masked_evaluation: Optional[bool] = None) -> None:
+                 use_masked_evaluation: Optional[bool] = None,
+                 is_niftyreg: bool = False) -> None:
         """
         Initialize the evaluatin model.
         """
@@ -50,6 +51,8 @@ class Evaluation():
 
         self.dataset_transformations = dataset_transformations
         self.dataset_data = dataset_data
+
+        self.is_niftyreg = is_niftyreg
 
     def evaluate(self) -> None:
         """
@@ -130,7 +133,16 @@ class Evaluation():
             fixed_image = load.load_image(fixed_image_path)
             moving_image = load.load_image(moving_image_path)
 
-            if self.use_zero_displacement:
+            if self.is_niftyreg:
+                shape = self.dataset_data.image_shape
+                path_displacement = self.dataset_transformations[i]
+                deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
+                                                                    moving_image_path.name,
+                                                                    extension_overwrite=''.join(path_displacement.suffixes))
+                deformed_image = load.load_image(deformed_image_path)
+                displacement = load.load_displacement(path_displacement)
+
+            elif self.use_zero_displacement:
                 shape = self.dataset_data.image_shape
                 displacement = torch.zeros((*shape, 3), dtype=torch.float32)
                 deformed_image = moving_image.detach().clone()
@@ -149,7 +161,6 @@ class Evaluation():
             if self.use_masked_evaluation:
                 fixed_mask = utils.get_convex_hull_mask(
                     fixed_image.detach().cpu().numpy())
-                # displacement *= np.stack([fixed_mask] * 3, axis=-1)
 
             plots_path = self._create_plots_paths(fixed_image_path.name,
                                                   moving_image_path.name,
@@ -164,16 +175,22 @@ class Evaluation():
             if self.dataset_data.has_segmentations:
                 path_segmentation_fixed = item["fixed_segmentations"]
                 path_segmentation_moving = item["moving_segmentations"]
-                fixed_segmentation = load.load_image(path_segmentation_fixed)
+                fixed_segmentation = load.load_image(
+                    path_segmentation_fixed)
                 moving_segmentation = load.load_image(
                     path_segmentation_moving)
 
-                deformed_segmentation = deform_objects.deform_image(moving_segmentation,
-                                                                    displacement)
+                if self.is_niftyreg:
+                    path_deformed_segmentation = deform_objects.deform_image_niftyreg_path(
+                        path_segmentation_moving, path_displacement)
+                    deformed_segmentation = load.load_image(
+                        path_deformed_segmentation)
+
+                else:
+                    deformed_segmentation = deform_objects.deform_image(moving_segmentation,
+                                                                        displacement)
 
                 if self.use_masked_evaluation:
-                    # fixed_mask = utils_metrics.get_convex_hull_mask(
-                    #     fixed_segmentation.detach().cpu().numpy())
                     deformed_segmentation *= fixed_mask
 
             fixed_image = fixed_image.to(displacement.device)
