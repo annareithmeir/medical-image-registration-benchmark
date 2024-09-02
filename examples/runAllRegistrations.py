@@ -32,15 +32,15 @@ def main() -> None:
 
     methods: Dict[Type[Union[VoxelMorph, LapIRN, SyNANTs, DemonsSITK, BSplineNiftyReg]], Path] = {
         # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
-        # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
+        LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         # SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
         # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
-        BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
+        # BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
     }
 
     models = [
-        [base_dir / "tmp/overfit_vxm/LungCT/VoxelMorph/train/VoxelMorph_comic-sweep-1/model_epoch01000_final.pt"]  # ,
-        #  base_dir / "tmp/test_all_trains/LungCT/LapIRN/train/LapIRN_3fff0db0-39ee-4947-a6d3-67904c4b4a55/model_level3_final.pt"],
+        [#base_dir / "tmp/overfit_vxm/LungCT/VoxelMorph/train/VoxelMorph_comic-sweep-1/model_epoch01000_final.pt"]  # ,
+         base_dir / "tmp/overfit/LungCT/LapIRN/train/LapIRN_clear-sweep-1/model_level3_final.pt"],
 
         # [base_dir / "tmp/test_all_trains/AbdomenMRCT/VoxelMorph/train/VoxelMorph_gallant-sweep-1/model_epoch00001_final.pt",
         #  base_dir / "tmp/test_all_trains/AbdomenMRCT/LapIRN/train/LapIRN_valiant-sweep-1/model_level3_final.pt"],
