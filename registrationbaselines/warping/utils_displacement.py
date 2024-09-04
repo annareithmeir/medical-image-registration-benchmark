@@ -104,3 +104,14 @@ def reverse_axis(image: torch.Tensor) -> torch.Tensor:
     image = utils.flip(image, image.ndim-1)
 
     return image
+
+
+def is_unit_displacement(displacement: torch.Tensor) -> bool:
+    """
+    Check if the displacement field is a unit displacement field.
+    """
+
+    if displacement.min() < -1.0 or displacement.max() > 1.0:
+        return False
+
+    return True

@@ -29,7 +29,7 @@ def deform_image(image: torch.Tensor,
     displacement = displacement.squeeze()
 
     # convert to unit displacement if range is not [-1,1]
-    if displacement.min() < -1 or displacement.max() > 1:
+    if not utils_displacement.is_unit_displacement(displacement):
         displacement = utils_displacement.displacement_to_unit_displacement(
             displacement)
 
@@ -76,7 +76,7 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
     @return: Deformed keypoints as a Tensor of shape (N, 3).
     """
 
-    if displacement.min() >= -1 and displacement.max() <= 1:
+    if utils_displacement.is_unit_displacement(displacement):
         displacement = utils_displacement.unit_displacement_to_displacement(
             displacement)
 
@@ -124,7 +124,7 @@ def deform_keypointsOLD(moving_keypoints: torch.Tensor, displacement: torch.Tens
     @return:
     """
 
-    if displacement.min() >= -1 and displacement.max() <= 1:
+    if utils_displacement.is_unit_displacement(displacement):
         displacement = utils_displacement.unit_displacement_to_displacement(
             displacement)
 

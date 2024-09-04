@@ -106,7 +106,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     @return: plot
     """
 
-    assert displacement.min() >= -1 and displacement.max() <= 1
+    assert utils_displacement.is_unit_displacement(displacement)
 
     moving_image = moving_image.numpy().squeeze()
     fixed_image = fixed_image.numpy().squeeze()

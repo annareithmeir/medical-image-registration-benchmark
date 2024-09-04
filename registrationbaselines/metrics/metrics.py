@@ -11,8 +11,9 @@ import SimpleITK as sitk
 import torch
 import monai
 
-from registrationbaselines.metrics import hd95, utils_metrics
 from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D, intArray3D
+from registrationbaselines.metrics import hd95
+from registrationbaselines.warping import utils_displacement
 
 
 def get_non_zero_unique_classes(image1: torch.Tensor, image2: torch.Tensor) -> List[int]:
@@ -38,7 +39,7 @@ def jacobian_determinant_from_displacement(displacement: floatArray3Dor4D) -> fl
         displacement.ndim == 3 and displacement.shape[-1] == 2, \
         "Displacement field should have shape (h, w, d, 3) or (w, d, 2)"
 
-    if displacement.min() >= -1 or displacement.max() <= 1:
+    if utils_displacement.is_unit_displacement(displacement):
         for dim in range(displacement.shape[-1]):
             displacement[..., dim] = float(
                 displacement.shape[-dim - 2] - 1) * displacement[..., dim] / 2.0
