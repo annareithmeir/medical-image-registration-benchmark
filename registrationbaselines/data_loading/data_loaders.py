@@ -390,7 +390,7 @@ class ImagePairDataset(GenericDataset):
         if self.keypoints_list:
             self.has_keypoints = True
 
-        self.spacing = utils.get_image_spacing(self.images_list[0][0])
+        self.spacing = load.get_image_spacing(self.images_list[0][0])
         self.image_shape = load.load_image(
             self.images_list[0][0]).shape
 
@@ -527,11 +527,10 @@ class L2RLungCTDataset(GenericDataset):
             file_f = Path("imagesTr/" + file_str + "_0000.nii.gz")
             self.images_list.append([file_f, file_m])
 
-        import SimpleITK as sitk
-        self.spacing = utils.get_image_spacing(
+        self.spacing = load.get_image_spacing(
             self.images_path / self.images_list[0][0])
-        self.image_shape = load.load_image(
-            self.images_path / self.images_list[0][0]).shape
+        self.image_shape = load.get_image_shape(
+            self.images_path / self.images_list[0][0])
 
     def _load_segmentations_list(self) -> None:
         """
@@ -669,11 +668,10 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             file_f = "imagesTr/" + file_str + "_0000.nii.gz"
             self.images_list.append([file_f, file_m])
 
-        import SimpleITK as sitk
-        self.spacing = sitk.ReadImage(
-            self.images_path / self.images_list[0][0]).GetSpacing()
-        self.image_shape = sitk.GetArrayFromImage(
-            sitk.ReadImage(self.images_path / self.images_list[0][0])).shape
+        self.spacing = load.get_image_spacing(
+            self.images_path / self.images_list[0][0])
+        self.image_shape = load.get_image_shape(
+            self.images_path / self.images_list[0][0])
 
     def _load_segmentations_list(self) -> None:
         """

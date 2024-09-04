@@ -126,29 +126,6 @@ def flip(x: torch.Tensor, dim: int):
     return x[tuple(indices)]
 
 
-def get_image_spacing(image_path: Path) -> Tuple[float, float, float]:
-    """
-    Get the spacing of an image.
-
-    @param image_path: The path to the image file.
-    @type image_path: Path
-
-    @return: The spacing.
-    @rtype: Tuple[float, float, float]
-    """
-
-    is_nifti(image_path)
-
-    image_sitk: sitk.Image = sitk.ReadImage(image_path)
-
-    spacing = image_sitk.GetSpacing()
-
-    if len(spacing) != 3:
-        raise ValueError(f"Spacing is not 3D: {spacing}")
-
-    return spacing[2], spacing[1], spacing[1]
-
-
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:
     """
     Get the affine matrix from a SimpleITK image.

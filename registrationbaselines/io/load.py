@@ -215,3 +215,41 @@ def read_config(file_path: Path) -> dict[str, Any]:
 
     with open(file_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
+
+
+def get_image_spacing(image_path: Path) -> Tuple[float, float, float]:
+    """
+    Get the spacing of an image.
+
+    @param image_path: The path to the image file.
+    @type image_path: Path
+
+    @return: The spacing.
+    @rtype: Tuple[float, float, float]
+    """
+
+    utils.is_nifti(image_path)
+
+    image_sitk: sitk.Image = sitk.ReadImage(image_path)
+
+    spacing = image_sitk.GetSpacing()
+
+    if len(spacing) != 3:
+        raise ValueError(f"Spacing is not 3D: {spacing}")
+
+    return spacing[2], spacing[1], spacing[1]
+
+
+def get_image_shape(image_path: Path) -> Tuple[int, int, int]:
+
+    utils.is_nifti(image_path)
+
+    image_sitk: sitk.Image = sitk.ReadImage(image_path)
+
+    image_array: array2Dor3D = sitk.GetArrayFromImage(image_sitk)
+
+    image_tensor = torch.from_numpy(image_array).squeeze()
+
+    image_tensor = image_tensor.permute(2, 1, 0)
+
+    return image_tensor.shape
