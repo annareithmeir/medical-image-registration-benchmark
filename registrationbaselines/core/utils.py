@@ -112,7 +112,7 @@ def are_offdiagonal_direction_elements_zero(image: sitk.Image) -> None:
         raise ValueError("Off-diagonal elements are not zero")
 
 
-def flip(x: torch.Tensor, dim: int):
+def flip(x: torch.Tensor, dim: int) -> torch.Tensor:
     """
     Flip order of a specific dimension dim
 
