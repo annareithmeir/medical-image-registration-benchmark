@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from typing import Any
+from typing import Any, Tuple
 
 import yaml
 import numpy as np
@@ -10,46 +10,6 @@ import torch
 from registrationbaselines.core import utils
 from registrationbaselines.core.types import floarArray4Dor5D, array2Dor3D
 from registrationbaselines.warping import utils_displacement
-# todo load niftyreg displacement
-
-
-def load_displacement_niftyreg(path: Path) -> torch.Tensor:
-
-    displacement_sitk: sitk.Image = sitk.ReadImage(path)
-
-    utils.is_isotropic(displacement_sitk)
-    utils.is_direction_identity(displacement_sitk)
-    utils.are_offdiagonal_direction_elements_zero(displacement_sitk)
-
-    displacement_array: floarArray4Dor5D = sitk.GetArrayFromImage(
-        displacement_sitk)
-
-    # check dimensions
-    shape = displacement_array.shape
-
-    # check that it is 4D
-    if len(shape) != 4:
-        raise ValueError(
-            f"Dimension is not 5D: {len(shape)}")
-
-    if not shape[-1] == 3:
-        raise ValueError(
-            "The NiftyReg displacement field should have the vector dimensions as the last dimensions.")
-
-    displacement_tensor = torch.from_numpy(displacement_array)
-    if displacement_tensor.dtype != torch.float32:
-        raise TypeError(
-            f"NiftyReg Displacement is not torch.float32: {displacement_tensor.dtype}")
-
-    # should be unit displacement
-    displacement_tensor = utils_displacement.displacement_to_unit_displacement(
-        displacement_tensor)
-
-    # displacement_tensor = utils_displacement.reverse_axis(displacement_tensor)
-    displacement_tensor = displacement_tensor.permute(2, 1, 0, 3)
-    # displacement_tensor = displacement_tensor[..., [2, 1, 0]]
-
-    return displacement_tensor
 
 
 def load_displacement(path: Path) -> torch.Tensor:
@@ -65,9 +25,6 @@ def load_displacement(path: Path) -> torch.Tensor:
     """
 
     utils.is_nifti(path)
-
-    if "BSplineNiftyReg" in path.as_posix():
-        return load_displacement_niftyreg(path)
 
     displacement_sitk: sitk.Image = sitk.ReadImage(path)
 
