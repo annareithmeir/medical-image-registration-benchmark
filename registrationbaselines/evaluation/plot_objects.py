@@ -21,6 +21,60 @@ os.environ['NEURITE_BACKEND'] = "pytorch"
 matplotlib.rcParams['text.usetex'] = True
 
 
+def plot_tensor_slices_difference(
+        tensor_a: torch.Tensor,
+        tensor_b: torch.Tensor,
+        save_path: str) -> None:
+    """
+    This function takes in two 3D tensors and creates a plot with 3 subplots (one row).
+    Each subplot contains the difference of the corresponding middle slices.
+
+    Parameters:
+    tensor1 (torch.Tensor): The first 3D tensor.
+    tensor2 (torch.Tensor): The second 3D tensor.
+    """
+    if tensor_a.shape != tensor_b.shape:
+        raise ValueError("The two tensors must have the same shape.")
+
+    # Calculate the middle index along the first dimension
+    middle_index_0 = tensor_a.shape[0] // 2
+    middle_index_1 = tensor_a.shape[1] // 2
+    middle_index_2 = tensor_a.shape[2] // 2
+
+    # Extract the middle slices from both tensors
+    slice_a_0 = tensor_a[middle_index_0, :, :]
+    slice_a_1 = tensor_a[:, middle_index_1, :]
+    slice_a_2 = tensor_a[:, :, middle_index_2]
+
+    slice_b_0 = tensor_b[middle_index_0, :, :]
+    slice_b_1 = tensor_b[:, middle_index_1, :]
+    slice_b_2 = tensor_b[:, :, middle_index_2]
+
+    # Calculate the difference
+    diff_0 = slice_a_0 - slice_b_0
+    diff_1 = slice_a_1 - slice_b_1
+    diff_2 = slice_a_2 - slice_b_2
+
+    # Plotting
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+    # Plot the first middle slice
+    axes[0].imshow(diff_0.numpy(), cmap='gray', vmin=-1, vmax=1)
+    axes[0].set_title("Middle slice along axis 0")\
+
+    # Plot the second middle slice
+    axes[1].imshow(diff_1.numpy(), cmap='gray', vmin=-1, vmax=1)
+    axes[1].set_title("Middle slice along axis 1")
+
+    # Plot the third middle slice
+    axes[2].imshow(diff_2.numpy(), cmap='gray', vmin=-1, vmax=1)
+    axes[2].set_title("Middle slice along axis 2")
+
+    # Display the plot
+    fig.savefig(save_path)
+    plt.close(fig)
+
+
 def plot_quantitative_results(df: pd.DataFrame, plot_path: Path):
     df = df.drop(["min", "max", "mean", "std"])
     df = df.astype(float)
