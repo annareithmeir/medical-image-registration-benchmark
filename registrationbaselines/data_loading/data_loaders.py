@@ -14,7 +14,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 from tqdm import tqdm
-import SimpleITK as sitk
+import nibabel as nib
 
 
 from registrationbaselines.io import load
@@ -423,7 +423,7 @@ class L2RLungCTDataset(GenericDataset):
         self.images_path = dataset_path
         self.images_path_preprocessed = None
         self.ndim = 3
-        self.spacing = (1.75, 1.75, 1.75)
+        self.spacing = (1.0, 1.0, 1.0)
         # self.spacing = (1.75, 1.25, 1.75)
         self.image_shape = (160, 192, 224)
         # self.image_shape = (192, 138, 208)
@@ -460,24 +460,24 @@ class L2RLungCTDataset(GenericDataset):
         (save_path / "keypointsTr").mkdir(parents=True, exist_ok=True)
 
         for idx in tqdm(range(len(self)), desc="Preprocessing", unit="iteration"):
-            file_moving_image = self.images_list[idx][0]
-            file_fixed_image = self.images_list[idx][1]
-            file_segmentation_m = self.segmentations_list[idx][0]
-            file_segmentation_f = self.segmentations_list[idx][1]
-            file_keypoints_m = self.keypoints_list[idx][0]
-            file_keypoints_f = self.keypoints_list[idx][1]
+            file_fixed_image = self.images_list[idx][0]
+            file_moving_image = self.images_list[idx][1]
+            file_segmentation_f = self.segmentations_list[idx][0]
+            file_segmentation_m = self.segmentations_list[idx][1]
+            file_keypoints_f = self.keypoints_list[idx][0]
+            file_keypoints_m = self.keypoints_list[idx][1]
 
             subject_dict = {
-                "moving_image": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
-                "fixed_image": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
-                "segmentation_m": tio.LabelMap(self.images_path / self.segmentations_list[idx][0]),
-                "segmentation_f": tio.LabelMap(self.images_path / self.segmentations_list[idx][1]),
+                "fixed_image": tio.ScalarImage(self.images_path / file_fixed_image),
+                "moving_image": tio.ScalarImage(self.images_path / file_moving_image),
+                "segmentation_f": tio.LabelMap(self.images_path / file_segmentation_f),
+                "segmentation_m": tio.LabelMap(self.images_path / file_segmentation_m),
             }
             subject = tio.Subject(subject_dict)
 
-            keypoints_m = np.genfromtxt(
-                self.images_path / self.keypoints_list[idx][0], delimiter=',')
             keypoints_f = np.genfromtxt(
+                self.images_path / self.keypoints_list[idx][0], delimiter=',')
+            keypoints_m = np.genfromtxt(
                 self.images_path / self.keypoints_list[idx][1], delimiter=',')
 
             # clip bones
@@ -492,24 +492,63 @@ class L2RLungCTDataset(GenericDataset):
             subject["moving_image"] = rescale_x(subject["moving_image"])
             subject["fixed_image"] = rescale_y(subject["fixed_image"])
 
+            # make sure origin is the same for all images
+            origin_fixed = subject["fixed_image"].origin
+            origin_moving = subject["moving_image"].origin
+            origin_seg_fi = subject["segmentation_f"].origin
+            origin_seg_mi = subject["segmentation_m"].origin
+
+            # check that all four origins are the same
+            if not all([
+                    np.allclose(origin_fixed, origin_moving),
+                    np.allclose(origin_fixed, origin_seg_fi),
+                    np.allclose(origin_fixed, origin_seg_mi)]):
+
+                raise ValueError("Origins of images are not the same")
+
             resample = tio.Resample(1.75)
             subject = resample(subject)
-            self.image_shape = subject["moving_image"].data.shape[1:]
-            self.spacing = (1.75, 1.75, 1.75)
 
             # after resmpling, the keypoints coordinates need to be adapted
             keypoints_m[:, 1] = keypoints_m[:, 1] * 1.25 / 1.75
             keypoints_f[:, 1] = keypoints_f[:, 1] * 1.25 / 1.75
 
             # save preprocessed images
-            subject["moving_image"].save(save_path / file_moving_image)
-            subject["fixed_image"].save(save_path / file_fixed_image)
-            subject["segmentation_m"].save(save_path / file_segmentation_m)
-            subject["segmentation_f"].save(save_path / file_segmentation_f)
+            save_fixed_image = save_path / file_fixed_image
+            save_moving_image = save_path / file_moving_image
+            save_segmentation_f = save_path / file_segmentation_f
+            save_segmentation_m = save_path / file_segmentation_m
+            subject["fixed_image"].save(save_fixed_image)
+            subject["moving_image"].save(save_moving_image)
+            subject["segmentation_f"].save(save_segmentation_f)
+            subject["segmentation_m"].save(save_segmentation_m)
             np.savetxt(save_path / file_keypoints_m,
                        keypoints_m, delimiter=",")
             np.savetxt(save_path / file_keypoints_f,
                        keypoints_f, delimiter=",")
+
+            affine = np.array([
+                [1., 0, 0, 0],
+                [0, 1., 0, 0],
+                [0, 0, 1., 0],
+                [0, 0, 0, 1]
+            ])
+
+            for p in [save_fixed_image, save_moving_image]:
+                image = nib.load(p)
+
+                new_image = nib.Nifti1Image(image.get_fdata().astype(np.float32),
+                                            affine)
+
+                nib.save(new_image, p)
+
+            for p in [save_segmentation_f, save_segmentation_m]:
+                image = nib.load(p)
+
+                new_image = nib.Nifti1Image(image.get_fdata().astype(np.uint8),
+                                            affine)
+
+                nib.save(new_image, p)
 
         self.images_path = save_path
         print("From now on reading images from ", self.images_path)
@@ -618,16 +657,16 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         (save_path / "labelsTr").mkdir(parents=True, exist_ok=True)
 
         for idx in tqdm(range(len(self)), desc="Preprocessing", unit="iteration"):
-            file_moving_image = self.images_list[idx][1]
             file_fixed_image = self.images_list[idx][0]
-            file_segmentation_m = self.segmentations_list[idx][1]
+            file_moving_image = self.images_list[idx][1]
             file_segmentation_f = self.segmentations_list[idx][0]
+            file_segmentation_m = self.segmentations_list[idx][1]
 
             subject_dict = {
-                "fixed_image": tio.ScalarImage(self.images_path / self.images_list[idx][0]),
-                "moving_image": tio.ScalarImage(self.images_path / self.images_list[idx][1]),
-                "segmentation_f": tio.LabelMap(self.images_path / self.segmentations_list[idx][0]),
-                "segmentation_m": tio.LabelMap(self.images_path / self.segmentations_list[idx][1])
+                "fixed_image": tio.ScalarImage(self.images_path / file_fixed_image),
+                "moving_image": tio.ScalarImage(self.images_path / file_moving_image),
+                "segmentation_f": tio.LabelMap(self.images_path / file_segmentation_f),
+                "segmentation_m": tio.LabelMap(self.images_path / file_segmentation_m),
             }
             subject = tio.Subject(subject_dict)
 
@@ -645,11 +684,53 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             subject["moving_image"] = rescale_x(subject["moving_image"])
             subject["fixed_image"] = rescale_y(subject["fixed_image"])
 
+            # make sure origin is the same for all images
+            origin_fixed = subject["fixed_image"].origin
+            origin_moving = subject["moving_image"].origin
+            origin_seg_fi = subject["segmentation_f"].origin
+            origin_seg_mi = subject["segmentation_m"].origin
+
+            # check that all four origins are the same
+            if not all([
+                    np.allclose(origin_fixed, origin_moving),
+                    np.allclose(origin_fixed, origin_seg_fi),
+                    np.allclose(origin_fixed, origin_seg_mi)]):
+
+                raise ValueError("Origins of images are not the same")
+
             # save preprocessed images
+            save_fixed_image = save_path / file_fixed_image
+            save_moving_image = save_path / file_moving_image
+            save_segmentation_f = save_path / file_segmentation_f
+            save_segmentation_m = save_path / file_segmentation_m
+
             subject["moving_image"].save(save_path / file_moving_image)
             subject["fixed_image"].save(save_path / file_fixed_image)
             subject["segmentation_m"].save(save_path / file_segmentation_m)
             subject["segmentation_f"].save(save_path / file_segmentation_f)
+
+            affine = np.array([
+                [1.0, 0, 0, 0],
+                [0, 1.0, 0, 0],
+                [0, 0, 1.0, 0],
+                [0, 0, 0, 1]
+            ])
+
+            for p in [save_fixed_image, save_moving_image]:
+                image = nib.load(p)
+
+                new_image = nib.Nifti1Image(image.get_fdata().astype(np.float32),
+                                            affine)
+
+                nib.save(new_image, p)
+
+            for p in [save_segmentation_f, save_segmentation_m]:
+                image = nib.load(p)
+
+                new_image = nib.Nifti1Image(image.get_fdata().astype(np.uint8),
+                                            affine)
+
+                nib.save(new_image, p)
 
         self.images_path = save_path
         print("From now on reading images from ", self.images_path)
@@ -809,11 +890,10 @@ class L2RAbdominalCTCTDataset(GenericDataset):
         self.images_list = [(x, y)
                             for x, y in combinations(files, 2) if x != y]
 
-        import SimpleITK as sitk
-        self.spacing = sitk.ReadImage(
-            self.images_path / self.images_list[0][0]).GetSpacing()
-        self.image_shape = sitk.GetArrayFromImage(
-            sitk.ReadImage(self.images_path / self.images_list[0][0])).shape
+        self.spacing = load.get_image_spacing(
+            self.images_path / self.images_list[0][0])
+        self.image_shape = load.get_image_shape(
+            self.images_path / self.images_list[0][0])
 
     def _load_segmentations_list(self) -> None:
         """

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List
 
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
+from registrationbaselines.core import utils_commandline, utils_niftyreg
 from registrationbaselines.data_loading import data_loaders
 
 
@@ -33,7 +33,10 @@ class BSplineNiftyReg(RegistrationInterface):
                   fixed_image_path: Path,
                   moving_image_path: Path) -> None:
         """
-            Test
+            BUGFIX 0: The displacement field had to be adapted to out convention
+                      Specifically:
+                        - a different way of normalizing
+                        - the spacing of the dataste has to be 1,1,1 (done in dataset preprocessing)
         """
 
         self.path_fixed = fixed_image_path
@@ -55,9 +58,9 @@ class BSplineNiftyReg(RegistrationInterface):
             utils_niftyreg.convert_transformation_to_displacement_field(
                 self.result_control_grid_path, self.path_fixed)
 
-        # assign intent code to the displacement field
-        # utils_nifti.set_intent_code(
-        #     self.path_result_deformation, "NIFTI_INTENT_DISPVECT")
+        # BUGFIX 0
+        utils_niftyreg.convert_niftyreg_displacement_to_baseline_convention(
+            self.path_result_deformation)
 
     def __create_registration_command_list(self) -> None:
         """
@@ -93,3 +96,25 @@ class BSplineNiftyReg(RegistrationInterface):
             return True
 
         return False
+
+    # def _convert_niftyreg_displacement(self, path_deformation: Path) -> None:
+
+    #     displacement_sitk = sitk.ReadImage(path_deformation)
+
+    #     displacement_array = sitk.GetArrayFromImage(displacement_sitk)
+
+    #     displacement_tensor = torch.from_numpy(displacement_array)
+
+    #     displacement_tensor = utils_displacement.reverse_axis(
+    #         displacement_tensor)
+
+    #     displacement_tensor[:, :, :, 1] *= -1
+    #     displacement_tensor[:, :, :, 2] *= -1
+
+    #     # # should be unit displacement
+    #     displacement_tensor = utils_displacement.displacement_to_unit_displacement(
+    #         displacement_tensor)
+
+    #     save.save_displacement(displacement_tensor,
+    #                            path_deformation,
+    #                            (1, 1, 1, 1))
