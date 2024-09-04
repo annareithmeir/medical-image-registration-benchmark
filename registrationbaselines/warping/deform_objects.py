@@ -314,8 +314,12 @@ def deform_image_niftyreg_torch(image: torch.Tensor,
     return warped
 
 
-def register_niftyreg(path_fixed: Path,
-                      path_moving: Path) -> Dict[str, Path]:
+def register_niftyreg(
+    path_fixed: Path,
+    path_moving: Path,
+    path_result_deformed: Path,
+    path_result_deformation: Path
+) -> None:
 
     from registrationbaselines.core import utils_commandline, utils_niftyreg
 
@@ -328,8 +332,6 @@ def register_niftyreg(path_fixed: Path,
     path_reg_f3d = Path(
         "/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
 
-    path_result_deformed = Path(
-        path_moving.as_posix().replace(".nii", "_warped.nii"))
     path_result_gird = path_moving.parent / "deformation_temp.nii.gz"
 
     command = [path_reg_f3d.as_posix(),
@@ -342,8 +344,7 @@ def register_niftyreg(path_fixed: Path,
                                               path_result_deformed.exists,
                                               print_command_list=False)
 
-    path_result_deformation = utils_niftyreg.convert_transformation_to_displacement_field(
+    path_result_deformation_temp = utils_niftyreg.convert_transformation_to_displacement_field(
         path_result_gird, path_fixed)
 
-    return {"warped": path_result_deformed,
-            "deformation": path_result_deformation}
+    path_result_deformation_temp.rename(path_result_deformation)
