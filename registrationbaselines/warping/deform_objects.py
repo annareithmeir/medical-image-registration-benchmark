@@ -29,7 +29,7 @@ def deform_image(image: torch.Tensor,
     displacement = displacement.squeeze()
 
     # convert to unit displacement if range is not [-1,1]
-    if displacement.min() < -1 or displacement.max() > 1:
+    if not utils_displacement.is_unit_displacement(displacement):
         displacement = utils_displacement.displacement_to_unit_displacement(
             displacement)
 
@@ -76,7 +76,7 @@ def deform_keypoints(moving_keypoints: torch.Tensor, displacement: torch.Tensor)
     @return: Deformed keypoints as a Tensor of shape (N, 3).
     """
 
-    if displacement.min() >= -1 and displacement.max() <= 1:
+    if utils_displacement.is_unit_displacement(displacement):
         displacement = utils_displacement.unit_displacement_to_displacement(
             displacement)
 
@@ -124,7 +124,7 @@ def deform_keypointsOLD(moving_keypoints: torch.Tensor, displacement: torch.Tens
     @return:
     """
 
-    if displacement.min() >= -1 and displacement.max() <= 1:
+    if utils_displacement.is_unit_displacement(displacement):
         displacement = utils_displacement.unit_displacement_to_displacement(
             displacement)
 
@@ -314,8 +314,12 @@ def deform_image_niftyreg_torch(image: torch.Tensor,
     return warped
 
 
-def register_niftyreg(path_fixed: Path,
-                      path_moving: Path) -> Dict[str, Path]:
+def register_niftyreg(
+    path_fixed: Path,
+    path_moving: Path,
+    path_result_deformed: Path,
+    path_result_deformation: Path
+) -> None:
 
     from registrationbaselines.core import utils_commandline, utils_niftyreg
 
@@ -328,8 +332,6 @@ def register_niftyreg(path_fixed: Path,
     path_reg_f3d = Path(
         "/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
 
-    path_result_deformed = Path(
-        path_moving.as_posix().replace(".nii", "_warped.nii"))
     path_result_gird = path_moving.parent / "deformation_temp.nii.gz"
 
     command = [path_reg_f3d.as_posix(),
@@ -342,8 +344,7 @@ def register_niftyreg(path_fixed: Path,
                                               path_result_deformed.exists,
                                               print_command_list=False)
 
-    path_result_deformation = utils_niftyreg.convert_transformation_to_displacement_field(
+    path_result_deformation_temp = utils_niftyreg.convert_transformation_to_displacement_field(
         path_result_gird, path_fixed)
 
-    return {"warped": path_result_deformed,
-            "deformation": path_result_deformation}
+    path_result_deformation_temp.rename(path_result_deformation)

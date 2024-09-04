@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import time
 
 from typing import Dict, Type, Union
 
@@ -7,9 +8,10 @@ import numpy as np
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
-from registrationbaselines.training.train_voxelmorph import VoxelMorph
-from registrationbaselines.training.train_lapirn import LapIRN
+from registrationbaselines.core import utils
 from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.training.train_lapirn import LapIRN
+from registrationbaselines.training.train_voxelmorph import VoxelMorph
 
 
 def main() -> None:
@@ -71,4 +73,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+
+    utils.turn_off_warnings()
+
+    start_time = time.time()
     main()
+    end_time = time.time()
+
+    execution_time = end_time - start_time
+    print(f"Execution time: {execution_time} seconds")

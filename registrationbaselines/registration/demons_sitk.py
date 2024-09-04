@@ -74,7 +74,7 @@ class DemonsSITK(_interface_registration.RegistrationInterface):
         warped = torch.from_numpy(
             sitk.GetArrayFromImage(warped_image))
 
-        if displacement.min() < -1 or displacement.max() > 1:
+        if not utils_displacement.is_unit_displacement(displacement):
             displacement = utils_displacement.displacement_to_unit_displacement(
                 displacement)
 

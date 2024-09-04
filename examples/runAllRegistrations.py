@@ -1,13 +1,10 @@
 from pathlib import Path
 import sys
-import logging
 import os
 import time
 import random
 
 from typing import Dict, Type, Union
-
-import SimpleITK as sitk
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'
@@ -15,12 +12,13 @@ os.environ['VXM_BACKEND'] = 'pytorch'
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
+from registrationbaselines.core import utils  # nopep8
 from registrationbaselines.data_loading import data_loaders  # nopep8
-from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
+from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
 from registrationbaselines.registration.lapirn import LapIRN  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
-from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
-from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
 
 
 def main() -> None:
@@ -34,13 +32,13 @@ def main() -> None:
         # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
         # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         # SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
-        # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
         BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
+        # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
     }
 
     models = [
-        [base_dir / "tmp/overfit_vxm/LungCT/VoxelMorph/train/VoxelMorph_comic-sweep-1/model_epoch01000_final.pt"]  # ,
-        #  base_dir / "tmp/test_all_trains/LungCT/LapIRN/train/LapIRN_3fff0db0-39ee-4947-a6d3-67904c4b4a55/model_level3_final.pt"],
+        [  # base_dir / "tmp/overfit_vxm/LungCT/VoxelMorph/train/VoxelMorph_comic-sweep-1/model_epoch01000_final.pt"]  # ,
+            base_dir / "tmp/overfit/LungCT/LapIRN/train/LapIRN_clear-sweep-1/model_level3_final.pt"],
 
         # [base_dir / "tmp/test_all_trains/AbdomenMRCT/VoxelMorph/train/VoxelMorph_gallant-sweep-1/model_epoch00001_final.pt",
         #  base_dir / "tmp/test_all_trains/AbdomenMRCT/LapIRN/train/LapIRN_valiant-sweep-1/model_level3_final.pt"],
@@ -52,15 +50,15 @@ def main() -> None:
     indices = random.sample(range(1, 8), 2)
     indices = [0]
     datasets = [
-        data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed"),
+        data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed_new"),
                                       return_type="path_dict",
                                       indices=indices),
-        # data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT_preprocessed"),
+        # data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT_preprocessed_new"),
         #                                      return_type="path_dict",
         #                                      indices=indices),
         # data_loaders.ImagePairDataset(image_pairs=[
-        #     [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{indices[0]:02}_0000.nii.gz"),
-        #      Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{indices[0]:02}_0001.nii.gz")]
+        #     [Path(f"/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/tests/images/fixed_x_11.nii.gz"),
+        #      Path(f"/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/tests/images/moving_x_11.nii.gz")]
         # ],
         #     return_type="path_dict")
     ]
@@ -93,16 +91,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # Set the logging level for matplotlib to WARNING
-    # matplotlib.use('Agg')
-    logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
-    import warnings
-    warnings.filterwarnings('ignore')
-    warnings.filterwarnings("ignore", category=UserWarning)
+    utils.turn_off_warnings()
 
     start_time = time.time()
-    sitk.ProcessObject_SetGlobalWarningDisplay(False)
     main()
     end_time = time.time()
 

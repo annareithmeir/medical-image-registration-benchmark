@@ -1,14 +1,26 @@
+import logging
 from pathlib import Path
 
 from typing import Any, Tuple, List
 
 import numpy as np
+import scipy.spatial
 import SimpleITK as sitk
 import torch
-import scipy.spatial
-
 
 from registrationbaselines.core.types import floatArray2D, intArray1D, intArray2D, intArray3D
+
+
+def turn_off_warnings() -> None:
+    # Set the logging level for matplotlib to WARNING
+    # matplotlib.use('Agg')
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
+    import warnings
+    warnings.filterwarnings('ignore')
+    warnings.filterwarnings("ignore", category=UserWarning)
+
+    sitk.ProcessObject_SetGlobalWarningDisplay(False)
 
 
 def is_nifti(path: Path) -> None:
@@ -100,7 +112,7 @@ def are_offdiagonal_direction_elements_zero(image: sitk.Image) -> None:
         raise ValueError("Off-diagonal elements are not zero")
 
 
-def flip(x: torch.Tensor, dim: int):
+def flip(x: torch.Tensor, dim: int) -> torch.Tensor:
     """
     Flip order of a specific dimension dim
 
@@ -112,29 +124,6 @@ def flip(x: torch.Tensor, dim: int):
     indices[dim] = torch.arange(x.size(dim) - 1, -1, -1,
                                 dtype=torch.long, device=x.device)
     return x[tuple(indices)]
-
-
-def get_image_spacing(image_path: Path) -> Tuple[float, float, float]:
-    """
-    Get the spacing of an image.
-
-    @param image_path: The path to the image file.
-    @type image_path: Path
-
-    @return: The spacing.
-    @rtype: Tuple[float, float, float]
-    """
-
-    is_nifti(image_path)
-
-    image_sitk: sitk.Image = sitk.ReadImage(image_path)
-
-    spacing = image_sitk.GetSpacing()
-
-    if len(spacing) != 3:
-        raise ValueError(f"Spacing is not 3D: {spacing}")
-
-    return spacing[2], spacing[1], spacing[1]
 
 
 def get_affine_from_image(image: sitk.Image) -> floatArray2D:

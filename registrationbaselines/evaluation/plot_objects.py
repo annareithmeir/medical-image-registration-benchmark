@@ -21,6 +21,60 @@ os.environ['NEURITE_BACKEND'] = "pytorch"
 matplotlib.rcParams['text.usetex'] = True
 
 
+def plot_tensor_slices_difference(
+        tensor_a: torch.Tensor,
+        tensor_b: torch.Tensor,
+        save_path: str) -> None:
+    """
+    This function takes in two 3D tensors and creates a plot with 3 subplots (one row).
+    Each subplot contains the difference of the corresponding middle slices.
+
+    Parameters:
+    tensor1 (torch.Tensor): The first 3D tensor.
+    tensor2 (torch.Tensor): The second 3D tensor.
+    """
+    if tensor_a.shape != tensor_b.shape:
+        raise ValueError("The two tensors must have the same shape.")
+
+    # Calculate the middle index along the first dimension
+    middle_index_0 = tensor_a.shape[0] // 2
+    middle_index_1 = tensor_a.shape[1] // 2
+    middle_index_2 = tensor_a.shape[2] // 2
+
+    # Extract the middle slices from both tensors
+    slice_a_0 = tensor_a[middle_index_0, :, :]
+    slice_a_1 = tensor_a[:, middle_index_1, :]
+    slice_a_2 = tensor_a[:, :, middle_index_2]
+
+    slice_b_0 = tensor_b[middle_index_0, :, :]
+    slice_b_1 = tensor_b[:, middle_index_1, :]
+    slice_b_2 = tensor_b[:, :, middle_index_2]
+
+    # Calculate the difference
+    diff_0 = slice_a_0 - slice_b_0
+    diff_1 = slice_a_1 - slice_b_1
+    diff_2 = slice_a_2 - slice_b_2
+
+    # Plotting
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+    # Plot the first middle slice
+    axes[0].imshow(diff_0.numpy(), cmap='gray', vmin=-1, vmax=1)
+    axes[0].set_title("Middle slice along axis 0")\
+
+    # Plot the second middle slice
+    axes[1].imshow(diff_1.numpy(), cmap='gray', vmin=-1, vmax=1)
+    axes[1].set_title("Middle slice along axis 1")
+
+    # Plot the third middle slice
+    axes[2].imshow(diff_2.numpy(), cmap='gray', vmin=-1, vmax=1)
+    axes[2].set_title("Middle slice along axis 2")
+
+    # Display the plot
+    fig.savefig(save_path)
+    plt.close(fig)
+
+
 def plot_quantitative_results(df: pd.DataFrame, plot_path: Path):
     df = df.drop(["min", "max", "mean", "std"])
     df = df.astype(float)
@@ -106,7 +160,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     @return: plot
     """
 
-    assert displacement.min() >= -1 and displacement.max() <= 1
+    assert utils_displacement.is_unit_displacement(displacement)
 
     moving_image = moving_image.numpy().squeeze()
     fixed_image = fixed_image.numpy().squeeze()
@@ -167,6 +221,16 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 1)
             ax.imshow(moving_image.take(
                 half_slice_idx[d], axis=d), cmap='gray')
+
+            if d == 0:  # y-z plane
+                plot_coordinate_system(ax, ('z', 'y'))
+
+            elif d == 1:  # x-z plane
+                plot_coordinate_system(ax, ('z', 'x'))
+
+            elif d == 2:  # x-y plane
+                plot_coordinate_system(ax, ('y', 'x'))
+
             if moving_keypoints is not None:
                 kp_slice = moving_keypoints[np.where(
                     abs(moving_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
@@ -289,7 +353,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 plt.axis('off')
                 if toprow:
                     ax.title.set_text(
-                        "segmentations (fixed: blue, warped: red)")
+                        "segmentations (fixed: red, warped: blue)")
             toprow = False
 
     elif image_dim == 2:
@@ -406,7 +470,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         print("Not implemented")
 
     fig.tight_layout()
-    fig.subplots_adjust(wspace=0.01, hspace=0.01)
+    fig.subplots_adjust(wspace=0.01, hspace=0.1)
 
     if save_path is not None:
         fig.savefig(save_path)
@@ -414,6 +478,75 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     else:
         fig.show()
     return fig
+
+
+def plot_coordinate_system(ax: plt.Axes, ax_names: Tuple[str, str]) -> None:
+
+    # Adding custom axis arrows and labels
+    vertical_offset = 0.03
+    hotizontal_correction = -0.009
+    arrow_length = 0.3
+    arrow_width = 2.0
+    arrow_color = 'black'       # Color of the arrow
+
+    arrow_start = [
+        0.0 - vertical_offset + hotizontal_correction,
+        1.0 + vertical_offset
+    ]
+
+    # Calculate the end point of the arrow
+    arrow_end = [
+        arrow_start[0] + arrow_length,
+        arrow_start[1] + 0
+    ]
+
+    # Draw the arrow with annotation
+    ax.annotate('',
+                xy=arrow_end,            # End point of the arrow
+                xytext=arrow_start,      # Starting point of the arrow
+                arrowprops=dict(
+                    arrowstyle="->",
+                    color=arrow_color,
+                    lw=arrow_width,
+                ),
+                fontsize=12,
+                color=arrow_color,
+                xycoords='axes fraction',
+                textcoords='axes fraction',
+                ha='left',  # Horizontal alignment of text
+                va='top'  # Vertical alignment of text
+                )
+    ax.annotate(ax_names[0], xy=(0.0, 0.0), xytext=(
+        0.5, -10), color='black')
+
+    arrow_start[0] += 0.01
+
+    # Calculate the end point of the arrow
+    arrow_end = (
+        arrow_start[0] + 0,
+        arrow_start[1] - arrow_length - 0.1
+    )
+
+    # Draw the arrow with annotation
+    ax.annotate('',
+                xy=arrow_end,            # End point of the arrow
+                xytext=arrow_start,      # Starting point of the arrow
+                arrowprops=dict(
+                    arrowstyle="->",
+                    color=arrow_color,
+                    lw=arrow_width,
+                ),
+                fontsize=12,
+                color=arrow_color,
+                xycoords='axes fraction',
+                textcoords='axes fraction',
+                ha='left',  # Horizontal alignment of text
+                va='top'  # Vertical alignment of text
+                )
+    ax.annotate(ax_names[1], xy=(0.0, 0.0), xytext=(
+        -15.0, 3), color='black')
+
+    plt.axis('off')
 
 
 def plot_all_registration_results_debugging_wandb(moving_image: np.ndarray,

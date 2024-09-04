@@ -1,7 +1,13 @@
-from pathlib import Path
 import os
+from pathlib import Path
 
-from registrationbaselines.core import utils_commandline
+from typing import Optional
+
+import SimpleITK as sitk
+import torch
+
+from registrationbaselines.core import utils_commandline, utils_nifti
+from registrationbaselines.warping import utils_displacement
 
 
 def convert_transformation_to_displacement_field(transformation_path: Path,
@@ -71,3 +77,59 @@ def apply_transformation(path_fixed: Path,
                                               print_command_list=False)
 
     return path_transformed
+
+
+def convert_niftyreg_displacement_to_baseline_convention(path_deformation: Path,
+                                                         path_deformation_new: Optional[Path] = None) -> None:
+    """
+    Convert the displacement field from NiftyReg convention to the baseline convention.
+        - normalises
+        - converts to non-unit displacement field
+        - permutes the vector dimension to the front
+        - adds dummy dimension
+        - saves
+        - sets the intent code.
+
+    If path_deformation_new is not provided, the original file will be overwritten.
+
+    This function was introduced as a bugfix so that we can use the displacement field in our convention.
+    TODO: this still doesn't work if the original images have non unit spacing
+
+    @param path_deformation: Path to the displacement field in NiftyReg convention.
+    @param path_deformation_new: Optional Path to save the new displacement field.
+
+    @return: None
+    """
+
+    if not path_deformation_new:
+        path_deformation_new = path_deformation
+
+    # get the displacement field as a torch tensor
+    displacement_sitk = sitk.ReadImage(path_deformation)
+    displacement_array = sitk.GetArrayFromImage(displacement_sitk)
+    displacement_tensor = torch.from_numpy(displacement_array)
+
+    # Normalize the displacement field
+    shape = tuple(displacement_tensor.permute(2, 1, 0, 3).shape[:3])
+    displacement_tensor = displacement_tensor / \
+        torch.tensor(shape).unsqueeze(
+            0).unsqueeze(0).unsqueeze(0) * 2
+
+    # convert it to a non-unit displacement field - because upon loading the displacement field
+    # it will be converted back to a unit displacement field
+    displacement_tensor = utils_displacement.unit_displacement_to_displacement(
+        displacement_tensor)
+
+    # move the vector dimension to the front to match sitk convention
+    displacement_tensor = displacement_tensor.permute(3, 0, 1, 2)
+
+    # add dummy dimension so the intent code can be set correctly
+    # without it it will do some permutations to the tensor
+    displacement_tensor = displacement_tensor.unsqueeze(1)
+
+    # Save the new displacement field
+    displacement_sitk_new = sitk.GetImageFromArray(displacement_tensor.numpy())
+
+    sitk.WriteImage(displacement_sitk_new, path_deformation_new)
+
+    utils_nifti.set_intent_code(path_deformation_new, 'NIFTI_INTENT_DISPVECT')
