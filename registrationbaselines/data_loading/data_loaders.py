@@ -452,6 +452,8 @@ class L2RLungCTDataset(GenericDataset):
         @param save_path: The path where the preprocessing data should be saved. The same folder structure as in the
          original dataset will be created there automatically and after preprocessing, the data will be loaded from this path instead of the original one.
         @return: None
+
+        # BUGFIX 0: The origin has to be 0,0,0 for all images, and the affine has to be identity
         """
 
         save_path.mkdir(parents=True, exist_ok=True)
@@ -499,6 +501,7 @@ class L2RLungCTDataset(GenericDataset):
             origin_seg_mi = subject["segmentation_m"].origin
 
             # check that all four origins are the same
+            # BUGFIX 0: The origin has to be 0,0,0 for all images, and the affine has to be identity
             if not all([
                     np.allclose(origin_fixed, origin_moving),
                     np.allclose(origin_fixed, origin_seg_fi),
@@ -527,6 +530,7 @@ class L2RLungCTDataset(GenericDataset):
             np.savetxt(save_path / file_keypoints_f,
                        keypoints_f, delimiter=",")
 
+            # BUGFIX 0: The origin has to be 0,0,0 for all images, and the affine has to be identity
             affine = np.array([
                 [1., 0, 0, 0],
                 [0, 1., 0, 0],
@@ -650,6 +654,8 @@ class L2RAbdominalMRCTDataset(GenericDataset):
         @param save_path: The path where the preprocessing data should be saved. The same folder structure as in the
          original dataset will be created there automatically and after preprocessing, the data will be loaded from this path instead of the original one.
         @return: None
+
+        # BUGFIX 0: The origin has to be 0,0,0 for all images, and the affine has to be identity
         """
 
         save_path.mkdir(parents=True, exist_ok=True)
@@ -690,6 +696,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             origin_seg_fi = subject["segmentation_f"].origin
             origin_seg_mi = subject["segmentation_m"].origin
 
+            # BUGFIX 0: The origin has to be 0,0,0 for all images, and the affine has to be identity
             # check that all four origins are the same
             if not all([
                     np.allclose(origin_fixed, origin_moving),
@@ -709,6 +716,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
             subject["segmentation_m"].save(save_path / file_segmentation_m)
             subject["segmentation_f"].save(save_path / file_segmentation_f)
 
+            # BUGFIX: The origin has to be 0,0,0 for all images, and the affine has to be identity
             affine = np.array([
                 [1.0, 0, 0, 0],
                 [0, 1.0, 0, 0],
