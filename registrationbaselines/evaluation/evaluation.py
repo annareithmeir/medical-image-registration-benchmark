@@ -28,8 +28,7 @@ class Evaluation():
                  dataset_data: GenericDataset,
                  dataset_transformations: Optional[BaselineTransformations] = None,
                  use_zero_displacement: bool = False,
-                 use_masked_evaluation: Optional[bool] = None,
-                 is_niftyreg: bool = False) -> None:
+                 use_masked_evaluation: Optional[bool] = None) -> None:
         """
         Initialize the evaluatin model.
         """
@@ -51,8 +50,6 @@ class Evaluation():
 
         self.dataset_transformations = dataset_transformations
         self.dataset_data = dataset_data
-
-        self.is_niftyreg = is_niftyreg
 
     def evaluate(self) -> None:
         """
@@ -133,16 +130,7 @@ class Evaluation():
             fixed_image = load.load_image(fixed_image_path)
             moving_image = load.load_image(moving_image_path)
 
-            if self.is_niftyreg:
-                shape = self.dataset_data.image_shape
-                path_displacement = self.dataset_transformations[i]
-                deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
-                                                                    moving_image_path.name,
-                                                                    extension_overwrite=''.join(path_displacement.suffixes))
-                deformed_image = load.load_image(deformed_image_path)
-                displacement = load.load_displacement(path_displacement)
-
-            elif self.use_zero_displacement:
+            if self.use_zero_displacement:
                 shape = self.dataset_data.image_shape
                 displacement = torch.zeros((*shape, 3), dtype=torch.float32)
                 deformed_image = moving_image.detach().clone()
@@ -150,10 +138,10 @@ class Evaluation():
                 path_displacement = self.dataset_transformations[i]
                 displacement = load.load_displacement(path_displacement)
 
-                deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
-                                                                    moving_image_path.name,
-                                                                    extension_overwrite=''.join(path_displacement.suffixes))
                 # todo check that loaded is the same as deformed up to some epsilon
+                # deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
+                # moving_image_path.name,
+                # extension_overwrite=''.join(path_displacement.suffixes))
                 # deformed_image = load.load_image(deformed_image_path)
                 deformed_image = deform_objects.deform_image(moving_image,
                                                              displacement)
@@ -180,15 +168,8 @@ class Evaluation():
                 moving_segmentation = load.load_image(
                     path_segmentation_moving)
 
-                if self.is_niftyreg:
-                    path_deformed_segmentation = deform_objects.deform_image_niftyreg_path(
-                        path_segmentation_moving, path_displacement)
-                    deformed_segmentation = load.load_image(
-                        path_deformed_segmentation)
-
-                else:
-                    deformed_segmentation = deform_objects.deform_image(moving_segmentation,
-                                                                        displacement)
+                deformed_segmentation = deform_objects.deform_image(moving_segmentation,
+                                                                    displacement)
 
                 if self.use_masked_evaluation:
                     deformed_segmentation *= fixed_mask

@@ -100,8 +100,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                     dataset_data=self.dataloader,
                                     dataset_transformations=loader_transformations,
                                     use_zero_displacement=False,
-                                    use_masked_evaluation=self.use_masked_evaluation,
-                                    is_niftyreg=self.method_name == "BSplineNiftyReg")
+                                    use_masked_evaluation=self.use_masked_evaluation)
 
         self.evaluator.evaluate()
 
