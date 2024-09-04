@@ -343,7 +343,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
                 plt.axis('off')
                 if toprow:
                     ax.title.set_text(
-                        "segmentations (fixed: blue, warped: red)")
+                        "segmentations (fixed: red, warped: blue)")
             toprow = False
 
     elif image_dim == 2:
