@@ -30,15 +30,15 @@ def main() -> None:
 
     methods: Dict[Type[Union[VoxelMorph, LapIRN, SyNANTs, DemonsSITK, BSplineNiftyReg]], Path] = {
         # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
-        LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
+        # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         # SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
+        BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
         # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
-        # BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
     }
 
     models = [
-        [#base_dir / "tmp/overfit_vxm/LungCT/VoxelMorph/train/VoxelMorph_comic-sweep-1/model_epoch01000_final.pt"]  # ,
-         base_dir / "tmp/overfit/LungCT/LapIRN/train/LapIRN_clear-sweep-1/model_level3_final.pt"],
+        [  # base_dir / "tmp/overfit_vxm/LungCT/VoxelMorph/train/VoxelMorph_comic-sweep-1/model_epoch01000_final.pt"]  # ,
+            base_dir / "tmp/overfit/LungCT/LapIRN/train/LapIRN_clear-sweep-1/model_level3_final.pt"],
 
         # [base_dir / "tmp/test_all_trains/AbdomenMRCT/VoxelMorph/train/VoxelMorph_gallant-sweep-1/model_epoch00001_final.pt",
         #  base_dir / "tmp/test_all_trains/AbdomenMRCT/LapIRN/train/LapIRN_valiant-sweep-1/model_level3_final.pt"],
@@ -50,15 +50,15 @@ def main() -> None:
     indices = random.sample(range(1, 8), 2)
     indices = [0]
     datasets = [
-        data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed"),
+        data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed_new"),
                                       return_type="path_dict",
                                       indices=indices),
-        # data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT_preprocessed"),
+        # data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT_preprocessed_new"),
         #                                      return_type="path_dict",
         #                                      indices=indices),
         # data_loaders.ImagePairDataset(image_pairs=[
-        #     [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{indices[0]:02}_0000.nii.gz"),
-        #      Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{indices[0]:02}_0001.nii.gz")]
+        #     [Path(f"/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/tests/images/fixed_x_11.nii.gz"),
+        #      Path(f"/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/tests/images/moving_x_11.nii.gz")]
         # ],
         #     return_type="path_dict")
     ]
