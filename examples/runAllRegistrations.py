@@ -1,13 +1,10 @@
 from pathlib import Path
 import sys
-import logging
 import os
 import time
 import random
 
 from typing import Dict, Type, Union
-
-import SimpleITK as sitk
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'
@@ -15,12 +12,13 @@ os.environ['VXM_BACKEND'] = 'pytorch'
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
+from registrationbaselines.core import utils  # nopep8
 from registrationbaselines.data_loading import data_loaders  # nopep8
-from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
+from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
 from registrationbaselines.registration.lapirn import LapIRN  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
-from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
-from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
 
 
 def main() -> None:
@@ -93,16 +91,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # Set the logging level for matplotlib to WARNING
-    # matplotlib.use('Agg')
-    logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
-    import warnings
-    warnings.filterwarnings('ignore')
-    warnings.filterwarnings("ignore", category=UserWarning)
+    utils.turn_off_warnings()
 
     start_time = time.time()
-    sitk.ProcessObject_SetGlobalWarningDisplay(False)
     main()
     end_time = time.time()
 

@@ -1,14 +1,26 @@
+import logging
 from pathlib import Path
 
 from typing import Any, Tuple, List
 
 import numpy as np
+import scipy.spatial
 import SimpleITK as sitk
 import torch
-import scipy.spatial
-
 
 from registrationbaselines.core.types import floatArray2D, intArray1D, intArray2D, intArray3D
+
+
+def turn_off_warnings() -> None:
+    # Set the logging level for matplotlib to WARNING
+    # matplotlib.use('Agg')
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
+    import warnings
+    warnings.filterwarnings('ignore')
+    warnings.filterwarnings("ignore", category=UserWarning)
+
+    sitk.ProcessObject_SetGlobalWarningDisplay(False)
 
 
 def is_nifti(path: Path) -> None:
