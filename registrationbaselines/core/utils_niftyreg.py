@@ -92,6 +92,9 @@ def convert_niftyreg_displacement_to_baseline_convention(path_deformation: Path,
 
     If path_deformation_new is not provided, the original file will be overwritten.
 
+    This function was introduced as a bugfix so that we can use the displacement field in our convention.
+    TODO: this still doesn't work if the original images have non unit spacing
+
     @param path_deformation: Path to the displacement field in NiftyReg convention.
     @param path_deformation_new: Optional Path to save the new displacement field.
 
