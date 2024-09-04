@@ -221,6 +221,16 @@ def plot_all_registration_results(moving_image: torch.Tensor,
             ax = fig.add_subplot(3, num_cols, (num_cols * d) + 1)
             ax.imshow(moving_image.take(
                 half_slice_idx[d], axis=d), cmap='gray')
+
+            if d == 0:  # y-z plane
+                plot_coordinate_system(ax, ('z', 'y'))
+
+            elif d == 1:  # x-z plane
+                plot_coordinate_system(ax, ('z', 'x'))
+
+            elif d == 2:  # x-y plane
+                plot_coordinate_system(ax, ('y', 'x'))
+
             if moving_keypoints is not None:
                 kp_slice = moving_keypoints[np.where(
                     abs(moving_keypoints[:, d] - half_slice_idx[d]) <= 0.5)]
@@ -460,7 +470,7 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         print("Not implemented")
 
     fig.tight_layout()
-    fig.subplots_adjust(wspace=0.01, hspace=0.01)
+    fig.subplots_adjust(wspace=0.01, hspace=0.1)
 
     if save_path is not None:
         fig.savefig(save_path)
@@ -468,6 +478,75 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     else:
         fig.show()
     return fig
+
+
+def plot_coordinate_system(ax: plt.Axes, ax_names: Tuple[str, str]) -> None:
+
+    # Adding custom axis arrows and labels
+    vertical_offset = 0.03
+    hotizontal_correction = -0.009
+    arrow_length = 0.3
+    arrow_width = 2.0
+    arrow_color = 'black'       # Color of the arrow
+
+    arrow_start = [
+        0.0 - vertical_offset + hotizontal_correction,
+        1.0 + vertical_offset
+    ]
+
+    # Calculate the end point of the arrow
+    arrow_end = [
+        arrow_start[0] + arrow_length,
+        arrow_start[1] + 0
+    ]
+
+    # Draw the arrow with annotation
+    ax.annotate('',
+                xy=arrow_end,            # End point of the arrow
+                xytext=arrow_start,      # Starting point of the arrow
+                arrowprops=dict(
+                    arrowstyle="->",
+                    color=arrow_color,
+                    lw=arrow_width,
+                ),
+                fontsize=12,
+                color=arrow_color,
+                xycoords='axes fraction',
+                textcoords='axes fraction',
+                ha='left',  # Horizontal alignment of text
+                va='top'  # Vertical alignment of text
+                )
+    ax.annotate(ax_names[0], xy=(0.0, 0.0), xytext=(
+        0.5, -10), color='black')
+
+    arrow_start[0] += 0.01
+
+    # Calculate the end point of the arrow
+    arrow_end = (
+        arrow_start[0] + 0,
+        arrow_start[1] - arrow_length - 0.1
+    )
+
+    # Draw the arrow with annotation
+    ax.annotate('',
+                xy=arrow_end,            # End point of the arrow
+                xytext=arrow_start,      # Starting point of the arrow
+                arrowprops=dict(
+                    arrowstyle="->",
+                    color=arrow_color,
+                    lw=arrow_width,
+                ),
+                fontsize=12,
+                color=arrow_color,
+                xycoords='axes fraction',
+                textcoords='axes fraction',
+                ha='left',  # Horizontal alignment of text
+                va='top'  # Vertical alignment of text
+                )
+    ax.annotate(ax_names[1], xy=(0.0, 0.0), xytext=(
+        -15.0, 3), color='black')
+
+    plt.axis('off')
 
 
 def plot_all_registration_results_debugging_wandb(moving_image: np.ndarray,
