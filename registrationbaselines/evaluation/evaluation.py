@@ -7,7 +7,7 @@ import wandb
 import numpy as np
 import torch
 
-from registrationbaselines.evaluation import result_csv, plot_objects
+from registrationbaselines.evaluation import result_csv, plot_objects, utils_evaluation
 from registrationbaselines.io import load, save
 from registrationbaselines.core import utils
 from registrationbaselines.warping import deform_objects
@@ -139,12 +139,15 @@ class Evaluation():
                 displacement = load.load_displacement(path_displacement)
 
                 # todo check that loaded is the same as deformed up to some epsilon
-                # deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
-                # moving_image_path.name,
-                # extension_overwrite=''.join(path_displacement.suffixes))
-                # deformed_image = load.load_image(deformed_image_path)
+                deformed_image_path = self._get_deformed_image_path(fixed_image_path.name,
+                                                                    moving_image_path.name,
+                                                                    extension_overwrite=''.join(path_displacement.suffixes))
+                deformed_image_from_reg = load.load_image(deformed_image_path)
                 deformed_image = deform_objects.deform_image(moving_image,
                                                              displacement)
+
+                utils_evaluation.check_if_deformed_images_are_similar_enough(deformed_image,
+                                                                             deformed_image_from_reg)
 
             if self.use_masked_evaluation:
                 fixed_mask = utils.get_convex_hull_mask(
