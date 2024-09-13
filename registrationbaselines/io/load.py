@@ -16,6 +16,106 @@ def load_displacement(path: Path) -> torch.Tensor:
     """
     Load a displacement field from a file and return it as a torch tensor in the shape H,W,D,3
 
+    SHAPES:
+    entry (displacement_sitk.GetSize()):            (192, 138, 208, 1, 3)
+    numpy conversion (displacement_array.shape):	(3, 1, 208, 138, 192)
+    result (displacement_tensor.shape):         	(192, 138, 208, 3)
+
+    @param path: The path to the displacement field file.
+
+    @return: The displacement field.
+
+    @raise ValueError: If the intent code of the displacement field is not NIFTI_INTENT_DISPVECT.
+    @raise ValueError: If the displacement field has wrong dimensions.
+    """
+    """
+    utils.is_nifti(path)
+
+    displacement_sitk: sitk.Image = sitk.ReadImage(path)
+
+    utils.is_isotropic(displacement_sitk)
+    utils.is_direction_identity(displacement_sitk)
+    utils.are_offdiagonal_direction_elements_zero(displacement_sitk)
+
+    displacement_array: floarArray4Dor5D = sitk.GetArrayFromImage(
+        displacement_sitk)
+
+    # check intent code
+    # 1006 = NIFTI_INTENT_DISPVECT
+    if displacement_sitk.GetMetaData("intent_code") != "1006":
+        raise ValueError(
+            "The intent code of the displacement field should be NIFTI_INTENT_DISPVECT.")
+
+    # check dimensions
+    shape = displacement_array.shape
+
+    # check that it is 5D
+    if len(shape) != 5:
+        raise ValueError(f"Dimension is not 5D: {len(shape)}")
+
+    separating_dimension_correct = shape[1] == 1  # dim 1 is dummy
+    # dim 0 is vector dimension, which has to correspond to spatial dimensions
+    vector_dimension_correct = shape[0] == len(shape) - 2
+
+    if not separating_dimension_correct or not vector_dimension_correct:
+        raise ValueError(
+            "The displacement field should have spatial dimensions as the last dimensions \
+                and a vector dimension as the first dimension and separated by a dummy dimension.")
+
+    displacement_tensor = torch.from_numpy(displacement_array)
+    if displacement_tensor.dtype != torch.float32:
+        raise TypeError(
+            f"Dsiplacement is not torch.float32: {displacement_tensor.dtype}")
+    """
+
+    displacement_sitk = sitk.ReadImage(path)
+    displacement_array = sitk.GetArrayFromImage(displacement_sitk)
+    displacement_tensor = torch.from_numpy(displacement_array)
+
+    displacement_tensor = displacement_tensor.squeeze(1)
+    displacement_tensor = displacement_tensor.permute(1, 2, 3, 0)
+
+    # Normalize the displacement field
+    shape = tuple(displacement_tensor.permute(2, 1, 0, 3).shape[:3])
+    scaling_tensor = torch.tensor(shape).unsqueeze(0).unsqueeze(0).unsqueeze(0)
+    displacement_tensor = (displacement_tensor / scaling_tensor) * 2  # nopep8
+
+    # convert it to a non-unit displacement field - because upon loading the displacement field
+    # it will be converted back to a unit displacement field
+    displacement_tensor = utils_displacement.unit_displacement_to_displacement(
+        displacement_tensor)
+
+    # move the vector dimension to the front to match sitk convention
+    displacement_tensor = displacement_tensor.permute(3, 0, 1, 2)
+
+    # add dummy dimension so the intent code can be set correctly
+    # without it it will do some permutations to the tensor
+    displacement_tensor = displacement_tensor.unsqueeze(1)
+
+    #######################################################################################################
+    #######################################################################################################
+    #######################################################################################################
+
+    # remove separating dummy dimension
+    displacement_tensor = displacement_tensor.squeeze()
+
+    # move the vector dimension to the last dimension
+    new_order = list(range(1, displacement_tensor.dim())) + [0]
+    displacement_tensor = displacement_tensor.permute(new_order)
+
+    # should be unit displacement
+    displacement_tensor = utils_displacement.displacement_to_unit_displacement(
+        displacement_tensor)
+
+    displacement_tensor = utils_displacement.reverse_axis(displacement_tensor)
+
+    return displacement_tensor
+
+
+def load_displacement_OLD(path: Path) -> torch.Tensor:
+    """
+    Load a displacement field from a file and return it as a torch tensor in the shape H,W,D,3
+
     @param path: The path to the displacement field file.
 
     @return: The displacement field.
@@ -88,11 +188,14 @@ def load_image(image_path: Path) -> torch.Tensor:
     The image should be 2D, 3D or 4D.
     The image should be float or integer.
 
-    @param image_path: The path to the image file.
-    @type image_path: Path
+    SHAPES:
+    entry (image_sitk.GetSize()):           (192, 138, 208)
+    numpy conversion (image_array.shape):	(208, 138, 192)
+    result (return_tensor.shape):         	(192, 138, 208)
 
-    @return: The image.
-    @rtype: floatArray2Dor3Dor4D
+    @param image_path: The path to the image file.
+
+    @return: The image as a tensor.
     """
 
     utils.is_nifti(image_path)
