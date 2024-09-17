@@ -1,10 +1,15 @@
 from pathlib import Path
 
-from typing import List
+from typing import List, Optional, Tuple
+
+import torch
+import SimpleITK as sitk
 
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline, utils_niftyreg
+from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.io import save, load
+from registrationbaselines.warping import utils_displacement
 
 
 class BSplineNiftyReg(RegistrationInterface):
@@ -29,25 +34,24 @@ class BSplineNiftyReg(RegistrationInterface):
         # command to call NiftyReg
         self.command: List[str] = []
 
+        self.path_result_control_grid: Path
+
     def _register(self,
-                  fixed_image_path: Path,
-                  moving_image_path: Path) -> None:
+                  fixed_image: torch.Tensor,
+                  moving_image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-            BUGFIX 0: The displacement field had to be adapted to out convention
+            BUGFIX 0: The displacement field had to be adapted to our convention
                       Specifically:
                         - a different way of normalizing
-                        - the spacing of the dataste has to be 1,1,1 (done in dataset preprocessing)
+                        - the spacing of the datastet has to be 1,1,1 (done in dataset preprocessing)
         """
 
-        self.path_fixed = fixed_image_path
-        self.path_moving = moving_image_path
-        self.working_dir_path = self.path_fixed.parent
+        self.working_dir_path = Path(__file__).parent
+        self.path_fixed = self.working_dir_path / "fixed.nii.gz"
+        self.path_moving = self.working_dir_path / "moving.nii.gz"
 
-        # check that both images exist
-        assert self.path_fixed.exists(
-        ), f"File {self.path_fixed} does not exist."
-        assert self.path_moving.exists(
-        ), f"File {self.path_moving} does not exist."
+        save.save_image(fixed_image, self.path_fixed)
+        save.save_image(moving_image, self.path_moving)
 
         self.__create_registration_command_list()
         utils_commandline.run_command_in_terminal(self.command,
@@ -56,11 +60,23 @@ class BSplineNiftyReg(RegistrationInterface):
 
         self.path_result_deformation = \
             utils_niftyreg.convert_transformation_to_displacement_field(
-                self.result_control_grid_path, self.path_fixed)
+                self.path_result_control_grid, self.path_fixed)
 
-        # BUGFIX 0
-        utils_niftyreg.convert_niftyreg_displacement_to_baseline_convention(
+        utils_nifti.set_intent_code(
+            self.path_result_deformation, 'NIFTI_INTENT_DISPVECT')
+
+        deformed_image = load.load_image(self.path_result_deformed)
+        displacement = load.load_displacement_niftyreg(
             self.path_result_deformation)
+
+        # remove temporary files
+        self.path_fixed.unlink()
+        self.path_moving.unlink()
+        self.path_result_deformed.unlink()
+        self.path_result_deformation.unlink()
+        self.path_result_control_grid.unlink()
+
+        return deformed_image, displacement
 
     def __create_registration_command_list(self) -> None:
         """
@@ -68,20 +84,20 @@ class BSplineNiftyReg(RegistrationInterface):
         """
 
         self.path_result_deformed, \
-            self.result_control_grid_path = self._create_result_paths(self.path_fixed.stem,
+            self.path_result_control_grid = self._create_result_paths(self.path_fixed.stem,
                                                                       self.path_moving.stem,
                                                                       ".nii.gz",
                                                                       ".nii.gz")
 
         # control point grid is only temporary, we want to remove it later
-        self.result_control_grid_path = Path(
-            self.result_control_grid_path.as_posix().replace(".nii", "_temp.nii"))
+        self.path_result_control_grid = Path(
+            self.path_result_control_grid.as_posix().replace(".nii", "_temp.nii"))
 
         self.command = [self.path_reg_f3d.as_posix(),
                         '-ref', self.path_fixed.as_posix(),
                         '-flo', self.path_moving.as_posix(),
                         '-res', self.path_result_deformed.as_posix(),
-                        '-cpp', self.result_control_grid_path.as_posix()]
+                        '-cpp', self.path_result_control_grid.as_posix()]
 
         self.command = utils_commandline.add_configuration_to_command(self.command,
                                                                       self.run_configuration,
@@ -92,29 +108,51 @@ class BSplineNiftyReg(RegistrationInterface):
         We need this because it's not clear that blockmatching returns non-zero
         when failed
         """
-        if self.path_result_deformed.exists() and self.path_result_deformation.exists():
+        if self.path_result_deformed.exists():
             return True
 
         return False
 
-    # def _convert_niftyreg_displacement(self, path_deformation: Path) -> None:
+    def _load_displacement(self) -> torch.Tensor:
+        """
+        Load the displacement field from the path.
+        """
 
-    #     displacement_sitk = sitk.ReadImage(path_deformation)
+        displacement_sitk = sitk.ReadImage(self.path_result_deformation)
+        displacement_array = sitk.GetArrayFromImage(displacement_sitk)
+        displacement_tensor = torch.from_numpy(displacement_array)
 
-    #     displacement_array = sitk.GetArrayFromImage(displacement_sitk)
+        # Normalize the displacement field
+        shape = tuple(displacement_tensor.permute(2, 1, 0, 3).shape[:3])
+        scaling_tensor = torch.tensor(shape).unsqueeze(
+            0).unsqueeze(0).unsqueeze(0)
+        displacement_tensor = (displacement_tensor / scaling_tensor) * 2  # nopep8
 
-    #     displacement_tensor = torch.from_numpy(displacement_array)
+        displacement_tensor = utils_displacement.reverse_axis(
+            displacement_tensor)
 
-    #     displacement_tensor = utils_displacement.reverse_axis(
-    #         displacement_tensor)
+        return displacement_tensor
 
-    #     displacement_tensor[:, :, :, 1] *= -1
-    #     displacement_tensor[:, :, :, 2] *= -1
+    """
+    def _convert_niftyreg_displacement(self, path_deformation: Path) -> None:
 
-    #     # # should be unit displacement
-    #     displacement_tensor = utils_displacement.displacement_to_unit_displacement(
-    #         displacement_tensor)
+        displacement_sitk = sitk.ReadImage(path_deformation)
 
-    #     save.save_displacement(displacement_tensor,
-    #                            path_deformation,
-    #                            (1, 1, 1, 1))
+        displacement_array = sitk.GetArrayFromImage(displacement_sitk)
+
+        displacement_tensor = torch.from_numpy(displacement_array)
+
+        displacement_tensor = utils_displacement.reverse_axis(
+            displacement_tensor)
+
+        displacement_tensor[:, :, :, 1] *= -1
+        displacement_tensor[:, :, :, 2] *= -1
+
+        # # should be unit displacement
+        displacement_tensor = utils_displacement.displacement_to_unit_displacement(
+            displacement_tensor)
+
+        save.save_displacement(displacement_tensor,
+                               path_deformation,
+                               (1, 1, 1, 1))
+    """
