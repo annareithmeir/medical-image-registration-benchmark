@@ -142,6 +142,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                      moving_segmentations,
                                      fixed_evaluation_mask)
 
+        self.evaluator.results.calculate_all_statistics()
+
         if self.use_wandb:
             self.evaluator.wandb_log()
 
@@ -198,12 +200,12 @@ class RegistrationInterface(_interface_core.InterfaceCore):
             moving_segmentations_name = str(
                 item["moving_segmentations"].stem).split('.')[0]
 
-            # self.evaluator.evaluate(row_name=fixed_image_name,
-            #                         fixed_segmentations=(
-            #                             fixed_segmentations, fixed_segmentations_name),
-            #                         moving_segmentations=(moving_segmentations,
-            #                                               moving_segmentations_name),
-            #                         fixed_evaluation_mask=fixed_evaluation_mask)
+            self.evaluator.evaluate(row_name=fixed_image_name,
+                                    fixed_segmentations=(
+                                        fixed_segmentations, fixed_segmentations_name),
+                                    moving_segmentations=(moving_segmentations,
+                                                          moving_segmentations_name),
+                                    fixed_evaluation_mask=fixed_evaluation_mask)
 
             self.evaluator.visualize(fixed_image,
                                      fixed_image_name,

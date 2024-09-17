@@ -133,8 +133,8 @@ def plot_deformation_field(ax: plt.Axes, disp: np.ndarray, background: Optional[
 
 def plot_all_registration_results(moving_image: torch.Tensor,
                                   fixed_image: torch.Tensor,
-                                  pred_image: torch.Tensor,
                                   displacement: torch.Tensor,
+                                  pred_image: Optional[torch.Tensor] = None,
                                   fixed_segmentations: Optional[torch.Tensor] = None,
                                   pred_segmentations: Optional[torch.Tensor] = None,
                                   moving_keypoints: Optional[torch.Tensor] = None,
@@ -161,6 +161,11 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     """
 
     assert utils_displacement.is_unit_displacement(displacement)
+
+    if pred_image is None:
+        shape = fixed_image.shape
+        displacement = torch.zeros((*shape, 3), dtype=torch.float32)
+        pred_image = moving_image.detach().clone()
 
     moving_image = moving_image.numpy().squeeze()
     fixed_image = fixed_image.numpy().squeeze()
