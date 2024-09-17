@@ -44,9 +44,6 @@ def convert_transformation_to_displacement_field(transformation_path: Path,
                                               check=path_displacement.exists,
                                               print_command_list=False)
 
-    # remove the temporary control point grid
-    os.remove(transformation_path)
-
     return path_displacement
 
 
