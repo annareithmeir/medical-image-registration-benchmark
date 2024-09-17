@@ -8,7 +8,7 @@ def scan_pdfs(root_dir):
     pdfs = set()
     for dirpath, dirnames, filenames in os.walk(root_dir):
         for filename in filenames:
-            if filename.lower().endswith('.pdf'):
+            if filename.lower().endswith('.pdf') and "deformed" in filename.lower():
                 full_path = os.path.join(dirpath, filename)
                 pdfs.add(full_path)
     return pdfs
