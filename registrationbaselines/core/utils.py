@@ -23,6 +23,22 @@ def turn_off_warnings() -> None:
     sitk.ProcessObject_SetGlobalWarningDisplay(False)
 
 
+def is_affine_identity(affine: floatArray2D) -> None:
+    """
+    Check if an affine matrix is the identity matrix.
+
+    @param affine: The affine matrix.
+    @type affine: np.ndarray[Tuple[int, int], np.dtype[np.float64]]
+
+    @raise ValueError: If the affine matrix is not the identity matrix.
+    """
+
+    identity = np.eye(4, dtype=np.float64)
+
+    if not np.allclose(affine, identity):
+        raise ValueError("Affine matrix is not identity.")
+
+
 def is_nifti(path: Path) -> None:
     """
     Function to check if a file is a nifti and exists.
