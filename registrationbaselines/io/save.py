@@ -6,8 +6,29 @@ import SimpleITK as sitk
 import numpy as np
 import pandas as pd
 import torch
+import nibabel as nib
 
 from registrationbaselines.warping import utils_displacement
+from registrationbaselines.core import utils_nifti
+
+
+def save_displacement_niftyreg(displacement: torch.Tensor,
+                               image_path: Path) -> None:
+
+    displacement = displacement[..., [2, 1, 0]]
+
+    shape = tuple(displacement.permute(2, 1, 0, 3).shape[:3])
+    scaling_tensor = torch.tensor(shape).view(1, 1, 1, 3)
+    displacement = (displacement / 2) * scaling_tensor  # nopep8
+
+    displacement = displacement.unsqueeze(-2)
+
+    displacement_nib = nib.Nifti1Image(
+        displacement.detach().cpu().numpy(), np.eye(4))
+
+    nib.save(displacement_nib, image_path)
+
+    utils_nifti.set_intent_code(image_path, 'NIFTI_INTENT_DISPVECT')
 
 
 def save_displacement(displacement: torch.Tensor,
@@ -18,6 +39,11 @@ def save_displacement(displacement: torch.Tensor,
 
     The voxel size will be isotropic.
     The direction will be identity.
+
+    SHAPES:
+    entry (displacement_tensor.shape):         		(192, 138, 208, 3)
+    numpy conversion (displacement_array.shape):	(3, 1, 208, 138, 192)
+    result (displacement_sitk.GetSize()):	        (192, 138, 208, 1, 3)
 
     BUGFIX_0: we have to reverse the axis of the displacement (and in the spacing),
               to match the reversal in loading
@@ -71,8 +97,9 @@ def save_displacement(displacement: torch.Tensor,
     # reverse spacing
     spacing = (spacing[4], spacing[3], spacing[2], spacing[1], spacing[0])
 
-    sitk_displacement = sitk.GetImageFromArray(
-        displacement.detach().cpu().numpy())
+    displacement_array = displacement.detach().cpu().numpy()
+
+    sitk_displacement = sitk.GetImageFromArray(displacement_array)
     sitk_displacement.SetSpacing(spacing)
 
     sitk.WriteImage(sitk_displacement, image_path)
@@ -80,13 +107,21 @@ def save_displacement(displacement: torch.Tensor,
     utils_nifti.set_intent_code(image_path, 'NIFTI_INTENT_DISPVECT')
 
 
-def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]) -> None:
+def save_image(image: torch.Tensor, image_path: Path) -> None:
+
+    _save(image, image_path)
+
+
+def save_segmentation(segmentation: torch.Tensor, image_path: Path) -> None:
+
+    _save(segmentation, image_path)
+
+
+def _save(image: torch.Tensor, image_path: Path) -> None:
     """
     Save a numpy array as a nifti image.
 
-    The voxel size will be isotropic.
-    The direction will be identity.
-    The image can be 2D, 3D or 4D.
+    The image can be 3D.
     """
 
     # check that file is .nii or .nii.gz
@@ -100,19 +135,9 @@ def save_image(image: torch.Tensor, image_path: Path, spacing: Tuple[float, ...]
             f"Dimension of image is not 3D: {image.ndim}"
         )
 
-    # spacing has to match the image
-    if len(spacing) != image.ndim:
-        raise ValueError(
-            "The spacing does not match the image dimensions."
-        )
+    volume_nib = nib.Nifti1Image(image.detach().cpu().numpy(), np.eye(4))
 
-    image = image.permute(2, 1, 0)
-    spacing = list(reversed(spacing))
-
-    sitk_image = sitk.GetImageFromArray(image.detach().cpu().numpy())
-    sitk_image.SetSpacing(spacing)
-
-    sitk.WriteImage(sitk_image, image_path)
+    nib.save(volume_nib, image_path)
 
     # check that file was written
     if not image_path.exists():
