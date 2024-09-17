@@ -8,7 +8,6 @@ import torch
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.displacement import utils_displacement
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
-from registrationbaselines.io import load
 
 
 class DemonsSITK(RegistrationInterface):

@@ -60,7 +60,6 @@ def main() -> None:
             ],
             return_type="torch_tensor_dict"))
     """
-    
 
     for train_dataset, val_dataset in datasets:
 
@@ -70,8 +69,8 @@ def main() -> None:
                               config_path,
                               val_dataset)
 
-            training.execute_with_one_parameter_set()
-            # training.perform_wandb_sweep()
+            # training.execute_with_one_parameter_set()
+            training.perform_wandb_sweep()
 
 
 if __name__ == "__main__":

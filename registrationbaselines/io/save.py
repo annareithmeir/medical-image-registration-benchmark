@@ -1,19 +1,16 @@
 from pathlib import Path
 
-from typing import Tuple
-
 import SimpleITK as sitk
 import numpy as np
 import pandas as pd
 import torch
 import nibabel as nib
 
-from registrationbaselines.core import utils_nifti, utils
-from registrationbaselines.displacement import utils_displacement
+from registrationbaselines.core import utils_nifti
 
 
 def save_displacement(displacement: torch.Tensor,
-                      image_path: Path) -> None:
+                      displacement_path: Path) -> None:
     """
     Save a displacement field as a nifti image.
 
@@ -25,7 +22,9 @@ def save_displacement(displacement: torch.Tensor,
     result (displacement.shape):        (192, 138, 208, 1, 3)
     """
 
-    utils.is_nifti(image_path)
+    if displacement_path.suffix != '.nii' and displacement_path.suffixes != ['.nii', '.gz']:
+        raise ValueError(
+            "The path should be in .nii or .nii.gz format.")
 
     # check dimensions
     shape = displacement.shape
@@ -45,30 +44,30 @@ def save_displacement(displacement: torch.Tensor,
     displacement = displacement[..., [2, 1, 0]]
 
     shape = tuple(displacement.permute(2, 1, 0, 3).shape[:3])
-    scaling_tensor = torch.tensor(shape).view(1, 1, 1, 3)
-    displacement = (displacement / 2) * scaling_tensor  # nopep8
+    scaling_tensor = torch.tensor(shape, device=displacement.device).view(1, 1, 1, 3)  # nopep8
+    displacement = (displacement / 2) * scaling_tensor
 
     displacement = displacement.unsqueeze(-2)
 
     displacement_nib = nib.Nifti1Image(
         displacement.detach().cpu().numpy(), np.eye(4))
 
-    nib.save(displacement_nib, image_path)
+    nib.save(displacement_nib, displacement_path)
 
-    utils_nifti.set_intent_code(image_path, 'NIFTI_INTENT_DISPVECT')
+    utils_nifti.set_intent_code(displacement_path, 'NIFTI_INTENT_DISPVECT')
 
 
 def save_image(image: torch.Tensor, image_path: Path) -> None:
 
-    _save(image, image_path)
+    _save_volumetric_data(image, image_path)
 
 
 def save_segmentation(segmentation: torch.Tensor, image_path: Path) -> None:
 
-    _save(segmentation, image_path)
+    _save_volumetric_data(segmentation, image_path)
 
 
-def _save(image: torch.Tensor, image_path: Path) -> None:
+def _save_volumetric_data(image: torch.Tensor, image_path: Path) -> None:
     """
     Save a numpy array as a nifti image.
 

@@ -90,20 +90,20 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         for item in tqdm(self.dataloader):
 
-            fixed_image = load.load_image(item["fixed_image"])
-            moving_image = load.load_image(item["moving_image"])
+            fixed_image = load.load_image(item["fixed_image"]).to(self.device)
+            moving_image = load.load_image(
+                item["moving_image"]).to(self.device)
 
             if self.dataloader.has_segmentations:
                 fixed_segmentations = load.load_segmentation(
-                    item["fixed_segmentations"])
+                    item["fixed_segmentations"]).to(self.device)
                 moving_segmentations = load.load_segmentation(
-                    item["moving_segmentations"])
+                    item["moving_segmentations"]).to(self.device)
             else:
                 fixed_segmentations, moving_segmentations = None, None
 
             if self.use_masked_evaluation:
-                fixed_evaluation_mask = utils.get_convex_hull_mask(
-                    fixed_image.detach().cpu().numpy())
+                fixed_evaluation_mask = utils.get_convex_hull_mask(fixed_image)
             else:
                 fixed_evaluation_mask = None
 
@@ -116,6 +116,9 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
             deformed_image, displacement = self._register(fixed_image,
                                                           moving_image)
+
+            deformed_image = deformed_image.to(self.device)
+            displacement = displacement.to(self.device)
 
             self._save_results(deformed_image,
                                displacement.detach().clone(),
@@ -176,20 +179,20 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         for item in tqdm(self.dataloader):
 
-            fixed_image = load.load_image(item["fixed_image"])
-            moving_image = load.load_image(item["moving_image"])
+            fixed_image = load.load_image(item["fixed_image"]).to(self.device)
+            moving_image = load.load_image(
+                item["moving_image"]).to(self.device)
 
             if self.dataloader.has_segmentations:
-                fixed_segmentations = load.load_image(
-                    item["fixed_segmentations"])
-                moving_segmentations = load.load_image(
-                    item["moving_segmentations"])
+                fixed_segmentations = load.load_segmentation(
+                    item["fixed_segmentations"]).to(self.device)
+                moving_segmentations = load.load_segmentation(
+                    item["moving_segmentations"]).to(self.device)
             else:
                 fixed_segmentations, moving_segmentations = None, None
 
             if self.use_masked_evaluation:
-                fixed_evaluation_mask = utils.get_convex_hull_mask(
-                    fixed_image.detach().cpu().numpy())
+                fixed_evaluation_mask = utils.get_convex_hull_mask(fixed_image)
             else:
                 fixed_evaluation_mask = None
 

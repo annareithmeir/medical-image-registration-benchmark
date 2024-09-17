@@ -2,6 +2,10 @@ from pathlib import Path
 import sys
 import os
 
+from typing import Tuple
+
+import torch
+
 import registrationbaselines.dl_repos.voxelmorph.voxelmorph as vxm
 from registrationbaselines.core import utils_dl
 from registrationbaselines.data_loading import data_loaders
@@ -37,29 +41,25 @@ class VoxelMorph(RegistrationInterface):
             self.general_configuration["parameters"]['enc']["values"][0])
 
     def _register(self,
-                  fixed_image_path: Path,
-                  moving_image_path: Path) -> None:
+                  fixed_image: torch.Tensor,
+                  moving_image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        self.path_fixed = fixed_image_path
-        self.path_moving = moving_image_path
-
-        # load moving and fixed images
-        fixed = load.load_image(self.path_fixed).to(self.device)
-        moving = load.load_image(self.path_moving).to(self.device)
-        ori_shape = moving.shape
+        ori_shape = fixed_image.shape
 
         # convert tensors to shapes accepted by voxelmorph, by padding
-        padded_shape = utils_dl.get_new_voxelmorph_image_shape(list(fixed.shape),
+        padded_shape = utils_dl.get_new_voxelmorph_image_shape(tuple(fixed_image.shape),
                                                                self.number_of_layers)
-        fixed.unsqueeze_(0).unsqueeze_(0)
-        moving.unsqueeze_(0).unsqueeze_(0)
-        fixed = utils_dl.pad_tensor_to_shape(fixed, padded_shape)
-        moving = utils_dl.pad_tensor_to_shape(moving, padded_shape)
+        fixed_image.unsqueeze_(0).unsqueeze_(0)
+        moving_image.unsqueeze_(0).unsqueeze_(0)
+        fixed = utils_dl.pad_tensor_to_shape(fixed_image, list(padded_shape))
+        moving = utils_dl.pad_tensor_to_shape(moving_image, list(padded_shape))
 
         # load and set up model
         model = vxm.torch.networks.VxmDense.load(self.model_path, self.device)
         model.to(self.device)
         model.eval()
+        fixed = fixed.to(self.device)
+        moving = moving.to(self.device)
 
         # predict
         warped, displacement = model(moving,
@@ -68,16 +68,17 @@ class VoxelMorph(RegistrationInterface):
 
         # convert tensors to a format accepted by our framework, by cropping
         warped = warped.detach().cpu().squeeze()
-        warped = utils_dl.crop_tensor_to_shape(warped, list(ori_shape))
+        deformed_image = utils_dl.crop_tensor_to_shape(warped, list(ori_shape))
 
         displacement = displacement.detach().cpu().squeeze()
-        displacement = utils_displacement.displacement_to_unit_displacement(
-            displacement)
 
         displacement = displacement.permute(1, 2, 3, 0)
         displacement = displacement[..., [2, 1, 0]]
+        
+        displacement = utils_displacement.displacement_to_unit_displacement(
+            displacement)
 
         displacement = utils_dl.crop_tensor_to_shape(
             displacement, list(ori_shape) + [3])
 
-        self._save_results(warped, displacement)
+        return deformed_image, displacement

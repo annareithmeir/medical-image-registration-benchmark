@@ -258,7 +258,7 @@ def find_points_inside_convex_hull(points: intArray2D,
     return out_idx
 
 
-def get_convex_hull_mask(image: intArray3D) -> intArray3D:
+def get_convex_hull_mask(image: torch.Tensor) -> torch.Tensor:
     """
     Creates a mask from the convex hull. All values outside of the hull are set to 0.
 
@@ -269,20 +269,23 @@ def get_convex_hull_mask(image: intArray3D) -> intArray3D:
     @param image: The image.
     @return: The mask.
     """
-    points = np.transpose(np.where(image))
+
+    image_array = image.detach().cpu().numpy()
+
+    points = np.transpose(np.where(image_array))
 
     hull = scipy.spatial.ConvexHull(points)
 
     out_idx = find_points_inside_convex_hull(points,
                                              hull,
-                                             image.shape)
+                                             image_array.shape)
 
-    out_img = np.zeros(image.shape)
+    out_img = np.zeros(image_array.shape)
     out_img[out_idx] = 1
 
-    out_img = out_img.astype(np.uint8)
+    result = torch.from_numpy(out_img).to(torch.uint8).to(image.device)
 
-    return out_img
+    return result
 
 
 def print_histogram(tensor: torch.Tensor, bins: int) -> None:

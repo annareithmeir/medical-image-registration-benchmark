@@ -1,19 +1,15 @@
 from pathlib import Path
 
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple
 
-from tqdm import tqdm
 import wandb
 import numpy as np
 import torch
 
 from registrationbaselines.evaluation import result_csv, plot_objects
 from registrationbaselines.io import load, save
-from registrationbaselines.core import utils
 from registrationbaselines.displacement import deform_objects
 from registrationbaselines.metrics import metrics
-from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
-from registrationbaselines.core.types import intArray3D
 
 
 class RegistrationEvaluator():
@@ -46,7 +42,7 @@ class RegistrationEvaluator():
                  displacement: Optional[torch.Tensor] = None,
                  fixed_segmentations: Optional[Tuple[torch.Tensor, str]] = None,
                  moving_segmentations: Optional[Tuple[torch.Tensor, str]] = None,
-                 fixed_evaluation_mask: Optional[intArray3D] = None
+                 fixed_evaluation_mask: Optional[torch.Tensor] = None
                  ) -> None:
         """
         Evaluate the registration model.
@@ -75,13 +71,13 @@ class RegistrationEvaluator():
                   displacement: Optional[torch.Tensor] = None,
                   fixed_segmentations: Optional[torch.Tensor] = None,
                   moving_segmentations: Optional[torch.Tensor] = None,
-                  fixed_evaluation_mask: Optional[intArray3D] = None
+                  fixed_evaluation_mask: Optional[torch.Tensor] = None
                   ) -> None:
         """
         Create plots for the evaluation.
         """
 
-        if displacement is None:
+        if displacement is None and moving_segmentations is not None:
             device = fixed_image.device
 
             deformed_segmentations = moving_segmentations.detach().clone()
@@ -92,10 +88,14 @@ class RegistrationEvaluator():
         elif fixed_segmentations is None or moving_segmentations is None:
             deformed_segmentations = None
             device = displacement.device
+
         else:
             deformed_segmentations = deform_objects.deform_image(moving_segmentations,
                                                                  displacement)
             device = displacement.device
+
+            fixed_segmentations = fixed_segmentations.to(device)
+            moving_segmentations = moving_segmentations.to(device)
 
         if fixed_evaluation_mask is not None:
             deformed_segmentations *= fixed_evaluation_mask
@@ -107,8 +107,6 @@ class RegistrationEvaluator():
 
         fixed_image = fixed_image.to(device)
         moving_image = moving_image.to(device)
-        fixed_segmentations = fixed_segmentations.to(device)
-        moving_segmentations = moving_segmentations.to(device)
 
         plot_objects.plot_all_registration_results(moving_image=moving_image,
                                                    fixed_image=fixed_image,
@@ -119,9 +117,9 @@ class RegistrationEvaluator():
                                                    save_path=plots_path)
 
     def _evaluate_displacement(self,
-                               displacement: torch.tensor,
+                               displacement: torch.Tensor,
                                row_name: str,
-                               fixed_evaluation_mask: Optional[intArray3D] = None) -> None:
+                               fixed_evaluation_mask: Optional[torch.Tensor] = None) -> None:
         """
         Evaluates the displacement field with sdlogj and fraction of foldings.
 
@@ -137,13 +135,13 @@ class RegistrationEvaluator():
         self.results.add_value("frac_foldings", fraction_foldings, row_name)
 
     def _evaluate_segmentation(self,
-                               segmentations_fixed: torch.tensor,
+                               segmentations_fixed: torch.Tensor,
                                segmentations_fixed_name: str,
-                               segmentations_moving: torch.tensor,
+                               segmentations_moving: torch.Tensor,
                                segmentations_moving_name: str,
                                row_name: str,
                                displacement: Optional[torch.Tensor] = None,
-                               fixed_evaluation_mask: Optional[intArray3D] = None) -> None:
+                               fixed_evaluation_mask: Optional[torch.Tensor] = None) -> None:
         """
         Evaluate segmentations.
 

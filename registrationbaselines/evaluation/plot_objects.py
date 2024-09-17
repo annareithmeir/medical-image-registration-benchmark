@@ -167,23 +167,23 @@ def plot_all_registration_results(moving_image: torch.Tensor,
         displacement = torch.zeros((*shape, 3), dtype=torch.float32)
         pred_image = moving_image.detach().clone()
 
-    moving_image = moving_image.numpy().squeeze()
-    fixed_image = fixed_image.numpy().squeeze()
-    pred_image = pred_image.numpy().squeeze()
+    moving_image = moving_image.detach().cpu().numpy().squeeze()
+    fixed_image = fixed_image.detach().cpu().numpy().squeeze()
+    pred_image = pred_image.detach().cpu().numpy().squeeze()
     if fixed_segmentations is not None:
-        fixed_segmentations = fixed_segmentations.numpy().squeeze()
+        fixed_segmentations = fixed_segmentations.detach().cpu().numpy().squeeze()
     if pred_segmentations is not None:
-        pred_segmentations = pred_segmentations.numpy().squeeze()
+        pred_segmentations = pred_segmentations.detach().cpu().numpy().squeeze()
     if moving_keypoints is not None:
-        moving_keypoints = moving_keypoints.numpy().squeeze()
+        moving_keypoints = moving_keypoints.detach().cpu().numpy().squeeze()
     if fixed_keypoints is not None:
-        fixed_keypoints = fixed_keypoints.numpy().squeeze()
+        fixed_keypoints = fixed_keypoints.detach().cpu().numpy().squeeze()
     if pred_keypoints is not None:
-        pred_keypoints = pred_keypoints.numpy().squeeze()
+        pred_keypoints = pred_keypoints.detach().cpu().numpy().squeeze()
 
     displacement_denorm = utils_displacement.unit_displacement_to_displacement(
-        displacement.detach().clone()).numpy().squeeze()
-    displacement = displacement.numpy().squeeze()
+        displacement.detach().clone()).detach().cpu().numpy().squeeze()
+    displacement = displacement.detach().cpu().numpy().squeeze()
 
     assert displacement.ndim in [
         3, 4], "Displacement field should have shape (h, w, d, 3) or (h, w, d, 3)"
