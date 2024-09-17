@@ -68,7 +68,7 @@ class EvaluationMetricsResults:
 
         self.write()
 
-        self.plot(self)
+        self.plot(self.plots_path)
 
     def calculate_min(self) -> None:
         """
