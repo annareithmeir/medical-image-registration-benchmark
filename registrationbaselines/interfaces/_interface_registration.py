@@ -22,16 +22,13 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
     dataloader: data_loaders.GenericDataset
 
-    path_fixed: Path = Path()
-    path_moving: Path = Path()
+    path_dir_deformed: Path
+    path_dir_deformations: Path
 
-    path_dir_deformed: Path = Path()
-    path_dir_deformations: Path = Path()
+    path_result_deformation: Path
+    path_result_deformed: Path
 
-    path_result_deformation: Path = Path()
-    path_result_deformed: Path = Path()
-
-    evaluator: Evaluation
+    evaluator: RegistrationEvaluator
     use_masked_evaluation: bool
 
     def __init__(self,
