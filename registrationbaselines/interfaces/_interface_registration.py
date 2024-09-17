@@ -2,17 +2,18 @@ from pathlib import Path
 import shutil
 
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 import wandb
 from tqdm import tqdm
 
-from registrationbaselines.core import utils_wandb
+from registrationbaselines.core import utils_wandb, utils
 from registrationbaselines.data_loading import data_loaders
-from registrationbaselines.evaluation.evaluation import Evaluation
+from registrationbaselines.evaluation.evaluation import RegistrationEvaluator
 from registrationbaselines.interfaces import _interface_core
-from registrationbaselines.io import save
+from registrationbaselines.io import save, load
+from registrationbaselines.warping import deform_objects
 
 
 class RegistrationInterface(_interface_core.InterfaceCore):
@@ -52,20 +53,17 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
     @abstractmethod
     def _register(self,
-                  fixed_image_path: Path,
-                  moving_image_path: Path) -> None:
+                  fixed_image: torch.Tensor,
+                  moving_image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Register moving_image to fixed_image.
 
         This function has to call _save_results() at the end.
 
-        @param fixed_image_path: path to the fixed image
-        @type fixed_image_path: Path
+        @param fixed_image: fixed image
+        @param moving_image: moving image
 
-        @param moving_image_path: path to the moving image
-        @type moving_image_path: Path
-
-        @return: None
+        @return: warped image, displacement field
         """
 
     def execute_with_one_parameter_set(self) -> None:
@@ -87,21 +85,62 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         if not self.model_path:
             self._save_run_configuration()
 
+        self.evaluator = RegistrationEvaluator(self.path_dir_run,
+                                               len(self.dataloader))
+
         for item in tqdm(self.dataloader):
-            self._register(item["fixed_image"], item["moving_image"])
 
-        loader_transformations = data_loaders.BaselineTransformations(
-            self.path_dir_run)
+            fixed_image = load.load_image(item["fixed_image"])
+            moving_image = load.load_image(item["moving_image"])
 
-        self.evaluator = Evaluation(run_path=self.path_dir_run,
-                                    dataset_data=self.dataloader,
-                                    dataset_transformations=loader_transformations,
-                                    use_zero_displacement=False,
-                                    use_masked_evaluation=self.use_masked_evaluation)
+            if self.dataloader.has_segmentations:
+                fixed_segmentations = load.load_segmentation(
+                    item["fixed_segmentations"])
+                moving_segmentations = load.load_segmentation(
+                    item["moving_segmentations"])
+            else:
+                fixed_segmentations, moving_segmentations = None, None
 
-        self.evaluator.evaluate()
+            if self.use_masked_evaluation:
+                fixed_evaluation_mask = utils.get_convex_hull_mask(
+                    fixed_image.detach().cpu().numpy())
+            else:
+                fixed_evaluation_mask = None
 
-        self.evaluator.visualize()
+            fixed_image_name = str(item["fixed_image"].stem).split('.')[0]
+            moving_image_name = str(item["moving_image"].stem).split('.')[0]
+            fixed_segmentations_name = str(
+                item["fixed_segmentations"].stem).split('.')[0]
+            moving_segmentations_name = str(
+                item["moving_segmentations"].stem).split('.')[0]
+
+            deformed_image, displacement = self._register(fixed_image,
+                                                          moving_image)
+
+            self._save_results(deformed_image,
+                               displacement.detach().clone(),
+                               fixed_image_name,
+                               moving_image_name)
+
+            own_warped = deform_objects.deform_image(
+                moving_image, displacement)
+
+            self.evaluator.evaluate(fixed_image_name,
+                                    displacement.detach().clone(),
+                                    (fixed_segmentations, fixed_segmentations_name),
+                                    (moving_segmentations,
+                                     moving_segmentations_name),
+                                    fixed_evaluation_mask)
+
+            self.evaluator.visualize(fixed_image,
+                                     fixed_image_name,
+                                     moving_image,
+                                     moving_image_name,
+                                     own_warped,
+                                     displacement.detach().clone(),
+                                     fixed_segmentations,
+                                     moving_segmentations,
+                                     fixed_evaluation_mask)
 
         if self.use_wandb:
             self.evaluator.wandb_log()
@@ -125,20 +164,54 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         self.path_dir_deformations.rmdir()
         self.path_dir_deformed.rmdir()
 
-        self.evaluator = Evaluation(run_path=self.path_dir_run,
-                                    dataset_data=self.dataloader,
-                                    dataset_transformations=None,
-                                    use_zero_displacement=True,
-                                    use_masked_evaluation=self.use_masked_evaluation)
+        self.evaluator = RegistrationEvaluator(self.path_dir_run,
+                                               len(self.dataloader))
 
         # if a zero displacement evaluation is already present, raise
         if (self.path_dir_dataset / self.path_dir_run.name).exists():
             raise FileExistsError(
                 f"Directory {self.path_dir_run} already exists.")
 
-        self.evaluator.evaluate()
+        for item in tqdm(self.dataloader):
 
-        self.evaluator.visualize()
+            fixed_image = load.load_image(item["fixed_image"])
+            moving_image = load.load_image(item["moving_image"])
+
+            if self.dataloader.has_segmentations:
+                fixed_segmentations = load.load_image(
+                    item["fixed_segmentations"])
+                moving_segmentations = load.load_image(
+                    item["moving_segmentations"])
+            else:
+                fixed_segmentations, moving_segmentations = None, None
+
+            if self.use_masked_evaluation:
+                fixed_evaluation_mask = utils.get_convex_hull_mask(
+                    fixed_image.detach().cpu().numpy())
+            else:
+                fixed_evaluation_mask = None
+
+            fixed_image_name = str(item["fixed_image"].stem).split('.')[0]
+            moving_image_name = str(item["moving_image"].stem).split('.')[0]
+            fixed_segmentations_name = str(
+                item["fixed_segmentations"].stem).split('.')[0]
+            moving_segmentations_name = str(
+                item["moving_segmentations"].stem).split('.')[0]
+
+            # self.evaluator.evaluate(row_name=fixed_image_name,
+            #                         fixed_segmentations=(
+            #                             fixed_segmentations, fixed_segmentations_name),
+            #                         moving_segmentations=(moving_segmentations,
+            #                                               moving_segmentations_name),
+            #                         fixed_evaluation_mask=fixed_evaluation_mask)
+
+            self.evaluator.visualize(fixed_image,
+                                     fixed_image_name,
+                                     moving_image,
+                                     moving_image_name,
+                                     fixed_segmentations=fixed_segmentations,
+                                     moving_segmentations=moving_segmentations,
+                                     fixed_evaluation_mask=fixed_evaluation_mask)
 
         # move the results directory one level up
         shutil.move(self.path_dir_run, self.path_dir_dataset)
@@ -159,26 +232,28 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         """
         return self.path_result_deformed
 
-    def _save_results(self, deformed: torch.Tensor, deformation: torch.Tensor):
+    def _save_results(self,
+                      deformed: torch.Tensor,
+                      deformation: torch.Tensor,
+                      fixed_image_name: str,
+                      moving_image_name: str) -> None:
         """
         Save the results of the registration.
         """
 
         self.path_result_deformed, \
-            self.path_result_deformation = self._create_result_paths(self.path_fixed.stem,
-                                                                     self.path_moving.stem,
+            self.path_result_deformation = self._create_result_paths(fixed_image_name,
+                                                                     moving_image_name,
                                                                      ".nii.gz",
                                                                      ".nii.gz")
 
         # SAVE DEFORMED IMAGE
         save.save_image(deformed,
-                        self.path_result_deformed,
-                        self.dataloader.spacing)
+                        self.path_result_deformed)
 
         # SAVE DEFORMATION
-        save.save_displacement(deformation,
-                               self.path_result_deformation,
-                               self.dataloader.spacing + (1,))
+        save.save_displacement_niftyreg(deformation,
+                                        self.path_result_deformation)
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(
