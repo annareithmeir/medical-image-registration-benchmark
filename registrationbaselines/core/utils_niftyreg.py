@@ -170,13 +170,13 @@ def convert_niftyreg_displacement_to_baseline_convention_OLD(path_deformation: P
     # get the displacement field as a torch tensor
     displacement_sitk = sitk.ReadImage(path_deformation)
     displacement_array = sitk.GetArrayFromImage(displacement_sitk)
-    displacement_tensor = torch.from_numpy(
-        displacement_array).to(torch.float64)
+    displacement_tensor = torch.from_numpy(displacement_array)
 
     # Normalize the displacement field
     shape = tuple(displacement_tensor.permute(2, 1, 0, 3).shape[:3])
-    scaling_tensor = torch.tensor(shape).unsqueeze(0).unsqueeze(0).unsqueeze(0)
-    displacement_tensor = (displacement_tensor / scaling_tensor) * 2  # nopep8
+    displacement_tensor = displacement_tensor / \
+        torch.tensor(shape).unsqueeze(
+            0).unsqueeze(0).unsqueeze(0) * 2
 
     # convert it to a non-unit displacement field - because upon loading the displacement field
     # it will be converted back to a unit displacement field
