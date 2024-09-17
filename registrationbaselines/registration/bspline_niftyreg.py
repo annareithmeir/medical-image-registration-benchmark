@@ -53,9 +53,9 @@ class BSplineNiftyReg(RegistrationInterface):
         save.save_image(fixed_image, self.path_fixed)
         save.save_image(moving_image, self.path_moving)
 
-        self.__create_registration_command_list()
+        self._create_registration_command_list()
         utils_commandline.run_command_in_terminal(self.command,
-                                                  self.__outputs_exist,
+                                                  self._outputs_exist,
                                                   print_command_list=False)
 
         self.path_result_deformation = \
@@ -66,7 +66,7 @@ class BSplineNiftyReg(RegistrationInterface):
             self.path_result_deformation, 'NIFTI_INTENT_DISPVECT')
 
         deformed_image = load.load_image(self.path_result_deformed)
-        displacement = load.load_displacement_niftyreg(
+        displacement = load.load_displacement(
             self.path_result_deformation)
 
         # remove temporary files
@@ -78,7 +78,7 @@ class BSplineNiftyReg(RegistrationInterface):
 
         return deformed_image, displacement
 
-    def __create_registration_command_list(self) -> None:
+    def _create_registration_command_list(self) -> None:
         """
         Create the command line list for the registration.
         """
@@ -103,7 +103,7 @@ class BSplineNiftyReg(RegistrationInterface):
                                                                       self.run_configuration,
                                                                       only_value=True)
 
-    def __outputs_exist(self) -> bool:
+    def _outputs_exist(self) -> bool:
         """
         We need this because it's not clear that blockmatching returns non-zero
         when failed
@@ -112,47 +112,3 @@ class BSplineNiftyReg(RegistrationInterface):
             return True
 
         return False
-
-    def _load_displacement(self) -> torch.Tensor:
-        """
-        Load the displacement field from the path.
-        """
-
-        displacement_sitk = sitk.ReadImage(self.path_result_deformation)
-        displacement_array = sitk.GetArrayFromImage(displacement_sitk)
-        displacement_tensor = torch.from_numpy(displacement_array)
-
-        # Normalize the displacement field
-        shape = tuple(displacement_tensor.permute(2, 1, 0, 3).shape[:3])
-        scaling_tensor = torch.tensor(shape).unsqueeze(
-            0).unsqueeze(0).unsqueeze(0)
-        displacement_tensor = (displacement_tensor / scaling_tensor) * 2  # nopep8
-
-        displacement_tensor = utils_displacement.reverse_axis(
-            displacement_tensor)
-
-        return displacement_tensor
-
-    """
-    def _convert_niftyreg_displacement(self, path_deformation: Path) -> None:
-
-        displacement_sitk = sitk.ReadImage(path_deformation)
-
-        displacement_array = sitk.GetArrayFromImage(displacement_sitk)
-
-        displacement_tensor = torch.from_numpy(displacement_array)
-
-        displacement_tensor = utils_displacement.reverse_axis(
-            displacement_tensor)
-
-        displacement_tensor[:, :, :, 1] *= -1
-        displacement_tensor[:, :, :, 2] *= -1
-
-        # # should be unit displacement
-        displacement_tensor = utils_displacement.displacement_to_unit_displacement(
-            displacement_tensor)
-
-        save.save_displacement(displacement_tensor,
-                               path_deformation,
-                               (1, 1, 1, 1))
-    """

@@ -1,11 +1,14 @@
 import shutil
 from pathlib import Path
 
+from typing import Tuple
+
 import ants
 import torch
 import SimpleITK as sitk
 
 from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.displacement import utils_displacement
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.io import save
 from registrationbaselines.core import utils_nifti
@@ -32,7 +35,9 @@ class SyNANTs(RegistrationInterface):
                          dataloader,
                          use_masked_evaluation)
 
-    def _register(self, fixed_image_path: Path, moving_image_path: Path) -> None:
+    def _register(self,
+                  fixed_image: torch.Tensor,
+                  moving_image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Wrapper around ants to register.
 
@@ -40,14 +45,12 @@ class SyNANTs(RegistrationInterface):
                   We also have to save the forward transform, as this was also used to register.
         """
 
-        self.path_fixed = fixed_image_path
-        self.path_moving = moving_image_path
+        self.working_dir_path = Path(__file__).parent
+        self.path_fixed = self.working_dir_path / "fixed.nii.gz"
+        self.path_moving = self.working_dir_path / "moving.nii.gz"
 
-        # check that both images exist
-        assert self.path_fixed.exists(
-        ), f"File {self.path_fixed} does not exist."
-        assert self.path_moving.exists(
-        ), f"File {self.path_moving} does not exist."
+        save.save_image(fixed_image, self.path_fixed)
+        save.save_image(moving_image, self.path_moving)
 
         self.path_result_deformed, self.path_result_deformation = self._create_result_paths(self.path_fixed.stem,
                                                                                             self.path_moving.stem,
@@ -79,37 +82,15 @@ class SyNANTs(RegistrationInterface):
             write_composite_transform=False  # nopep8 this outputs one .h5 transform, otherwise we have a .nii.gz and .mat
         )
 
-        deformed_image = ants.apply_transforms(fixed=fixed_image, moving=moving_image,
-                                               transformlist=registration['fwdtransforms'])
-        # BUGFIX 0
-        self._save_results(torch.from_numpy(deformed_image.numpy()),
-                           Path(registration['fwdtransforms'][0]))
+        deformed = ants.apply_transforms(fixed=fixed_image, moving=moving_image,
+                                         transformlist=registration['fwdtransforms'])
+        deformed_image = torch.from_numpy(deformed.numpy()).permute(2, 1, 0)
 
-    def _save_results(self, deformed: torch.Tensor, deformation_path: Path) -> None:
+        displacement_sitk = sitk.ReadImage(registration['fwdtransforms'][0])
+        displacement = torch.from_numpy(
+            sitk.GetArrayFromImage(displacement_sitk))
 
-        self.result_transformed_image_path, self.result_transformation_path = \
-            self._create_result_paths(self.path_fixed.stem,
-                                      self.path_moving.stem,
-                                      ".nii.gz",
-                                      ".nii.gz")
+        displacement = utils_displacement.displacement_to_unit_displacement(
+            displacement)
 
-        # copy transformation
-        shutil.copy(deformation_path, self.result_transformation_path)
-
-        # BUGFIX 0
-        sitk_im = sitk.ReadImage(self.result_transformation_path)
-        sitk_tensor = torch.from_numpy(
-            sitk.GetArrayFromImage(sitk_im)).unsqueeze(3)
-        # todo this should be utils.reverse()
-        sitk_tensor = sitk_tensor[..., [2, 1, 0]]
-        sitk_tensor = sitk_tensor.permute(4, 3, 2, 1, 0)
-        sitk_im = sitk.GetImageFromArray(sitk_tensor.cpu().numpy())
-        sitk.WriteImage(sitk_im, self.result_transformation_path)
-
-        utils_nifti.set_intent_code(
-            self.result_transformation_path, "NIFTI_INTENT_DISPVECT")
-
-        # save transformed image
-        deformed = deformed.permute(2,1,0)
-        save.save_image(
-            deformed, self.result_transformed_image_path, self.dataloader.spacing)
+        return deformed_image, displacement

@@ -8,9 +8,10 @@ def scan_pdfs(root_dir):
     pdfs = set()
     for dirpath, dirnames, filenames in os.walk(root_dir):
         for filename in filenames:
-            if filename.lower().endswith('.pdf') and "deformed" in filename.lower():
-                full_path = os.path.join(dirpath, filename)
-                pdfs.add(full_path)
+            if filename.lower().endswith('.pdf'):
+                if "deformed" in filename.lower():
+                    full_path = os.path.join(dirpath, filename)
+                    pdfs.add(full_path)
     return pdfs
 
 
@@ -24,7 +25,7 @@ def main():
     #     print(f"The path {root_dir} is not a valid directory.")
     #     sys.exit(1)
 
-    root_dir = r"/home/fryderyk/Documents/code/registrationbaselines/tmp/displacement_debug/LungCT/BSplineNiftyReg"
+    root_dir = r"/home/fryderyk/Documents/code/registrationbaselines/tmp/displacement_debug/LungCT"
 
     existing_pdfs = scan_pdfs(root_dir)
     print(f"Monitoring '{root_dir}' for new PDFs...")
@@ -37,8 +38,8 @@ def main():
                 print(f"New PDF detected: {pdf}")
                 # Open in Visual Studio Code
                 try:
-                    subprocess.Popen(args=['xdg-open', pdf])
-                    # subprocess.Popen(['code', pdf])
+                    # subprocess.Popen(args=['xdg-open', pdf])
+                    subprocess.Popen(['code', pdf])
                 except Exception as e:
                     print(f"Error opening {pdf} in Visual Studio Code: {e}")
             existing_pdfs.update(new_pdfs)

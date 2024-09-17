@@ -256,8 +256,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                         self.path_result_deformed)
 
         # SAVE DEFORMATION
-        save.save_displacement_niftyreg(deformation,
-                                        self.path_result_deformation)
+        save.save_displacement(deformation,
+                               self.path_result_deformation)
 
         if not self.path_result_deformed.exists():
             raise FileNotFoundError(

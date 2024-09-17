@@ -8,32 +8,12 @@ import pandas as pd
 import torch
 import nibabel as nib
 
+from registrationbaselines.core import utils_nifti, utils
 from registrationbaselines.displacement import utils_displacement
-from registrationbaselines.core import utils_nifti
-
-
-def save_displacement_niftyreg(displacement: torch.Tensor,
-                               image_path: Path) -> None:
-
-    displacement = displacement[..., [2, 1, 0]]
-
-    shape = tuple(displacement.permute(2, 1, 0, 3).shape[:3])
-    scaling_tensor = torch.tensor(shape).view(1, 1, 1, 3)
-    displacement = (displacement / 2) * scaling_tensor  # nopep8
-
-    displacement = displacement.unsqueeze(-2)
-
-    displacement_nib = nib.Nifti1Image(
-        displacement.detach().cpu().numpy(), np.eye(4))
-
-    nib.save(displacement_nib, image_path)
-
-    utils_nifti.set_intent_code(image_path, 'NIFTI_INTENT_DISPVECT')
 
 
 def save_displacement(displacement: torch.Tensor,
-                      image_path: Path,
-                      spacing: Tuple[float, ...]) -> None:
+                      image_path: Path) -> None:
     """
     Save a displacement field as a nifti image.
 
@@ -41,19 +21,11 @@ def save_displacement(displacement: torch.Tensor,
     The direction will be identity.
 
     SHAPES:
-    entry (displacement_tensor.shape):         		(192, 138, 208, 3)
-    numpy conversion (displacement_array.shape):	(3, 1, 208, 138, 192)
-    result (displacement_sitk.GetSize()):	        (192, 138, 208, 1, 3)
-
-    BUGFIX_0: we have to reverse the axis of the displacement (and in the spacing),
-              to match the reversal in loading
+    entry (displacement_tensor.shape):  (192, 138, 208, 3)
+    result (displacement.shape):        (192, 138, 208, 1, 3)
     """
-    from registrationbaselines.core import utils_nifti
 
-    # check that file is .nii or .nii.gz
-    if not image_path.suffix == '.nii' and not image_path.suffixes == ['.nii', '.gz']:
-        raise ValueError(
-            "The path should be in .nii or .nii.gz format.")
+    utils.is_nifti(image_path)
 
     # check dimensions
     shape = displacement.shape
@@ -70,39 +42,18 @@ def save_displacement(displacement: torch.Tensor,
             f"Dsiplacement is not torch.float32: {displacement.dtype}"
         )
 
-    # spacing has to match the image
-    if len(spacing) != len(shape):
-        raise ValueError(
-            "The spacing does not match the image dimensions."
-        )
+    displacement = displacement[..., [2, 1, 0]]
 
-    # BUGFIX_0
-    displacement = utils_displacement.reverse_axis(displacement)
+    shape = tuple(displacement.permute(2, 1, 0, 3).shape[:3])
+    scaling_tensor = torch.tensor(shape).view(1, 1, 1, 3)
+    displacement = (displacement / 2) * scaling_tensor  # nopep8
 
-    # should be unit displacement
-    displacement = utils_displacement.unit_displacement_to_displacement(
-        displacement)
+    displacement = displacement.unsqueeze(-2)
 
-    # move vector dimension from back to front
-    displacement = displacement.permute(3, 0, 1, 2)
-    spacing = (spacing[-1],) + spacing[:-1]
+    displacement_nib = nib.Nifti1Image(
+        displacement.detach().cpu().numpy(), np.eye(4))
 
-    # insert separating dimension
-    displacement = displacement.unsqueeze(1)
-
-    # add dummy spacing
-    spacing = (spacing[0], 1) + spacing[1:]
-
-    # BUGFIX_0
-    # reverse spacing
-    spacing = (spacing[4], spacing[3], spacing[2], spacing[1], spacing[0])
-
-    displacement_array = displacement.detach().cpu().numpy()
-
-    sitk_displacement = sitk.GetImageFromArray(displacement_array)
-    sitk_displacement.SetSpacing(spacing)
-
-    sitk.WriteImage(sitk_displacement, image_path)
+    nib.save(displacement_nib, image_path)
 
     utils_nifti.set_intent_code(image_path, 'NIFTI_INTENT_DISPVECT')
 
