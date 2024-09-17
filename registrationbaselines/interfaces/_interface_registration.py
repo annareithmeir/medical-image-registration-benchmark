@@ -13,7 +13,7 @@ from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.evaluation.evaluation import RegistrationEvaluator
 from registrationbaselines.interfaces import _interface_core
 from registrationbaselines.io import save, load
-from registrationbaselines.warping import deform_objects
+from registrationbaselines.displacement import deform_objects
 
 
 class RegistrationInterface(_interface_core.InterfaceCore):

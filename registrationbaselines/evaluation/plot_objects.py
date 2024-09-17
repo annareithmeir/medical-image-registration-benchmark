@@ -13,7 +13,7 @@ import pandas as pd
 import torch
 
 from registrationbaselines.core.types import floatArray2D
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 from registrationbaselines.evaluation import utils_evaluation
 from registrationbaselines.metrics import metrics
 

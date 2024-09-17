@@ -6,11 +6,11 @@ import socket
 import torch
 
 import registrationbaselines.io.io
-import registrationbaselines.warping.utils_displacement
+import registrationbaselines.displacement.utils_displacement
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
-import registrationbaselines.warping.deform_objects
+import registrationbaselines.displacement.deform_objects
 from registrationbaselines.evaluation.plot_objects import plot_all_registration_results
 from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset
 
@@ -29,10 +29,10 @@ class TestKeypoints(unittest.TestCase):
         kps_x = torch.rand((10, 3))
 
         zero_def = torch.zeros((10, 10, 10, 3))
-        zero_def = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
 
-        kps_y = registrationbaselines.warping.deform_objects.deform_keypoints(
+        kps_y = registrationbaselines.displacement.deform_objects.deform_keypoints(
             kps_x, zero_def)
 
         assert (kps_x - kps_y).sum() == 0, (kps_x - kps_y).sum()
@@ -46,12 +46,12 @@ class TestKeypoints(unittest.TestCase):
         zero_def[..., 0] = translations[0]
         zero_def[..., 1] = translations[1]
         zero_def[..., 2] = translations[2]
-        zero_def_unit = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def_unit = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
 
-        kps_y = registrationbaselines.warping.deform_objects.deform_keypoints(
+        kps_y = registrationbaselines.displacement.deform_objects.deform_keypoints(
             kps_x, zero_def)
-        kps_y_unit = registrationbaselines.warping.deform_objects.deform_keypoints(
+        kps_y_unit = registrationbaselines.displacement.deform_objects.deform_keypoints(
             kps_x, zero_def_unit)
         print(kps_x)
         print(kps_y)
@@ -76,7 +76,7 @@ class TestKeypoints(unittest.TestCase):
 
         # deform with zero displacement
         zero_def = torch.zeros((*shape, 3))
-        kps_y = registrationbaselines.warping.deform_objects.deform_keypoints(
+        kps_y = registrationbaselines.displacement.deform_objects.deform_keypoints(
             kps_x, zero_def)
         assert (kps_x - kps_y).sum() == 0, (kps_x - kps_y).sum()
 
@@ -85,11 +85,11 @@ class TestKeypoints(unittest.TestCase):
         zero_def[..., 0] = translations[0]
         zero_def[..., 1] = translations[1]
         zero_def[..., 2] = translations[2]
-        zero_def_unit = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def_unit = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
-        kps_y = registrationbaselines.warping.deform_objects.deform_keypoints(
+        kps_y = registrationbaselines.displacement.deform_objects.deform_keypoints(
             kps_x, zero_def)
-        kps_y_unit = registrationbaselines.warping.deform_objects.deform_keypoints(
+        kps_y_unit = registrationbaselines.displacement.deform_objects.deform_keypoints(
             kps_x, zero_def_unit)
         print(kps_x)
         print(kps_y)
@@ -126,11 +126,11 @@ class TestKeypoints(unittest.TestCase):
         Warning("It is expected that the deformatoin grid doesn't cover the entire image,\
             as this translation also translates the entire grid")
 
-        zero_def = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
-        deformed_image = registrationbaselines.warping.deform_objects.deform_image(
+        deformed_image = registrationbaselines.displacement.deform_objects.deform_image(
             moving_image, zero_def)
-        deformed_keypoints = registrationbaselines.warping.deform_objects.deform_keypoints(
+        deformed_keypoints = registrationbaselines.displacement.deform_objects.deform_keypoints(
             moving_keypoints, zero_def2)
 
         plot_all_registration_results(save_path="registrationbaselines/tests/test_files/temp_vis.png",

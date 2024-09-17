@@ -5,8 +5,8 @@ import socket
 
 import torch
 
-import registrationbaselines.warping.deform_objects
-import registrationbaselines.warping.utils_displacement
+import registrationbaselines.displacement.deform_objects
+import registrationbaselines.displacement.utils_displacement
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
@@ -34,9 +34,9 @@ class TestDeformImage(unittest.TestCase):
         x = torch.rand(8, 8)*0.2
         x[:4, :4] = 0.9
         zero_def = torch.zeros(*x.shape, 2)
-        zero_def = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
-        y = registrationbaselines.warping.deform_objects.deform_image(
+        y = registrationbaselines.displacement.deform_objects.deform_image(
             x, zero_def)
         print(x)
         print(y)
@@ -56,9 +56,9 @@ class TestDeformImage(unittest.TestCase):
         x = torch.rand(2, 2, 2)
         zero_def = torch.zeros(*x.shape, 3)
         zero_def[..., 0] = 1
-        zero_def = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
-        y = registrationbaselines.warping.deform_objects.deform_image(
+        y = registrationbaselines.displacement.deform_objects.deform_image(
             x, zero_def)
         print(x)
         print(y)
@@ -80,9 +80,9 @@ class TestDeformImage(unittest.TestCase):
         item = loader[0]
         x = utils.load_image(item["moving_image"])
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
-        y = registrationbaselines.warping.deform_objects.deform_image(
+        y = registrationbaselines.displacement.deform_objects.deform_image(
             x, zero_def)
         # print(x)
         # print(y)
@@ -110,9 +110,9 @@ class TestDeformImage(unittest.TestCase):
         x[0, :] = 1
         x[2, :] = 2
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
-        y = registrationbaselines.warping.deform_objects.deform_image(
+        y = registrationbaselines.displacement.deform_objects.deform_image(
             x, zero_def)
         print(x)
         print(y)
@@ -131,9 +131,9 @@ class TestDeformImage(unittest.TestCase):
         x[2, :] = 2
         zero_def = torch.zeros(*x.shape, 3)
         zero_def[..., 0] = 1
-        zero_def = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
-        y = registrationbaselines.warping.deform_objects.deform_image(
+        y = registrationbaselines.displacement.deform_objects.deform_image(
             x, zero_def)
         print(x)
         print(y)
@@ -158,9 +158,9 @@ class TestDeformImage(unittest.TestCase):
         print(x.dtype)
 
         zero_def = torch.zeros(*x.shape, 3)
-        zero_def = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        zero_def = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             zero_def)
-        y = registrationbaselines.warping.deform_objects.deform_image(
+        y = registrationbaselines.displacement.deform_objects.deform_image(
             x, zero_def)
 
         plot_all_registration_results(save_path="registrationbaselines/tests/test_files/temp_vis.png",
@@ -181,9 +181,9 @@ class TestDeformImage(unittest.TestCase):
         @return:
         """
         displacement = 100*torch.rand((10, 10, 10, 3))
-        displacement_unit = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+        displacement_unit = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
             displacement)
-        displacement_denorm = registrationbaselines.warping.utils_displacement.unit_displacement_to_displacement(
+        displacement_denorm = registrationbaselines.displacement.utils_displacement.unit_displacement_to_displacement(
             displacement_unit)
 
         assert torch.all((displacement_denorm - displacement_unit) == 0)

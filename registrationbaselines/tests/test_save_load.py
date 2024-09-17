@@ -7,13 +7,10 @@ import torch
 import SimpleITK as sitk
 import torchio as tio
 
-import registrationbaselines.io.io
-import registrationbaselines.warping.utils_displacement
 
 sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
 
-import registrationbaselines.core.utils as utils
-import registrationbaselines.core.utils_nifti as utils_nifti
+from registrationbaselines.io import load, save
 
 
 class TestSaveLoad(unittest.TestCase):
@@ -26,9 +23,9 @@ class TestSaveLoad(unittest.TestCase):
 
         for _ in range(10):
 
-            registrationbaselines.io.io.save_image(
+            save.save_image(
                 image_to_save, file_path, spacing)
-            image_loaded = registrationbaselines.io.io.load_image(file_path)
+            image_loaded = load.load_image(file_path)
 
             self.assertAlmostEqual(image_to_save.detach().cpu().abs().sum().numpy(),
                                    image_loaded.detach().cpu().abs().sum().numpy(),
@@ -51,11 +48,11 @@ class TestSaveLoad(unittest.TestCase):
             "registrationbaselines/tests/test_files/tmp_disp.nii.gz")
 
         for _ in range(4):
-            registrationbaselines.io.io.save_displacement(displacement_to_save,
-                                                          file_path,
-                                                          spacing + (1,))
+            save.save_displacement(displacement_to_save,
+                                   file_path,
+                                   spacing + (1,))
 
-            displacement_loaded = registrationbaselines.io.io.load_displacement(
+            displacement_loaded = load.load_displacement(
                 file_path)
 
             self.assertAlmostEqual(displacement_to_save.detach().cpu().abs().sum().numpy(),
@@ -75,26 +72,26 @@ class TestSaveLoad(unittest.TestCase):
         file_path = Path(
             "registrationbaselines/tests/test_files/LungCT_0001_0000_preprocessed_segmentation.nii.gz")
 
-        image = registrationbaselines.io.io.load_image(file_path)
+        image = load.load_image(file_path)
         self.assertTrue(isinstance(image, torch.Tensor))
 
         # check that it raises if file is not nifti but file exists
         file_path = Path(
             "registrationbaselines/tests/test_files/results_all.csv")
         self.assertRaises(
-            ValueError, registrationbaselines.io.io.load_image, file_path)
+            ValueError, load.load_image, file_path)
 
         # check that it raises if file is not nifti and file does not exist
         file_path = Path(
             "registrationbaselines/tests/test_files/does_not_exist.txt")
         self.assertRaises(
-            ValueError, registrationbaselines.io.io.load_image, file_path)
+            ValueError, load.load_image, file_path)
 
         # check that it raises if file is nifti and file does not exist
         file_path = Path(
             "registrationbaselines/tests/test_files/does_not_exist.nii.gz")
         self.assertRaises(FileNotFoundError,
-                          registrationbaselines.io.io.load_image, file_path)
+                          load.load_image, file_path)
 
         # load 5D image and check that it raises
         file_path_5D = Path(
@@ -103,7 +100,7 @@ class TestSaveLoad(unittest.TestCase):
         sitk_image_5D = sitk.GetImageFromArray(array_5D)
         sitk.WriteImage(sitk_image_5D, file_path_5D)
         self.assertRaises(
-            ValueError, registrationbaselines.io.io.load_image, file_path_5D)
+            ValueError, load.load_image, file_path_5D)
         file_path_5D.unlink()
 
         # load an image in wrong dtype
@@ -114,7 +111,7 @@ class TestSaveLoad(unittest.TestCase):
         sitk.WriteImage(sitk_image_wrong_dtype, file_path_wrong_dtype)
 
         self.assertRaises(
-            TypeError, registrationbaselines.io.io.load_image, file_path_wrong_dtype)
+            TypeError, load.load_image, file_path_wrong_dtype)
 
         file_path_wrong_dtype.unlink()
 
@@ -124,19 +121,19 @@ class TestSaveLoad(unittest.TestCase):
         file_path = Path(
             "registrationbaselines/tests/test_files/results_all.csv")
         self.assertRaises(
-            ValueError, registrationbaselines.io.io.load_displacement, file_path)
+            ValueError, load.load_displacement, file_path)
 
         # check that it raises if file is not nifti and file does not exist
         file_path = Path(
             "registrationbaselines/tests/test_files/does_not_exist.txt")
         self.assertRaises(
-            ValueError, registrationbaselines.io.io.load_displacement, file_path)
+            ValueError, load.load_displacement, file_path)
 
         # check that it raises if file is nifti and file does not exist
         file_path = Path(
             "registrationbaselines/tests/test_files/does_not_exist.nii.gz")
         self.assertRaises(FileNotFoundError,
-                          registrationbaselines.io.io.load_displacement, file_path)
+                          load.load_displacement, file_path)
 
         # load 5D image and check that it raises
         file_path_5D = Path(
@@ -145,14 +142,14 @@ class TestSaveLoad(unittest.TestCase):
         sitk_image_5D = sitk.GetImageFromArray(array_5D)
         sitk.WriteImage(sitk_image_5D, file_path_5D)
         self.assertRaises(
-            ValueError, registrationbaselines.io.io.load_displacement, file_path_5D)
+            ValueError, load.load_displacement, file_path_5D)
         file_path_5D.unlink()
 
         # check that load_image returns a tensor
         file_path = Path(
             "registrationbaselines/tests/test_files/LungCT_0001_0001_deformation_to_LungCT_0001_0000.nii.gz")
 
-        displacement = registrationbaselines.io.io.load_displacement(file_path)
+        displacement = load.load_displacement(file_path)
         self.assertTrue(isinstance(displacement, torch.Tensor))
 
         self.assertEqual(displacement.shape[-1], 3)
@@ -165,7 +162,7 @@ class TestSaveLoad(unittest.TestCase):
         # should raise if path is not .nii or .nii.gz
         dummy_path = Path("dummy.txt")
         self.assertRaises(ValueError,
-                          registrationbaselines.io.io.save_image,
+                          save.save_image,
                           file_wrong_dim,
                           dummy_path,
                           (1, 1, 1, 1))
@@ -174,7 +171,7 @@ class TestSaveLoad(unittest.TestCase):
         file_path_wrong_dim = Path(
             "registrationbaselines/tests/test_files/image_tmp.nii.gz")
         self.assertRaises(ValueError,
-                          registrationbaselines.io.io.save_image,
+                          save.save_image,
                           file_wrong_dim,
                           file_path_wrong_dim,
                           (1, 1, 1))
@@ -183,7 +180,7 @@ class TestSaveLoad(unittest.TestCase):
         file_path_correct = Path(
             "registrationbaselines/tests/test_files/image_tmp.nii.gz")
         file_correct = torch.rand(10, 10, 10)
-        registrationbaselines.io.io.save_image(
+        save.save_image(
             file_correct, file_path_correct, (1, 1, 1))
 
         self.assertTrue(file_path_correct.exists())
@@ -195,7 +192,7 @@ class TestSaveLoad(unittest.TestCase):
         # raises when not nifti
         dummy_path = Path("dummy.txt")
         self.assertRaises(ValueError,
-                          registrationbaselines.io.io.save_displacement,
+                          save.save_displacement,
                           torch.rand(10, 10, 10),
                           dummy_path,
                           (1, 1, 1))
@@ -204,7 +201,7 @@ class TestSaveLoad(unittest.TestCase):
         dummy_path = Path("dummy.nii.gz")
         image = torch.rand(10, 10, 10)
         self.assertRaises(ValueError,
-                          registrationbaselines.io.io.save_displacement,
+                          save.save_displacement,
                           image,
                           dummy_path,
                           (1, 1, 1))
@@ -212,7 +209,7 @@ class TestSaveLoad(unittest.TestCase):
         # raises when dim is 4, but wrong order
         image = torch.rand(10, 10, 10, 10)
         self.assertRaises(ValueError,
-                          registrationbaselines.io.io.save_displacement,
+                          save.save_displacement,
                           image,
                           dummy_path,
                           (1, 1, 1, 1))
@@ -220,7 +217,7 @@ class TestSaveLoad(unittest.TestCase):
         # raises when wrong dtype
         image = torch.rand(10, 10, 10, 3, dtype=torch.float64)
         self.assertRaises(TypeError,
-                          registrationbaselines.io.io.save_displacement,
+                          save.save_displacement,
                           image,
                           dummy_path,
                           (1, 1, 1, 1))
@@ -228,7 +225,7 @@ class TestSaveLoad(unittest.TestCase):
         # raise when wrong spacing dim
         image = torch.rand(10, 10, 10, 3, dtype=torch.float32)
         self.assertRaises(ValueError,
-                          registrationbaselines.io.io.save_displacement,
+                          save.save_displacement,
                           image,
                           dummy_path,
                           (1, 1, 1))

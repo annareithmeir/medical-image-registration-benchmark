@@ -28,7 +28,7 @@ class TestEvaluationResults(unittest.TestCase):
     def test_create_csv_file_on_init(self):
         path = "temp.csv"
 
-        _ = result_csv.EvaluationResults(path)
+        _ = result_csv.EvaluationMetricsResults(path)
 
         self.assertTrue(os.path.exists(path))
 
@@ -46,7 +46,7 @@ class TestEvaluationResults(unittest.TestCase):
 
         sleep(0.01)
 
-        _ = result_csv.EvaluationResults(path)
+        _ = result_csv.EvaluationMetricsResults(path)
 
         # get creation time of the file after the class is created
         creation_time_after = os.path.getctime(path)
@@ -61,7 +61,7 @@ class TestEvaluationResults(unittest.TestCase):
         path_before = "registrationbaselines/tests/test_files/temp.csv"
         path_after = "registrationbaselines/tests/test_files/results_add_value_1.csv"
 
-        res = result_csv.EvaluationResults(path_before)
+        res = result_csv.EvaluationMetricsResults(path_before)
 
         res = self.fill_csv(res)
 
@@ -77,7 +77,7 @@ class TestEvaluationResults(unittest.TestCase):
         path_before = "registrationbaselines/tests/test_files/temp.csv"
         path_after = "registrationbaselines/tests/test_files/results_min.csv"
 
-        res = result_csv.EvaluationResults(path_before)
+        res = result_csv.EvaluationMetricsResults(path_before)
 
         res = self.fill_csv(res)
 
@@ -95,7 +95,7 @@ class TestEvaluationResults(unittest.TestCase):
         path_before = "registrationbaselines/tests/test_files/temp.csv"
         path_after = "registrationbaselines/tests/test_files/results_max.csv"
 
-        res = result_csv.EvaluationResults(path_before)
+        res = result_csv.EvaluationMetricsResults(path_before)
 
         res = self.fill_csv(res)
 
@@ -113,7 +113,7 @@ class TestEvaluationResults(unittest.TestCase):
         path_before = "registrationbaselines/tests/test_files/temp.csv"
         path_after = "registrationbaselines/tests/test_files/results_mean.csv"
 
-        res = result_csv.EvaluationResults(path_before)
+        res = result_csv.EvaluationMetricsResults(path_before)
 
         res = self.fill_csv(res)
 
@@ -131,7 +131,7 @@ class TestEvaluationResults(unittest.TestCase):
         path_before = "registrationbaselines/tests/test_files/temp.csv"
         path_after = "registrationbaselines/tests/test_files/results_stddev.csv"
 
-        res = result_csv.EvaluationResults(path_before)
+        res = result_csv.EvaluationMetricsResults(path_before)
 
         res = self.fill_csv(res)
 

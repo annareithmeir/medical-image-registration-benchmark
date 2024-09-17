@@ -12,8 +12,8 @@ import math
 import torch.nn.functional as F
 import ants
 
-import registrationbaselines.warping.deform_objects
-import registrationbaselines.warping.utils_displacement
+import registrationbaselines.displacement.deform_objects
+import registrationbaselines.displacement.utils_displacement
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
@@ -118,13 +118,13 @@ displacement_xyz = create_displacement_constant(shape,
                                                 max_displacement,
                                                 (1, 1, 1))
 
-deformed_image_torch_x = registrationbaselines.warping.deform_objects.deform_image(image,
+deformed_image_torch_x = registrationbaselines.displacement.deform_objects.deform_image(image,
                                                                                    displacement_x.detach().clone())
-deformed_image_torch_y = registrationbaselines.warping.deform_objects.deform_image(image,
+deformed_image_torch_y = registrationbaselines.displacement.deform_objects.deform_image(image,
                                                                                    displacement_y.detach().clone())
-deformed_image_torch_z = registrationbaselines.warping.deform_objects.deform_image(image,
+deformed_image_torch_z = registrationbaselines.displacement.deform_objects.deform_image(image,
                                                                                    displacement_z.detach().clone())
-deformed_image_torch_xyz = registrationbaselines.warping.deform_objects.deform_image(image,
+deformed_image_torch_xyz = registrationbaselines.displacement.deform_objects.deform_image(image,
                                                                                      displacement_xyz.detach().clone())
 
 deformed_image_ants_x = utils.deform_image_ants(image,
@@ -136,13 +136,13 @@ deformed_image_ants_z = utils.deform_image_ants(image,
 deformed_image_ants_xyz = utils.deform_image_ants(image,
                                                   displacement_xyz.detach().clone()[..., [2, 1, 0]])
 
-displacement_unit_x = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+displacement_unit_x = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
     displacement_x.detach().clone())
-displacement_unit_y = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+displacement_unit_y = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
     displacement_y.detach().clone())
-displacement_unit_z = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+displacement_unit_z = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
     displacement_z.detach().clone())
-displacement_unit_xyz = registrationbaselines.warping.utils_displacement.displacement_to_unit_displacement(
+displacement_unit_xyz = registrationbaselines.displacement.utils_displacement.displacement_to_unit_displacement(
     displacement_xyz.detach().clone())
 
 plot_all_registration_results(moving_image=image,

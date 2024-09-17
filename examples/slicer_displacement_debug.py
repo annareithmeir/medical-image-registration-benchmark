@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.core import utils_niftyreg, utils_nifti  # nopep8
 from registrationbaselines.io import load, save  # nopep8
-from registrationbaselines.warping import utils_displacement  # nopep8
+from registrationbaselines.displacement import utils_displacement  # nopep8
 
 path_disp_ori = Path(
     "/home/fryderyk/Downloads/displacement_debug_for_slicer/imagesTr/disp_original_copy.nii.gz")

@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 import nibabel as nib
 
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 from registrationbaselines.core import utils_nifti
 
 

@@ -10,7 +10,7 @@ import nibabel as nib
 
 from registrationbaselines.core import utils
 from registrationbaselines.core.types import floarArray4Dor5D, array2Dor3D
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 
 
 def load_displacement_niftyreg(path: Path) -> torch.Tensor:

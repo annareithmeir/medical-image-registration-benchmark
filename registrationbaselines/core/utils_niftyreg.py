@@ -6,7 +6,7 @@ import SimpleITK as sitk
 import torch
 
 from registrationbaselines.core import utils_commandline, utils_nifti
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 
 
 def convert_transformation_to_displacement_field(transformation_path: Path,

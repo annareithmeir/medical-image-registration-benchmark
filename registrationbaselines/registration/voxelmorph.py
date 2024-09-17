@@ -7,7 +7,7 @@ from registrationbaselines.core import utils_dl
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.io import load
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 
 # THIS HAS TO BE BEFORE THE VOXELMORPH IMPORTS BECAUSE IN THE INITS MAGIC HAPPENS
 os.environ['NEURITE_BACKEND'] = 'pytorch'

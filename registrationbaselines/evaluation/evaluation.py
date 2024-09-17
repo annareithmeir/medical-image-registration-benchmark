@@ -10,7 +10,7 @@ import torch
 from registrationbaselines.evaluation import result_csv, plot_objects
 from registrationbaselines.io import load, save
 from registrationbaselines.core import utils
-from registrationbaselines.warping import deform_objects
+from registrationbaselines.displacement import deform_objects
 from registrationbaselines.metrics import metrics
 from registrationbaselines.data_loading.data_loaders import BaselineTransformations, GenericDataset
 from registrationbaselines.core.types import intArray3D

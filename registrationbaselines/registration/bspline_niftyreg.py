@@ -9,7 +9,7 @@ from registrationbaselines.interfaces._interface_registration import Registratio
 from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.io import save, load
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 
 
 class BSplineNiftyReg(RegistrationInterface):
