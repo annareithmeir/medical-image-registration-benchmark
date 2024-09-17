@@ -28,7 +28,7 @@ def run_command_in_terminal(command: list[str],
     return True
 
 
-def print_command(cmd_list):
+def print_command(cmd_list: List[str]) -> None:
     """
         Print the command line as a string, so that it can be copied and pasted into the terminal. For debugging.
     """
