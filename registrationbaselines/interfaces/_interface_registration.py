@@ -215,6 +215,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                      moving_segmentations=moving_segmentations,
                                      fixed_evaluation_mask=fixed_evaluation_mask)
 
+        self.evaluator.results.calculate_all_statistics()
+
         # move the results directory one level up
         shutil.move(self.path_dir_run, self.path_dir_dataset)
 
