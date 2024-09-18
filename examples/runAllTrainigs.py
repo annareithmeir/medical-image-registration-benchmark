@@ -19,8 +19,8 @@ def main() -> None:
     base_dir = Path(__file__).parent.parent.absolute()
 
     methods: Dict[Type[Union[VoxelMorph, LapIRN]], Path] = {
-        # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
-        VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
+        LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
+        # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
     }
 
     idxs = np.arange(5)
