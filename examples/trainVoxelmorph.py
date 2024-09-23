@@ -6,7 +6,7 @@ import numpy as np
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
-from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining
+from registrationbaselines.training.train_voxelmorph import VoxelMorph
 from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset
 
 
@@ -30,11 +30,17 @@ def main():
     print("train dataset:", len(train_dataset),
           "val dataset:  ", len(val_dataset))
 
-    vxm_config_file = base_dir / "registrationbaselines/configs/Voxelmorph.yaml"
-    vxm_training = VoxelmorphTraining(
-        train_dataset, vxm_config_file, val_dataset)
+    vxm_config_file = base_dir / "registrationbaselines/configs/VoxelMorph.yaml"
+    vxm_training = VoxelMorph(train_dataset,
+                              vxm_config_file,
+                              val_dataset)
 
-    vxm_training.train()
+    vxm_training.perform_wandb_sweep()
+
+    vxm_training = VoxelMorph(train_dataset,
+                              vxm_config_file,
+                              val_dataset)
+    vxm_training.execute_with_one_parameter_set()
 
 
 if __name__ == "__main__":

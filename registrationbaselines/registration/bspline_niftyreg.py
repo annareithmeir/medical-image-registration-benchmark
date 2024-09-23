@@ -1,13 +1,15 @@
 from pathlib import Path
 
-from typing import List, Any
+from typing import List, Optional, Tuple
 
-import wandb
+import torch
+import SimpleITK as sitk
 
-from registrationbaselines.registration._interface_registration import RegistrationInterface
-from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti, utils
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
+from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
-
+from registrationbaselines.io import save, load
+from registrationbaselines.displacement import utils_displacement
 
 
 class BSplineNiftyReg(RegistrationInterface):
@@ -17,88 +19,96 @@ class BSplineNiftyReg(RegistrationInterface):
     """
 
     def __init__(self,
-                 path_configuration: Path,
-                 dataloader: data_loaders.GenericDataset) -> None:
+                 configuration_path: Path,
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
 
-        self.method_name = "BSplineNiftyReg"
+        super().__init__("BSplineNiftyReg",
+                         configuration_path,
+                         dataloader,
+                         use_masked_evaluation)
 
-        self.configuration = utils.read_config(path_configuration)
-
-        self.dataloader = dataloader
-
-        base_dir = Path(__file__).parent.parent.absolute().parent
-        self.path_reg_f3d = base_dir / Path(
+        self.path_reg_f3d = self.base_dir / Path(
             "registrationbaselines/libraries/NiftyReg/reg_f3d_ubuntu")
-
-        # paths
-        self.path_working_dir_path = Path()
 
         # command to call NiftyReg
         self.command: List[str] = []
 
+        self.path_result_control_grid: Path
+
     def _register(self,
-                 fixed_image_path: Path,
-                 moving_image_path: Path) -> None:
+                  fixed_image: torch.Tensor,
+                  moving_image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-            Test
+            BUGFIX 0: The displacement field had to be adapted to our convention
+                      Specifically:
+                        - a different way of normalizing
+                        - the spacing of the datastet has to be 1,1,1 (done in dataset preprocessing)
         """
 
-        self.path_fixed = fixed_image_path
-        self.path_moving = moving_image_path
-        self.working_dir_path = self.path_fixed.parent
+        self.working_dir_path = Path(__file__).parent
+        self.path_fixed = self.working_dir_path / "fixed.nii.gz"
+        self.path_moving = self.working_dir_path / "moving.nii.gz"
 
-        # check that both images exist
-        assert self.path_fixed.exists(
-        ), f"File {self.path_fixed} does not exist."
-        assert self.path_moving.exists(
-        ), f"File {self.path_moving} does not exist."
+        save.save_image(fixed_image, self.path_fixed)
+        save.save_image(moving_image, self.path_moving)
 
-        self.__create_registration_command_list()
+        self._create_registration_command_list()
         utils_commandline.run_command_in_terminal(self.command,
-                                                  self.__outputs_exist,
+                                                  self._outputs_exist,
                                                   print_command_list=False)
 
         self.path_result_deformation = \
-            utils_niftyreg.convert_control_point_grid_to_displacement_field(
-                self.result_control_grid_path, self.path_fixed)
+            utils_niftyreg.convert_transformation_to_displacement_field(
+                self.path_result_control_grid, self.path_fixed)
 
-        # assign intent code to the displacement field
         utils_nifti.set_intent_code(
-            self.path_result_deformation, "NIFTI_INTENT_DISPVECT")
+            self.path_result_deformation, 'NIFTI_INTENT_DISPVECT')
 
-    def __create_registration_command_list(self):
+        deformed_image = load.load_image(self.path_result_deformed)
+        displacement = load.load_displacement(
+            self.path_result_deformation)
+
+        # remove temporary files
+        self.path_fixed.unlink()
+        self.path_moving.unlink()
+        self.path_result_deformed.unlink()
+        self.path_result_deformation.unlink()
+        self.path_result_control_grid.unlink()
+
+        return deformed_image, displacement
+
+    def _create_registration_command_list(self) -> None:
         """
         Create the command line list for the registration.
         """
 
         self.path_result_deformed, \
-            self.result_control_grid_path = self._create_result_paths(self.path_fixed.stem,
+            self.path_result_control_grid = self._create_result_paths(self.path_fixed.stem,
                                                                       self.path_moving.stem,
                                                                       ".nii.gz",
                                                                       ".nii.gz")
 
         # control point grid is only temporary, we want to remove it later
-        self.result_control_grid_path = Path(
-            self.result_control_grid_path.as_posix().replace(".nii", "_temp.nii"))
+        self.path_result_control_grid = Path(
+            self.path_result_control_grid.as_posix().replace(".nii", "_temp.nii"))
 
         self.command = [self.path_reg_f3d.as_posix(),
                         '-ref', self.path_fixed.as_posix(),
                         '-flo', self.path_moving.as_posix(),
                         '-res', self.path_result_deformed.as_posix(),
-                        '-cpp', self.result_control_grid_path.as_posix()]
-
-        config: Any = self.configuration if not self.use_wandb else wandb.config
+                        '-cpp', self.path_result_control_grid.as_posix()]
 
         self.command = utils_commandline.add_configuration_to_command(self.command,
-                                                                      config,
+                                                                      self.run_configuration,
                                                                       only_value=True)
 
-    def __outputs_exist(self):
+    def _outputs_exist(self) -> bool:
         """
         We need this because it's not clear that blockmatching returns non-zero
         when failed
         """
-        if self.path_result_deformed.exists() and self.path_result_deformation.exists():
+        if self.path_result_deformed.exists():
             return True
 
         return False

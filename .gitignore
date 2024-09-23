@@ -11,3 +11,5 @@ wandb/
 evaluation_results.csv
 mypy.ini
 results/
+
+.vscode/

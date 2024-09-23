@@ -2,21 +2,15 @@ method: grid
 name: VoxelMorph
 parameters:
   result_path:
-    values:     [/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp]
-  model_path:
-    values:     ["/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp/VoxelMorph/0001_final.pt"]
+    values:     [/u/home/koeglf/Documents/code/registrationbaselines/tmp/overfit]
   gpu_number:
     values:     ["0"]
   multichannel:
     values:     [False]
-  result_model_path:
-    values:     ["/u/home/koeglf/Documents/code/registrationbaselines/tmp/exp/VoxelMorph"]
-  initial_weights_path:
-    values:     ["tmp/_w.pt"]
   batch_size:
     values:     [1]
   epochs:
-    values:     [1]
+    values:     [1000]
   steps_per_epoch:
     values:     [3]
   load_model:
@@ -36,16 +30,12 @@ parameters:
   bidir:
     values:     [False]
   sim_loss:
-    values:     ["mse"]
+    values:     ["mse", "ncc"]
   reg_weight:
     values:     [0.01]
-  use_wandb:
-    values:     [False]
-  wandb_config_path:
-    values:     ["registrationbaselines/configs/Wandb.yaml"]
   gpu:
     values:     ['0']
   cudnn_nondet:
     values:     [False]
   save_checkpoint:
-    values:     [20]
+    values:     [100]

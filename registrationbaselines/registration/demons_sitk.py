@@ -1,144 +1,140 @@
 from pathlib import Path
 
-import SimpleITK as sitk
+from typing import Tuple
 
-from registrationbaselines.registration._interface_registration import RegistrationInterface
+import SimpleITK as sitk
+import torch
+
+from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.displacement import utils_displacement
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 
 
 class DemonsSITK(RegistrationInterface):
     """
     Demosn registration using SimpleITK.
     No default initialisation, as the choice of registration and resampling should be concious.
+
+    # ToDo implement reamining demons
+    sitk.DiffeomorphicDemonsRegistrationFilter
+    sitk.SymmetricForcesDemonsRegistrationFilter
+    sitk.FastSymmetricForcesDemonsRegistrationFilter
     """
 
-    def __init__(self, configuration_path: Path) -> None:
+    def __init__(self,
+                 configuration_path: Path,
+                 dataloader: data_loaders.GenericDataset,
+                 use_masked_evaluation: bool = True) -> None:
 
-        self.method = "DemonsSITK"
+        super().__init__("DemonsSITK",
+                         configuration_path,
+                         dataloader,
+                         use_masked_evaluation)
 
-        # configuration
-        self.configuration = self.read_config(configuration_path)
+        self.image_fixed: sitk.Image
+        self.image_moving: sitk.Image
 
-        self._create_result_directories()
-
-        # paths
-        self.fixed_path: Path
-        self.moving_path: Path
-        self.result_transformed_image_path: Path
-        self.result_transformation_path: Path
-        self.working_dir_path: Path
-
-        self.fixed_image: sitk.Image
-        self.moving_image: sitk.Image
-
-    def register(self, fixed_image_path: Path,
-                 moving_image_path: Path,
-                 print_progress: bool = False):
+    def _register(self,
+                  fixed_image: torch.Tensor,
+                  moving_image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Creates a Demons transformation model to register the moving image to the fixed image.
-
-
         """
 
-        self.fixed_path = fixed_image_path
-        self.moving_path = moving_image_path
-        self.working_dir_path = self.fixed_path.parent
-
-        # check that both images exist
-        assert self.fixed_path.exists(
-        ), f"File {self.fixed_path} does not exist."
-        assert self.moving_path.exists(
-        ), f"File {self.moving_path} does not exist."
-
-        self.fixed_image = sitk.ReadImage(fixed_image_path, sitk.sitkFloat32)
-        self.moving_image = sitk.ReadImage(moving_image_path, sitk.sitkFloat32)
+        self.image_fixed = sitk.GetImageFromArray(
+            fixed_image.detach().cpu().numpy())
+        self.image_moving = sitk.GetImageFromArray(
+            moving_image.detach().cpu().numpy())
 
         # match images
-        self.__match_images()
+        self._match_images()
 
         # create displacement field
-        result_transformation = self.__create_displacement_field()
+        result_displacement_field_transform = self._create_displacement_field()
 
-        result_transformed_image = self.__resample(result_transformation)
+        deformed = self._resample(result_displacement_field_transform)
 
         # convert transformation to displacement field
-        displacement_field = sitk.TransformToDisplacementField(result_transformation,
+        displacement_field = sitk.TransformToDisplacementField(result_displacement_field_transform,
                                                                sitk.sitkVectorFloat64,
-                                                               self.fixed_image.GetSize(),
-                                                               self.fixed_image.GetOrigin(),
-                                                               self.fixed_image.GetSpacing(),
-                                                               self.fixed_image.GetDirection())
+                                                               self.image_fixed.GetSize(),
+                                                               self.image_fixed.GetOrigin(),
+                                                               self.image_fixed.GetSpacing(),
+                                                               self.image_fixed.GetDirection())
 
-        self._save_results(result_transformed_image, displacement_field)
+        displacement = torch.from_numpy(
+            sitk.GetArrayFromImage(displacement_field)).to(torch.float32)
+        deformed_image = torch.from_numpy(
+            sitk.GetArrayFromImage(deformed))
 
-    def get_transformed_image_path(self):
-        # Return transformed image
-        return self.result_transformed_image_path
+        if not utils_displacement.is_unit_displacement(displacement):
+            displacement = utils_displacement.displacement_to_unit_displacement(
+                displacement)
 
-    def get_transformation_path(self):
-        # Return transformation
+        return deformed_image, displacement
 
-        return self.result_transformation_path
-
-    def _save_results(self, deformed, deformation):
-        self.result_transformed_image_path, \
-            self.result_transformation_path = self._create_result_paths(self.fixed_path.stem,
-                                                                        self.moving_path.stem,
-                                                                        ".nii.gz",
-                                                                        ".nii.gz")
-
-        sitk.WriteImage(deformed, self.result_transformed_image_path)
-        sitk.WriteImage(deformation, self.result_transformation_path)
-
-    def __match_images(self) -> None:
+    def _match_images(self) -> None:
         matcher = sitk.HistogramMatchingImageFilter()
 
-        if self.fixed_image.GetPixelID() in (sitk.sitkUInt8, sitk.sitkInt8):
+        if self.image_fixed.GetPixelID() in (sitk.sitkUInt8, sitk.sitkInt8):
             matcher.SetNumberOfHistogramLevels(
-                self.configuration['histogram_levels_int8'])
+                self.run_configuration['histogram_levels_int8'])
         else:
             matcher.SetNumberOfHistogramLevels(
-                self.configuration['histogram_levels_float'])
+                self.run_configuration['histogram_levels_float'])
 
         matcher.SetNumberOfMatchPoints(
-            self.configuration['number_of_match_points'])
+            self.run_configuration['number_of_match_points'])
         matcher.ThresholdAtMeanIntensityOn()
 
-        self.moving_image = matcher.Execute(
-            self.moving_image, self.fixed_image)
+        self.image_moving = matcher.Execute(
+            self.image_moving, self.image_fixed)
 
-    def __create_displacement_field(self) -> sitk.DisplacementFieldTransform:
+    def _create_displacement_field(self) -> sitk.DisplacementFieldTransform:
 
-        demons = sitk.FastSymmetricForcesDemonsRegistrationFilter()
+        filter_type = self.run_configuration['filter_type']
+
+        if filter_type == "DemonsRegistrationFilter":
+            demons = sitk.DemonsRegistrationFilter()
+        elif filter_type == "SymmetricForcesDemonsRegistrationFilter":
+            demons = sitk.SymmetricForcesDemonsRegistrationFilter()
+        elif filter_type == "FastSymmetricForcesDemonsRegistrationFilter":
+            demons = sitk.FastSymmetricForcesDemonsRegistrationFilter()
+        elif filter_type == "DiffeomorphicDemonsRegistrationFilter":
+            demons = sitk.DiffeomorphicDemonsRegistrationFilter()
+        else:
+            raise ValueError("Invalid Demons filter type.")
+
         demons.SetNumberOfIterations(
-            self.configuration['number_of_iterations'])
+            self.run_configuration['number_of_iterations'])
 
         # Standard deviation for Gaussian smoothing of displacement field
         demons.SetStandardDeviations(
-            self.configuration['standard_deviations'])
+            self.run_configuration['standard_deviations'])
 
         # get displacement field
         displacement_field = demons.Execute(
-            self.fixed_image, self.moving_image)
+            self.image_fixed, self.image_moving)
 
         return sitk.DisplacementFieldTransform(displacement_field)
 
-    def __resample(self, transformation):
+    def _resample(self, displacement_field_transform: sitk.DisplacementFieldTransform) -> sitk.Image:
         """
         Resample the moving image using the transformation.
         """
         resampler = sitk.ResampleImageFilter()
-        resampler.SetReferenceImage(self.fixed_image)
-        self.__set_interpolator(resampler)
+        resampler.SetReferenceImage(self.image_fixed)
+        self._set_interpolator(resampler)
         resampler.SetDefaultPixelValue(
-            self.configuration['default_pixel_value'])
-        resampler.SetTransform(transformation)
+            self.run_configuration['default_pixel_value'])
+        resampler.SetTransform(displacement_field_transform)
 
-        return resampler.Execute(self.moving_image)
+        return resampler.Execute(self.image_moving)
 
-    def __set_interpolator(self, sitk_object):
-        if self.configuration['interpolator'] == "sitkLinear":
+    def _set_interpolator(self, sitk_object: sitk.ResampleImageFilter) -> None:
+        if self.run_configuration['interpolator'] == "sitkLinear":
             sitk_object.SetInterpolator(sitk.sitkLinear)
-        elif self.configuration['interpolator'] == "sitkHammingWindowedSinc":
+        elif self.run_configuration['interpolator'] == "sitkHammingWindowedSinc":
             sitk_object.SetInterpolator(sitk.sitkHammingWindowedSinc)
         else:
             raise ValueError("Invalid interpolator")

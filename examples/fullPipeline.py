@@ -15,7 +15,10 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
-from registrationbaselines.registration.voxelmorph import VoxelMorphReg  # nopep8
+from registrationbaselines.registration.affine_niftyreg import AffineNiftyReg  # nopep8
+from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
+from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
+from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
 
 
 def main() -> None:
@@ -23,54 +26,60 @@ def main() -> None:
     Main function to run the full registration and evaluation pipeline.
     """
 
-    path_config = Path(__file__).parent.parent.absolute() / \
-        f"registrationbaselines/configs/VoxelMorph.yaml"
+    # method = "SyNANTs"
+    method = "DemonsSITK"
+    # method = "BSplineNiftyReg"
+    # method = "AffineNiftyReg"
+    # method = "VoxelMorph"
+
+    base_dir = Path(__file__).parent.absolute().parent
+    path_config = base_dir / f"registrationbaselines/configs/{method}.yaml"
 
     if socket.gethostname() == "fryderyk":
         path_data = Path("/home/fryderyk/Documents/data/LungCT_preprocessed/")
     elif socket.gethostname() == "janus":
         path_data = Path("/data/LungCT_preprocessed")
     else:
-        path_data = Path("/home/anna/datasets/LungCT_preprocessed")
+        path_data = Path("/home/anna/datasets/AbdomenMRCT_preprocessed")
 
     #####################################################################################################
     # REGISTER A REAL DATASET
     #####################################################################################################
     loader_data = data_loaders.L2RLungCTDataset(path_data,
                                                 return_type="path_dict",
-                                                indices=[0, 1])
+                                                indices=[i for i in range(2)])
+    # loader_data = data_loaders.L2RAbdominalMRCTDataset(path_data,
+    #                                                    return_type="path_dict",
+    #                                                    indices=[0, 1])
+    # loader_data = data_loaders.ImagePairDataset([[Path("/u/home/koeglf/Documents/code/registrationbaselines/fixed_x_11.nii.gz"),
+    #                                               Path("/u/home/koeglf/Documents/code/registrationbaselines/moving_x_11.nii.gz")]],
+    #                                             return_type="path_dict")
+
+    if method == "BSplineNiftyReg":
+        registration_object = BSplineNiftyReg
+    elif method == "SyNANTs":
+        registration_object = SyNANTs
+    elif method == "VoxelMorph":
+        registration_object = VoxelMorph
+    elif method == "DemonsSITK":
+        registration_object = DemonsSITK
+    elif method == "AffineNiftyReg":
+        registration_object = AffineNiftyReg
+
+    registration = registration_object(path_config,
+                                       loader_data,
+                                       use_masked_evaluation=True)
 
     #############################
     # with register_dataset()
     #############################
-    registration = VoxelMorphReg(path_config,
-                                 loader_data)
+    registration.evaluate_with_zero_displacement()
+    registration.execute_with_one_parameter_set()
+
+    #############################
+    # with perform_wandb_sweep()
+    #############################
     # registration.evaluate_with_zero_displacement()
-    registration.register_dataset()
-    return
-    #############################
-    # with perform_wandb_sweep()
-    #############################
-    registration = BSplineNiftyReg(path_config,
-                                   loader_data)
-    registration.perform_wandb_sweep()
-
-    #####################################################################################################
-    # REGISTER AN IMAGE PAIR DATASET
-    #####################################################################################################
-    loader_data = data_loaders.ImagePairDataset([[path_data / "imagesTr/LungCT_0001_0000.nii.gz",
-                                                  path_data / "imagesTr/LungCT_0001_0001.nii.gz"]],
-                                                return_type="path_dict")
-    #############################
-    # with register_dataset()
-    #############################
-    registration = BSplineNiftyReg(path_config, loader_data)
-    registration.register_dataset()
-
-    #############################
-    # with perform_wandb_sweep()
-    #############################
-    registration = BSplineNiftyReg(path_config, loader_data)
     registration.perform_wandb_sweep()
 
 
