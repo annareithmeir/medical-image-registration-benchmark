@@ -13,7 +13,7 @@ import monai
 
 from registrationbaselines.core.types import floatArray3Dor4D, floatArray2Dor3D, intArray3D
 from registrationbaselines.metrics import hd95
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 
 
 def get_non_zero_unique_classes(image1: torch.Tensor, image2: torch.Tensor) -> List[int]:

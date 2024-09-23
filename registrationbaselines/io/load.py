@@ -6,10 +6,42 @@ import yaml
 import numpy as np
 import SimpleITK as sitk
 import torch
+import nibabel as nib
 
 from registrationbaselines.core import utils
 from registrationbaselines.core.types import floarArray4Dor5D, array2Dor3D
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
+
+
+def load_displacement_niftyreg(path: Path) -> torch.Tensor:
+    """
+    Load a displacement field from a file and return it as a torch tensor in the shape H,W,D,3
+
+    SHAPES:
+    displacement_array.shape:	        (192, 138, 208, 1, 3)
+    result (displacement_tensor.shape): (192, 138, 208, 3)
+
+    @param path: The path to the displacement field file.
+
+    @return: The displacement field.
+
+    @raise ValueError: If the intent code of the displacement field is not NIFTI_INTENT_DISPVECT.
+    @raise ValueError: If the displacement field has wrong dimensions.
+    """
+
+    displacement_nib = nib.load(path)
+    displacement_array = displacement_nib.get_fdata()
+    displacement_tensor = torch.from_numpy(displacement_array)
+
+    displacement_tensor = displacement_tensor.squeeze(-2)
+
+    shape = tuple(displacement_tensor.permute(2, 1, 0, 3).shape[:3])
+    scaling_tensor = torch.tensor(shape).view(1, 1, 1, 3)
+    displacement_tensor = (displacement_tensor / scaling_tensor) * 2  # nopep8
+
+    displacement_tensor = displacement_tensor[..., [2, 1, 0]]
+
+    return displacement_tensor.to(torch.float32)
 
 
 def load_displacement(path: Path) -> torch.Tensor:
@@ -75,6 +107,16 @@ def load_displacement(path: Path) -> torch.Tensor:
 
     displacement_tensor = utils_displacement.reverse_axis(displacement_tensor)
 
+    displacement_nib = nib.load(path)
+    displacement_array_nib = displacement_nib.get_fdata()
+    displacement_tensor_nib = torch.from_numpy(
+        displacement_array_nib).squeeze().to(torch.float32)
+    displacement_tensor_nib = utils_displacement.displacement_to_unit_displacement(
+        displacement_tensor_nib)
+    displacement_tensor = displacement_tensor_nib[..., [2, 1, 0]]
+
+    s = torch.sum(torch.abs(displacement_tensor - displacement_tensor_nib))
+
     return displacement_tensor
 
 
@@ -85,25 +127,23 @@ def load_image(image_path: Path) -> torch.Tensor:
     The file should be in .nii or .nii.gz format.
     The voxel size should be isotropic.
     The direction should be identity.
-    The image should be 2D, 3D or 4D.
-    The image should be float or integer.
+    The image should be 3D.
+
+    SHAPES:
+    result (return_tensor.shape):         	(192, 138, 208)
 
     @param image_path: The path to the image file.
-    @type image_path: Path
 
-    @return: The image.
-    @rtype: floatArray2Dor3Dor4D
+    @return: The image as a tensor.
     """
 
     utils.is_nifti(image_path)
 
-    image_sitk: sitk.Image = sitk.ReadImage(image_path)
+    image_nib: nib.Nifti1Image = nib.load(image_path)
 
-    utils.is_isotropic(image_sitk)
-    utils.is_direction_identity(image_sitk)
-    utils.are_offdiagonal_direction_elements_zero(image_sitk)
+    utils.is_affine_identity(image_nib.affine)
 
-    image_array: array2Dor3D = sitk.GetArrayFromImage(image_sitk)
+    image_array: array2Dor3D = image_nib.get_fdata()
 
     dimension = image_array.ndim
 
@@ -113,14 +153,45 @@ def load_image(image_path: Path) -> torch.Tensor:
             f"Dimension of {image_path} is not 3D: {dimension}"
         )
 
-    return_tensor = torch.from_numpy(image_array).squeeze()
-    # check that image is float or int
-    if not (return_tensor.dtype == torch.uint8 or return_tensor.dtype == torch.float32):
-        raise TypeError(
-            f"Image is not float or int: {return_tensor.dtype}"
+    return_tensor = torch.from_numpy(image_array).to(torch.float32)
+
+    return return_tensor
+
+
+def load_segmentation(image_path: Path) -> torch.Tensor:
+    """
+    Load a nifti segmentation from a file and return it as a numpy array.
+
+    The file should be in .nii or .nii.gz format.
+    The voxel size should be isotropic.
+    The direction should be identity.
+    The segmentation should be 3D.
+
+    SHAPES:
+    result (return_tensor.shape):         	(192, 138, 208)
+
+    @param image_path: The path to the image file.
+
+    @return: The image as a tensor.
+    """
+
+    utils.is_nifti(image_path)
+
+    segmentation_nib: nib.Nifti1Image = nib.load(image_path)
+
+    utils.is_affine_identity(segmentation_nib.affine)
+
+    segmentation_array: array2Dor3D = segmentation_nib.get_fdata()
+
+    dimension = segmentation_array.ndim
+
+    # check that it 3D
+    if dimension != 3:
+        raise ValueError(
+            f"Dimension of {image_path} is not 3D: {dimension}"
         )
 
-    return_tensor = return_tensor.permute(2, 1, 0)
+    return_tensor = torch.from_numpy(segmentation_array).to(torch.uint8)
 
     return return_tensor
 

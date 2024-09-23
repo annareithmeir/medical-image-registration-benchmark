@@ -27,7 +27,7 @@ def main() -> None:
     # np.random.shuffle(idxs)
     train_idx, val_idx = list(idxs[:4]), list(idxs[4:])
 
-    path_lungCT = Path("/data/LungCT_preprocessed")
+    path_lungCT = Path("/data/LungCT_preprocessed_new")
     path_abdomenMRCT = Path("/data/AbdomenMRCT_preprocessed")
 
     datasets = [
@@ -36,9 +36,10 @@ def main() -> None:
                                        return_type="torch_tensor_dict"),
          data_loaders.L2RLungCTDataset(dataset_path=path_lungCT,
                                        indices=val_idx,
-                                       return_type="torch_tensor_dict")),
+                                       return_type="torch_tensor_dict"))
+    ]
 
-        """
+    """
         (data_loaders.L2RAbdominalMRCTDataset(dataset_path=path_abdomenMRCT,
                                               indices=train_idx,
                                               return_type="torch_tensor_dict"),
@@ -57,8 +58,8 @@ def main() -> None:
                 [Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{val_idx[0]+1:02}_0000.nii.gz"),
                  Path(f"/data/AbdomenMRCT_preprocessed/imagesTr/AbdomenMRCT_00{val_idx[0]+1:02}_0001.nii.gz")]
             ],
-            return_type="torch_tensor_dict"))"""
-    ]
+            return_type="torch_tensor_dict"))
+    """
 
     for train_dataset, val_dataset in datasets:
 

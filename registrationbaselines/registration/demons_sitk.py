@@ -1,15 +1,16 @@
 from pathlib import Path
 
+from typing import Tuple
+
 import SimpleITK as sitk
 import torch
 
 from registrationbaselines.data_loading import data_loaders
-from registrationbaselines.interfaces import _interface_registration
-from registrationbaselines.io import load
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 
 
-class DemonsSITK(_interface_registration.RegistrationInterface):
+class DemonsSITK(RegistrationInterface):
     """
     Demosn registration using SimpleITK.
     No default initialisation, as the choice of registration and resampling should be concious.
@@ -33,25 +34,17 @@ class DemonsSITK(_interface_registration.RegistrationInterface):
         self.image_fixed: sitk.Image
         self.image_moving: sitk.Image
 
-    def _register(self, fixed_image_path: Path,
-                  moving_image_path: Path) -> None:
+    def _register(self,
+                  fixed_image: torch.Tensor,
+                  moving_image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Creates a Demons transformation model to register the moving image to the fixed image.
         """
 
-        self.path_fixed = fixed_image_path
-        self.path_moving = moving_image_path
-
-        # check that both images exist
-        assert self.path_fixed.exists(
-        ), f"File {self.path_fixed} does not exist."
-        assert self.path_moving.exists(
-        ), f"File {self.path_moving} does not exist."
-
         self.image_fixed = sitk.GetImageFromArray(
-            load.load_image(fixed_image_path).numpy())
+            fixed_image.detach().cpu().numpy())
         self.image_moving = sitk.GetImageFromArray(
-            load.load_image(moving_image_path).numpy())
+            moving_image.detach().cpu().numpy())
 
         # match images
         self._match_images()
@@ -59,7 +52,7 @@ class DemonsSITK(_interface_registration.RegistrationInterface):
         # create displacement field
         result_displacement_field_transform = self._create_displacement_field()
 
-        warped_image = self._resample(result_displacement_field_transform)
+        deformed = self._resample(result_displacement_field_transform)
 
         # convert transformation to displacement field
         displacement_field = sitk.TransformToDisplacementField(result_displacement_field_transform,
@@ -71,14 +64,14 @@ class DemonsSITK(_interface_registration.RegistrationInterface):
 
         displacement = torch.from_numpy(
             sitk.GetArrayFromImage(displacement_field)).to(torch.float32)
-        warped = torch.from_numpy(
-            sitk.GetArrayFromImage(warped_image))
+        deformed_image = torch.from_numpy(
+            sitk.GetArrayFromImage(deformed))
 
         if not utils_displacement.is_unit_displacement(displacement):
             displacement = utils_displacement.displacement_to_unit_displacement(
                 displacement)
 
-        self._save_results(warped, displacement)
+        return deformed_image, displacement
 
     def _match_images(self) -> None:
         matcher = sitk.HistogramMatchingImageFilter()

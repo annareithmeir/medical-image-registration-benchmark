@@ -10,7 +10,7 @@ from scipy.ndimage import map_coordinates
 import torch
 import torch.nn.functional as F
 
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 
 
 def deform_image(image: torch.Tensor,

@@ -23,6 +23,22 @@ def turn_off_warnings() -> None:
     sitk.ProcessObject_SetGlobalWarningDisplay(False)
 
 
+def is_affine_identity(affine: floatArray2D) -> None:
+    """
+    Check if an affine matrix is the identity matrix.
+
+    @param affine: The affine matrix.
+    @type affine: np.ndarray[Tuple[int, int], np.dtype[np.float64]]
+
+    @raise ValueError: If the affine matrix is not the identity matrix.
+    """
+
+    identity = np.eye(4, dtype=np.float64)
+
+    if not np.allclose(affine, identity):
+        raise ValueError("Affine matrix is not identity.")
+
+
 def is_nifti(path: Path) -> None:
     """
     Function to check if a file is a nifti and exists.
@@ -242,7 +258,7 @@ def find_points_inside_convex_hull(points: intArray2D,
     return out_idx
 
 
-def get_convex_hull_mask(image: intArray3D) -> intArray3D:
+def get_convex_hull_mask(image: torch.Tensor) -> torch.Tensor:
     """
     Creates a mask from the convex hull. All values outside of the hull are set to 0.
 
@@ -253,20 +269,23 @@ def get_convex_hull_mask(image: intArray3D) -> intArray3D:
     @param image: The image.
     @return: The mask.
     """
-    points = np.transpose(np.where(image))
+
+    image_array = image.detach().cpu().numpy()
+
+    points = np.transpose(np.where(image_array))
 
     hull = scipy.spatial.ConvexHull(points)
 
     out_idx = find_points_inside_convex_hull(points,
                                              hull,
-                                             image.shape)
+                                             image_array.shape)
 
-    out_img = np.zeros(image.shape)
+    out_img = np.zeros(image_array.shape)
     out_img[out_idx] = 1
 
-    out_img = out_img.astype(np.uint8)
+    result = torch.from_numpy(out_img).to(torch.uint8).to(image.device)
 
-    return out_img
+    return result
 
 
 def print_histogram(tensor: torch.Tensor, bins: int) -> None:

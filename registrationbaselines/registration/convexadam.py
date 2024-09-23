@@ -1,20 +1,22 @@
-import gc
-import registrationbaselines.io.io
-import registrationbaselines.warping.deform_objects
-from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
-from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 import time
 from pathlib import Path
+import sys
+
 from typing import Optional, Union
+
 import numpy as np
 import SimpleITK as sitk
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.ndimage import distance_transform_edt as edt
-import sys
-sys.path.append(str(Path(__file__).parent.absolute().parent.parent))
+import gc
 
+sys.path.append(str(Path(__file__).parent.absolute().parent.parent))  # nopep8
+
+from registrationbaselines.io import load
+from registrationbaselines.dl_repos.convexAdam.src.convexAdam.convex_adam_utils import MINDSSC, correlate, coupled_convex, inverse_consistency
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 
 gc.collect()
 torch.cuda.empty_cache()
@@ -52,9 +54,9 @@ class ConvexAdam(RegistrationInterface):
         ), f"File {self.moving_path} does not exist."
 
         image_moving = torch.from_numpy(
-            registrationbaselines.io.io.load_image(self.moving_path))
+            load.load_image(self.moving_path))
         image_fixed = torch.from_numpy(
-            registrationbaselines.io.io.load_image(self.fixed_path))
+            load.load_image(self.fixed_path))
         assert image_fixed.shape == image_moving.shape
 
         self.result_transformed_image_path, \
@@ -141,9 +143,9 @@ class ConvexAdam(RegistrationInterface):
 
         if use_mask:
             mask_fixed = torch.from_numpy(
-                registrationbaselines.io.io.load_image(path_fixed_mask).astype(float))
+                load.load_image(path_fixed_mask).astype(float))
             mask_moving = torch.from_numpy(
-                registrationbaselines.io.io.load_image(path_moving_mask).astype(float))
+                load.load_image(path_moving_mask).astype(float))
         else:
             mask_fixed = None
             mask_moving = None

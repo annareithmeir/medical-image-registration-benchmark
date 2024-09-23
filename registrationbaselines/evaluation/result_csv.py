@@ -9,12 +9,14 @@ import os
 from pathlib import Path
 
 
-class EvaluationResults:
+class EvaluationMetricsResults:
     """
     A class to handle evaluation results and store them in a DataFrame.
     """
 
-    def __init__(self, file_path: str):
+    def __init__(self,
+                 file_path: Path,
+                 number_of_images: int) -> None:
         """
         Initializes the EvaluationResults class.
 
@@ -24,15 +26,17 @@ class EvaluationResults:
         self.file_path = file_path
         self.df = pd.DataFrame()
 
-        self.number_of_images = 0
+        self.plots_path = file_path.parent / "results.pdf"
+
+        self.number_of_images = number_of_images
 
         # If the CSV exists, delete it
-        if os.path.exists(self.file_path):
-            os.remove(self.file_path)
+        if file_path.exists():
+            file_path.unlink()
 
         open(self.file_path, 'w').close()
 
-    def add_value(self, method: str, value: float, row_name: str):
+    def add_value(self, method: str, value: float, row_name: str) -> None:
         """
         Add a value to the specified method in the DataFrame.
 
@@ -49,7 +53,24 @@ class EvaluationResults:
         else:
             self.df.at[row_name, method] = value
 
-    def calculate_min(self):
+    def calculate_all_statistics(self) -> None:
+        """
+        Calculate all statistics for each method and add them as rows in the DataFrame.
+
+        Returns:
+            None
+        """
+
+        self.calculate_mean()
+        self.calculate_stddev()
+        self.calculate_min()
+        self.calculate_max()
+
+        self.write()
+
+        self.plot(self.plots_path)
+
+    def calculate_min(self) -> None:
         """
         Calculate the minimum values for each method and add them as a row in the DataFrame.
 
@@ -58,7 +79,7 @@ class EvaluationResults:
         """
         self.__calculate_statistics(np.min, 'min')
 
-    def calculate_max(self):
+    def calculate_max(self) -> None:
         """
         Calculate the maximum values for each method and add them as a row in the DataFrame.
 
@@ -67,7 +88,7 @@ class EvaluationResults:
         """
         self.__calculate_statistics(np.max, 'max')
 
-    def calculate_mean(self):
+    def calculate_mean(self) -> None:
         """
         Calculate the mean values for each method and add them as a row in the DataFrame.
 
@@ -76,7 +97,7 @@ class EvaluationResults:
         """
         self.__calculate_statistics(np.mean, 'mean')
 
-    def calculate_stddev(self):
+    def calculate_stddev(self) -> None:
         """
         Calculate the standard deviation values for each method and add them as a row in the DataFrame.
 
@@ -85,7 +106,7 @@ class EvaluationResults:
         """
         self.__calculate_statistics(np.std, 'std')
 
-    def __calculate_statistics(self, stat_function: callable, function_name: str):
+    def __calculate_statistics(self, stat_function: callable, function_name: str) -> None:
         """
         Calculate a specified statistic for each method and add it as a row in the DataFrame.
 
@@ -110,7 +131,7 @@ class EvaluationResults:
         stats = self.df.iloc[:self.number_of_images].apply(stat_function)
         self.df.loc[function_name] = stats
 
-    def write(self):
+    def write(self) -> None:
         """
         Write the DataFrame to a CSV file at the specified path.
 

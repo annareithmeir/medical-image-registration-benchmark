@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from typing import Optional
@@ -7,7 +6,7 @@ import SimpleITK as sitk
 import torch
 
 from registrationbaselines.core import utils_commandline, utils_nifti
-from registrationbaselines.warping import utils_displacement
+from registrationbaselines.displacement import utils_displacement
 
 
 def convert_transformation_to_displacement_field(transformation_path: Path,
@@ -42,9 +41,6 @@ def convert_transformation_to_displacement_field(transformation_path: Path,
     utils_commandline.run_command_in_terminal(command_line_list,
                                               check=path_displacement.exists,
                                               print_command_list=False)
-
-    # remove the temporary control point grid
-    os.remove(transformation_path)
 
     return path_displacement
 

@@ -1,13 +1,14 @@
-import sys
 import numpy as np
-
 from pathlib import Path
+import sys
+
+from typing import Tuple
+
 import torch
 
 from registrationbaselines.core import utils_dl
-from registrationbaselines.io import load
-from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 
 # sys.path.append(str(Path(__file__).parent.absolute().parent))
 # if we dont do this then LapIRN.Code.miccai2020_model_stage.py can't import Functions
@@ -39,32 +40,22 @@ class LapIRN(RegistrationInterface):
                          use_masked_evaluation,
                          model_path)
 
-    def _register(self, fixed_image_path: Path, moving_image_path: Path) -> None:
+    def _register(self,
+                  fixed_image: torch.Tensor,
+                  moving_image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        self.path_fixed = fixed_image_path
-        self.path_moving = moving_image_path
-
-        # check that both images exist
-        assert self.path_fixed.exists(
-        ), f"File {self.path_fixed} does not exist."
-        assert self.path_moving.exists(
-        ), f"File {self.path_moving} does not exist."
-
-        # load moving and fixed images
-        moving_image = load.load_image(moving_image_path)
-        fixed_image = load.load_image(fixed_image_path)
+        original_shape = list(fixed_image.shape)
 
         fixed_image = fixed_image.view(
             1, 1, *fixed_image.shape).float().to(self.device)
         moving_image = moving_image.view(
             1, 1, *moving_image.shape).float().to(self.device)
 
-        original_shape = self.dataloader.image_shape
         new_shape = utils_dl.get_new_lapirn_image_shape(original_shape)
 
-        image_shape = new_shape
-        image_shape_2 = tuple(int(x / 2) for x in image_shape)
-        image_shape_4 = tuple(int(x / 4) for x in image_shape)
+        image_shape_1 = new_shape
+        image_shape_2 = tuple(int(x / 2) for x in image_shape_1)
+        image_shape_4 = tuple(int(x / 4) for x in image_shape_1)
 
         moving_image = utils_dl.pad_tensor_to_shape(
             moving_image, new_shape)
@@ -76,7 +67,7 @@ class LapIRN(RegistrationInterface):
         model_lvl2 = Miccai2020_LDR_laplacian_unit_add_lvl2(2, 3, self.run_configuration["start_channel"], is_train=True, imgshape=image_shape_2,
                                                             range_flow=self.run_configuration["range_flow"], model_lvl1=model_lvl1).cuda()
 
-        model = Miccai2020_LDR_laplacian_unit_add_lvl3(2, 3, self.run_configuration["start_channel"], is_train=False, imgshape=image_shape,
+        model = Miccai2020_LDR_laplacian_unit_add_lvl3(2, 3, self.run_configuration["start_channel"], is_train=False, imgshape=image_shape_1,
                                                        range_flow=self.run_configuration["range_flow"], model_lvl2=model_lvl2).cuda()
 
         transform = SpatialTransform_unit().cuda()
@@ -85,21 +76,20 @@ class LapIRN(RegistrationInterface):
         model.eval()
         transform.eval()
 
-        grid = generate_grid_unit(image_shape)
+        grid = generate_grid_unit(image_shape_1)
         grid = torch.from_numpy(np.reshape(
             grid, (1,) + grid.shape)).cuda().float()
 
         # predict
         with torch.no_grad():
             F_X_Y = model(moving_image, fixed_image)
-
             X_Y = transform(moving_image, F_X_Y.permute(
                 0, 2, 3, 4, 1), grid).data.cpu()[0, 0, :, :, :]
             F_X_Y_cpu = F_X_Y.data.cpu()[0, :, :, :, :].permute(1, 2, 3, 0)
 
-            X_Y = utils_dl.crop_tensor_to_shape(
-                X_Y, list(original_shape))  # .permute(2,1,0)
-            F_X_Y_cpu = utils_dl.crop_tensor_to_shape(
-                F_X_Y_cpu, list(original_shape) + [3])
+            deformed_image = utils_dl.crop_tensor_to_shape(X_Y,
+                                                           list(original_shape))  # .permute(2,1,0)
+            displacement = utils_dl.crop_tensor_to_shape(F_X_Y_cpu,
+                                                         list(original_shape) + [3])
 
-            self._save_results(X_Y, F_X_Y_cpu)
+            return deformed_image, displacement

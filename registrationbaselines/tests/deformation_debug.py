@@ -11,7 +11,7 @@ import SimpleITK as sitk
 import matplotlib.pyplot as plt
 
 import registrationbaselines.io.io
-import registrationbaselines.warping.deform_objects
+import registrationbaselines.displacement.deform_objects
 
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
@@ -62,7 +62,7 @@ ours_original_warped = registrationbaselines.io.io.load_image(
 ours_moving = registrationbaselines.io.io.load_image(path_moving)
 ours_fixed = registrationbaselines.io.io.load_image(path_fixed)
 
-ours_warped = registrationbaselines.warping.deform_objects.deform_image(
+ours_warped = registrationbaselines.displacement.deform_objects.deform_image(
     ours_moving, ours_displacement)
 
 # cretae figure with three subplots in one row
