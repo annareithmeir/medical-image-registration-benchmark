@@ -14,9 +14,9 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.core import utils  # nopep8
 from registrationbaselines.data_loading import data_loaders  # nopep8
-# from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
+from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
 # from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
-from registrationbaselines.registration.lapirn import LapIRN  # nopep8
+# from registrationbaselines.registration.lapirn import LapIRN  # nopep8
 # from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
 # from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
 
@@ -31,9 +31,9 @@ def main() -> None:
     # methods: Dict[Type[Union[VoxelMorph, LapIRN, SyNANTs, DemonsSITK, BSplineNiftyReg]], Path] = {
     methods = {
         # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
-        LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
+        # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         # SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
-        # BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
+        BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
         # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
     }
 
@@ -51,7 +51,7 @@ def main() -> None:
     indices = random.sample(range(1, 8), 2)
     indices = [0]
     datasets = [
-        data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed_new"),
+        data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed_anna_test"),
                                       return_type="path_dict",
                                       indices=indices),
         # data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT_preprocessed_new"),

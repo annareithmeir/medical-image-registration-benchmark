@@ -24,7 +24,7 @@ builtins.input = fixed_input
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
-from registrationbaselines.training.train_voxelmorph import VoxelmorphTraining  # nopep8
+from registrationbaselines.training.train_voxelmorph import VoxelMorph  # nopep8
 from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset  # nopep8
 from registrationbaselines.core import utils  # nopep8
 
@@ -35,7 +35,7 @@ BATCH_SIZE = 8
 def make_network(shape: List[int]):
 
     phi = network_wrappers.FunctionFromVectorField(
-        networks.tallUNet(unet=networks.UNet2ChunkyMiddle, dimension=3)
+        networks.tallUNet2(dimension=3)
     )
     psi = network_wrappers.FunctionFromVectorField(
         networks.tallUNet2(dimension=3))
@@ -63,7 +63,7 @@ def main():
 
     base_dir = Path(__file__).parent.parent.absolute()
 
-    data_path = Path("/data/LungCT_preprocessed")
+    data_path = Path("/data/LungCT_preprocessed_new")
 
     train_dataset = L2RLungCTDataset(dataset_path=data_path,
                                      indices=list(train_idx),
@@ -112,8 +112,11 @@ def main():
 
         return moving_image, fixed_image
 
-    icon_registration.train_batchfunction(
-        net_par, optimizer, make_batch, unwrapped_net=hires_net)
+    icon_registration.train_batchfunction(net_par,
+                                          optimizer,
+                                          make_batch,
+                                          unwrapped_net=hires_net,
+                                          steps=5)
 
 
 if __name__ == "__main__":

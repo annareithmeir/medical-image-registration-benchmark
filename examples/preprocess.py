@@ -18,15 +18,15 @@ def main() -> None:
     Main function to run the full registration and evaluation pipeline.
     """
 
-    # dataset = data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT"),
-    #                                         return_type="path_dict")
+    dataset = data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT"),
+                                            return_type="path_dict")
 
-    # dataset.preprocess(Path("/data/LungCT_preprocessed_new"))
+    dataset.preprocess(Path("/data/LungCT_preprocessed_anna_test"))
 
-    dataset = data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT"),
-                                                   return_type="path_dict")
+    # dataset = data_loaders.L2RAbdominalMRCTDataset(dataset_path=Path("/data/AbdomenMRCT"),
+    #                                                return_type="path_dict")
 
-    dataset.preprocess(Path("/data/AbdomenMRCT_preprocessed_new"))
+    # dataset.preprocess(Path("/data/AbdomenMRCT_preprocessed_new"))
 
 
 if __name__ == "__main__":
