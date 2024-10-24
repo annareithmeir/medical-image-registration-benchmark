@@ -3,9 +3,11 @@ name: SyNANTs
 
 parameters:
   result_path:
-    values:            [/home/fryderyk/Documents/code/registrationbaselines/tmp/displacement_debug]
+    values:            [/u/home/koeglf/Documents/code/registrationbaselines/tmp/for_anna]
     # values: [/home/anna/PycharmProjects/registrationbaselines/tmp/results]
 #   value: /home/fryderyk/Documents/data/results/
+  gpu:
+    values:            [0]
 
   grad_step:
     values: [2, 0.5] # 0.2
