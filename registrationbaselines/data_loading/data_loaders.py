@@ -400,6 +400,7 @@ class NeckCTDataset(GenericDataset):
 
     def __init__(self,
                  dataset_path: Path,
+                 name: str = "NeckCT",
                  return_type: Optional[str] = None,
                  indices: Optional[list[int]] = None) -> None:
         """
@@ -409,7 +410,7 @@ class NeckCTDataset(GenericDataset):
         @param indices: If desired, only specific indices can be used for the dataset creation (e.g. for train/val/test split)
         """
 
-        super().__init__("NeckCT",
+        super().__init__(name,
                          return_type,
                          indices)
 
