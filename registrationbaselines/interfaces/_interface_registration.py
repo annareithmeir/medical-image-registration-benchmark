@@ -99,8 +99,14 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                     item["fixed_segmentations"]).to(self.device)
                 moving_segmentations = load.load_segmentation(
                     item["moving_segmentations"]).to(self.device)
+
+                fixed_segmentations_name = str(
+                    item["fixed_segmentations"].stem).split('.')[0]
+                moving_segmentations_name = str(
+                    item["moving_segmentations"].stem).split('.')[0]
             else:
                 fixed_segmentations, moving_segmentations = None, None
+                fixed_segmentations_name, moving_segmentations_name = "", ""
 
             if self.use_masked_evaluation:
                 fixed_evaluation_mask = utils.get_convex_hull_mask(fixed_image)
@@ -109,10 +115,6 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
             fixed_image_name = str(item["fixed_image"].stem).split('.')[0]
             moving_image_name = str(item["moving_image"].stem).split('.')[0]
-            fixed_segmentations_name = str(
-                item["fixed_segmentations"].stem).split('.')[0]
-            moving_segmentations_name = str(
-                item["moving_segmentations"].stem).split('.')[0]
 
             deformed_image, displacement = self._register(fixed_image,
                                                           moving_image)
@@ -144,6 +146,13 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                      fixed_segmentations,
                                      moving_segmentations,
                                      fixed_evaluation_mask)
+
+            x = 0
+            path_patient = item["fixed_image"].parent.parent.parent
+            path_patient_registered = path_patient / "registration"
+            path_patient_registered.mkdir(parents=True, exist_ok=True)
+
+            shutil.copy(self.path_result_deformation, path_patient_registered)
 
         self.evaluator.results.calculate_all_statistics()
 

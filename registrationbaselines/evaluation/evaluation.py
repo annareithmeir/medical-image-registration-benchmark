@@ -53,7 +53,7 @@ class RegistrationEvaluator():
                                         row_name,
                                         fixed_evaluation_mask)
 
-        if fixed_segmentations is not None and moving_segmentations is not None:
+        if fixed_segmentations[0] is not None and moving_segmentations[0] is not None:
             self._evaluate_segmentation(fixed_segmentations[0],
                                         fixed_segmentations[1],
                                         moving_segmentations[0],
