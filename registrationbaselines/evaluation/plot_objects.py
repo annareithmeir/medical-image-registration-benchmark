@@ -18,7 +18,7 @@ from registrationbaselines.evaluation import utils_evaluation
 from registrationbaselines.metrics import metrics
 
 os.environ['NEURITE_BACKEND'] = "pytorch"
-matplotlib.rcParams['text.usetex'] = True
+# matplotlib.rcParams['text.usetex'] = True
 
 
 def plot_tensor_slices_difference(

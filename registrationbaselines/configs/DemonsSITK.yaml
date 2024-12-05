@@ -3,7 +3,7 @@ name: DemonsSITK
 
 parameters:
   result_path: 
-    values:            [/u/home/koeglf/Documents/code/registrationbaselines/tmp/for_anna]
+    values:            [/home/koeglf/data/registrationStudy/]
   gpu:
     values:            [0]
     

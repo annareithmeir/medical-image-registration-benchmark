@@ -147,13 +147,6 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                      moving_segmentations,
                                      fixed_evaluation_mask)
 
-            x = 0
-            path_patient = item["fixed_image"].parent.parent.parent
-            path_patient_registered = path_patient / "registration"
-            path_patient_registered.mkdir(parents=True, exist_ok=True)
-
-            shutil.copy(self.path_result_deformation, path_patient_registered)
-
         self.evaluator.results.calculate_all_statistics()
 
         if self.use_wandb:

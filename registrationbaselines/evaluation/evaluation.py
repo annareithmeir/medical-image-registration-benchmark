@@ -97,7 +97,7 @@ class RegistrationEvaluator():
             fixed_segmentations = fixed_segmentations.to(device)
             moving_segmentations = moving_segmentations.to(device)
 
-        if fixed_evaluation_mask is not None:
+        if fixed_evaluation_mask is not None and deformed_segmentations is not None and moving_segmentations is not None:
             deformed_segmentations *= fixed_evaluation_mask
             moving_segmentations *= fixed_evaluation_mask
 
