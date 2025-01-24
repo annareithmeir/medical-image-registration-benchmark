@@ -14,6 +14,7 @@ from registrationbaselines.evaluation.evaluation import RegistrationEvaluator
 from registrationbaselines.interfaces import _interface_core
 from registrationbaselines.io import save, load
 from registrationbaselines.displacement import deform_objects
+from registrationbaselines.metrics import metrics
 
 
 class RegistrationInterface(_interface_core.InterfaceCore):
@@ -65,6 +66,66 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         @return: warped image, displacement field
         """
+
+    def reevaluate_one_run(self, path_dir_run: Path = Path("/home/koeglf/data/registrationStudy/SerielleCTs_nii_forHumans_registrations/BSplineNiftyReg/BSplineNiftyReg_662d4caf-b56e-48a9-8803-4e8912161d8c")) -> None:
+        self.evaluator = RegistrationEvaluator(path_dir_run,
+                                               len(self.dataloader))
+        print('reevaluate')
+        for item in tqdm(self.dataloader):
+
+            fixed_image = load.load_image(item["fixed_image"]).to(self.device)
+            moving_image = load.load_image(
+                item["moving_image"]).to(self.device)
+
+            if self.dataloader.has_segmentations:
+                fixed_segmentations = load.load_segmentation(
+                    item["fixed_segmentations"]).to(self.device)
+                moving_segmentations = load.load_segmentation(
+                    item["moving_segmentations"]).to(self.device)
+
+                fixed_segmentations_name = str(
+                    item["fixed_segmentations"].stem).split('.')[0]
+                moving_segmentations_name = str(
+                    item["moving_segmentations"].stem).split('.')[0]
+            else:
+                fixed_segmentations, moving_segmentations = None, None
+                fixed_segmentations_name, moving_segmentations_name = "", ""
+
+            if self.use_masked_evaluation:
+                fixed_evaluation_mask = utils.get_convex_hull_mask(fixed_image)
+            else:
+                fixed_evaluation_mask = None
+
+            fixed_image_name = str(item["fixed_image"].stem).split('.')[0]
+            moving_image_name = str(item["moving_image"].stem).split('.')[0]
+
+            deformation_path = path_dir_run / "deformations" / \
+                f"{moving_image_name}_deformation_to_{fixed_image_name}.nii.gz"
+
+            displacement = load.load_displacement(
+                deformation_path).to(self.device)
+
+            own_warped = deform_objects.deform_image(
+                moving_image, displacement)
+
+            self.evaluator.evaluate(fixed_image_name,
+                                    displacement.detach().clone(),
+                                    (fixed_segmentations, fixed_segmentations_name),
+                                    (moving_segmentations,
+                                     moving_segmentations_name),
+                                    fixed_evaluation_mask)
+
+            self.evaluator.visualize(fixed_image,
+                                     fixed_image_name,
+                                     moving_image,
+                                     moving_image_name,
+                                     own_warped,
+                                     displacement.detach().clone(),
+                                     fixed_segmentations,
+                                     moving_segmentations,
+                                     fixed_evaluation_mask)
+
+        self.evaluator.results.calculate_all_statistics()
 
     def execute_with_one_parameter_set(self) -> None:
         """
