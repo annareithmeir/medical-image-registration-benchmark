@@ -3,6 +3,7 @@ import sys
 import os
 import time
 import random
+import traceback
 
 from typing import Dict, Type, Union
 
@@ -104,7 +105,7 @@ def main() -> None:
                 if first_dataset_evaluation and dataset.name != "image_pairs":
                     logger.my_level(
                         f"Evaluating with zero displacement on {dataset.name}")
-                    registration.evaluate_with_zero_displacement()
+                    # registration.evaluate_with_zero_displacement()
                     first_dataset_evaluation = False
 
                 logger.my_level(
@@ -114,7 +115,8 @@ def main() -> None:
                 # if not hasattr(registration, "model_path"):
                 #     registration.perform_wandb_sweep()
             except Exception as e:
-                logger.my_level(f"Error in {method.__name__}: {e}")
+                error_details = traceback.format_exc()
+                logger.my_level(f"Error in {method.__name__}: {error_details}")
                 continue
 
 

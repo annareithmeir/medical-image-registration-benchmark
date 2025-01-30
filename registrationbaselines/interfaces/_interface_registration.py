@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import traceback
 
 from abc import abstractmethod
 from typing import Optional, Tuple
@@ -150,7 +151,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         for item in tqdm(self.dataloader):
             try:
-                self.log(f"Registering {item['fixed_image']} to {item['moving_image']}")  # nopep8
+                self.log(f"Registering {str(item['fixed_image']).split('/')[-1]} to {str(item['moving_image']).split('/')[-1]}")  # nopep8
 
                 self.log(f"\tLoading images")
                 fixed_image = load.load_image(
@@ -220,7 +221,8 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                          moving_segmentations,
                                          fixed_evaluation_mask)
             except Exception as e:
-                self.log(f"Error in {fixed_image_name} to {moving_image_name}: {e}")  # nopep8
+                error_details = traceback.format_exc()
+                self.log(f"Error in {fixed_image_name} to {moving_image_name}: {error_details}")  # nopep8
 
         self.log(f"\tCalculating statistics")
         self.evaluator.results.calculate_all_statistics()
