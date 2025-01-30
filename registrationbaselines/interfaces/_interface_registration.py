@@ -150,63 +150,70 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                                len(self.dataloader))
 
         for item in tqdm(self.dataloader):
+            try:
 
-            fixed_image = load.load_image(item["fixed_image"]).to(self.device)
-            moving_image = load.load_image(
-                item["moving_image"]).to(self.device)
+                fixed_image = load.load_image(
+                    item["fixed_image"]).to(self.device)
+                moving_image = load.load_image(
+                    item["moving_image"]).to(self.device)
 
-            if self.dataloader.has_segmentations:
-                fixed_segmentations = load.load_segmentation(
-                    item["fixed_segmentations"]).to(self.device)
-                moving_segmentations = load.load_segmentation(
-                    item["moving_segmentations"]).to(self.device)
+                if self.dataloader.has_segmentations:
+                    fixed_segmentations = load.load_segmentation(
+                        item["fixed_segmentations"]).to(self.device)
+                    moving_segmentations = load.load_segmentation(
+                        item["moving_segmentations"]).to(self.device)
 
-                fixed_segmentations_name = str(
-                    item["fixed_segmentations"].stem).split('.')[0]
-                moving_segmentations_name = str(
-                    item["moving_segmentations"].stem).split('.')[0]
-            else:
-                fixed_segmentations, moving_segmentations = None, None
-                fixed_segmentations_name, moving_segmentations_name = "", ""
+                    fixed_segmentations_name = str(
+                        item["fixed_segmentations"].stem).split('.')[0]
+                    moving_segmentations_name = str(
+                        item["moving_segmentations"].stem).split('.')[0]
+                else:
+                    fixed_segmentations, moving_segmentations = None, None
+                    fixed_segmentations_name, moving_segmentations_name = "", ""
 
-            if self.use_masked_evaluation:
-                fixed_evaluation_mask = utils.get_convex_hull_mask(fixed_image)
-            else:
-                fixed_evaluation_mask = None
+                if self.use_masked_evaluation:
+                    fixed_evaluation_mask = utils.get_convex_hull_mask(
+                        fixed_image)
+                else:
+                    fixed_evaluation_mask = None
 
-            fixed_image_name = str(item["fixed_image"].stem).split('.')[0]
-            moving_image_name = str(item["moving_image"].stem).split('.')[0]
+                fixed_image_name = str(item["fixed_image"].stem).split('.')[0]
+                moving_image_name = str(
+                    item["moving_image"].stem).split('.')[0]
 
-            deformed_image, displacement = self._register(fixed_image,
-                                                          moving_image)
+                deformed_image, displacement = self._register(fixed_image,
+                                                              moving_image)
 
-            deformed_image = deformed_image.to(self.device)
-            displacement = displacement.to(self.device)
+                deformed_image = deformed_image.to(self.device)
+                displacement = displacement.to(self.device)
 
-            self._save_results(deformed_image,
-                               displacement.detach().clone(),
-                               fixed_image_name,
-                               moving_image_name)
+                self._save_results(deformed_image,
+                                   displacement.detach().clone(),
+                                   fixed_image_name,
+                                   moving_image_name)
 
-            own_warped = deform_objects.deform_image(
-                moving_image, displacement)
+                own_warped = deform_objects.deform_image(
+                    moving_image, displacement)
 
-            self.evaluator.evaluate(fixed_image_name,
-                                    displacement.detach().clone(),
-                                    (fixed_segmentations, fixed_segmentations_name),
-                                    (moving_segmentations,
-                                     moving_segmentations_name),
-                                    fixed_evaluation_mask)
+                self.evaluator.evaluate(fixed_image_name,
+                                        displacement.detach().clone(),
+                                        (fixed_segmentations,
+                                         fixed_segmentations_name),
+                                        (moving_segmentations,
+                                         moving_segmentations_name),
+                                        fixed_evaluation_mask)
 
-            self.evaluator.visualize(fixed_image,
-                                     fixed_image_name,
-                                     moving_image,
-                                     moving_image_name,
-                                     own_warped,
-                                     displacement.detach().clone(),
-                                     fixed_segmentations,
-                                     moving_segmentations,
-                                     fixed_evaluation_mask)
+                self.evaluator.visualize(fixed_image,
+                                         fixed_image_name,
+                                         moving_image,
+                                         moving_image_name,
+                                         own_warped,
+                                         displacement.detach().clone(),
+                                         fixed_segmentations,
+                                         moving_segmentations,
+                                         fixed_evaluation_mask)
+            except Exception as e:
+                print(f"Error in {fixed_image_name} to {moving_image_name}: {e}")  # nopep8
 
         self.evaluator.results.calculate_all_statistics()
 
