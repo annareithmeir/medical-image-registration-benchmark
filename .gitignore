@@ -12,3 +12,4 @@ evaluation_results.csv
 mypy.ini
 
 .vscode/
+*.log
