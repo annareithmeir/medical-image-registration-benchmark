@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import traceback
 
 from abc import abstractmethod
 from typing import Optional, Tuple
@@ -10,10 +11,10 @@ from tqdm import tqdm
 
 from registrationbaselines.core import utils_wandb, utils
 from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.displacement import deform_objects
 from registrationbaselines.evaluation.evaluation import RegistrationEvaluator
 from registrationbaselines.interfaces import _interface_core
 from registrationbaselines.io import save, load
-from registrationbaselines.displacement import deform_objects
 
 
 class RegistrationInterface(_interface_core.InterfaceCore):
@@ -66,28 +67,10 @@ class RegistrationInterface(_interface_core.InterfaceCore):
         @return: warped image, displacement field
         """
 
-    def execute_with_one_parameter_set(self) -> None:
-        """
-        Register and evaluate all files and log to wand.
-
-        @return: None
-        """
-
-        if self.model_path and self.use_wandb:
-            wandb.finish()
-            raise ValueError(
-                "DL mode can't be used with wandb sweeps for registration, because the sweep was done in training.")
-
-        self._create_run_parameters()
-
-        self._create_run_directory()
-
-        if not self.model_path:
-            self._save_run_configuration()
-
-        self.evaluator = RegistrationEvaluator(self.path_dir_run,
+    def reevaluate_one_run(self, path_dir_run: Path = Path("/home/koeglf/data/registrationStudy/SerielleCTs_nii_forHumans_registrations/BSplineNiftyReg/BSplineNiftyReg_662d4caf-b56e-48a9-8803-4e8912161d8c")) -> None:
+        self.evaluator = RegistrationEvaluator(path_dir_run,
                                                len(self.dataloader))
-
+        print('reevaluate')
         for item in tqdm(self.dataloader):
 
             fixed_image = load.load_image(item["fixed_image"]).to(self.device)
@@ -116,16 +99,11 @@ class RegistrationInterface(_interface_core.InterfaceCore):
             fixed_image_name = str(item["fixed_image"].stem).split('.')[0]
             moving_image_name = str(item["moving_image"].stem).split('.')[0]
 
-            deformed_image, displacement = self._register(fixed_image,
-                                                          moving_image)
+            deformation_path = path_dir_run / "deformations" / \
+                f"{moving_image_name}_deformation_to_{fixed_image_name}.nii.gz"
 
-            deformed_image = deformed_image.to(self.device)
-            displacement = displacement.to(self.device)
-
-            self._save_results(deformed_image,
-                               displacement.detach().clone(),
-                               fixed_image_name,
-                               moving_image_name)
+            displacement = load.load_displacement(
+                deformation_path).to(self.device)
 
             own_warped = deform_objects.deform_image(
                 moving_image, displacement)
@@ -149,8 +127,111 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         self.evaluator.results.calculate_all_statistics()
 
+    def execute_with_one_parameter_set(self) -> None:
+        """
+        Register and evaluate all files and log to wand.
+
+        @return: None
+        """
+
+        if self.model_path and self.use_wandb:
+            wandb.finish()
+            raise ValueError(
+                "DL mode can't be used with wandb sweeps for registration, because the sweep was done in training.")
+
+        self._create_run_parameters()
+
+        self._create_run_directory()
+
+        if not self.model_path:
+            self._save_run_configuration()
+
+        self.evaluator = RegistrationEvaluator(self.path_dir_run,
+                                               len(self.dataloader))
+
+        for item in tqdm(self.dataloader):
+            try:
+                self.log(f"Registering {str(item['fixed_image']).split('/')[-1]} to {str(item['moving_image']).split('/')[-1]}")  # nopep8
+
+                self.log(f"\tLoading images")
+                fixed_image = load.load_image(
+                    item["fixed_image"]).to(self.device)
+                moving_image = load.load_image(
+                    item["moving_image"]).to(self.device)
+
+                if self.dataloader.has_segmentations:
+                    self.log(f"\tLoading segmentations")
+                    fixed_segmentations = load.load_segmentation(
+                        item["fixed_segmentations"]).to(self.device)
+                    moving_segmentations = load.load_segmentation(
+                        item["moving_segmentations"]).to(self.device)
+
+                    fixed_segmentations_name = str(
+                        item["fixed_segmentations"].stem).split('.')[0]
+                    moving_segmentations_name = str(
+                        item["moving_segmentations"].stem).split('.')[0]
+                else:
+                    fixed_segmentations, moving_segmentations = None, None
+                    fixed_segmentations_name, moving_segmentations_name = "", ""
+
+                if self.use_masked_evaluation:
+                    self.log(f"\tCreating evaluation mask")
+                    fixed_evaluation_mask = utils.get_convex_hull_mask(
+                        fixed_image)
+                else:
+                    fixed_evaluation_mask = None
+
+                fixed_image_name = str(item["fixed_image"].stem).split('.')[0]
+                moving_image_name = str(
+                    item["moving_image"].stem).split('.')[0]
+
+                self.log(f"\tRegistering")
+                deformed_image, displacement = self._register(fixed_image,
+                                                              moving_image)
+
+                deformed_image = deformed_image.to(self.device)
+                displacement = displacement.to(self.device)
+
+                self.log(f"\tSaving results")
+                self._save_results(deformed_image,
+                                   displacement.detach().clone(),
+                                   fixed_image_name,
+                                   moving_image_name)
+
+                self.log(f"\tEvaluating results")
+                own_warped = deform_objects.deform_image(
+                    moving_image, displacement)
+
+                self.evaluator.evaluate(fixed_image_name,
+                                        displacement.detach().clone(),
+                                        (fixed_segmentations,
+                                         fixed_segmentations_name),
+                                        (moving_segmentations,
+                                         moving_segmentations_name),
+                                        fixed_evaluation_mask)
+
+                self.log(f"\tVisualising results")
+                self.evaluator.visualize(fixed_image,
+                                         fixed_image_name,
+                                         moving_image,
+                                         moving_image_name,
+                                         own_warped,
+                                         displacement.detach().clone(),
+                                         fixed_segmentations,
+                                         moving_segmentations,
+                                         fixed_evaluation_mask)
+            except Exception as e:
+                error_details = traceback.format_exc()
+                self.log(f"Error in {fixed_image_name} to {moving_image_name}: {error_details}")  # nopep8
+
+        self.log(f"\tCalculating statistics")
+        self.evaluator.results.calculate_all_statistics()
+
         if self.use_wandb:
+            self.log(f"\tLogging to wandb")
             self.evaluator.wandb_log()
+
+        self.log(f"\tFinished")
 
     def evaluate_with_zero_displacement(self) -> None:
         """
