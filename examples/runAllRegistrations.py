@@ -13,21 +13,19 @@ os.environ['VXM_BACKEND'] = 'pytorch'
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.core import utils  # nopep8
+from registrationbaselines.core.singleton_logger import SingletonLogger  # nopep8
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.registration.bspline_niftyreg import BSplineNiftyReg  # nopep8
 from registrationbaselines.registration.demons_sitk import DemonsSITK  # nopep8
 # from registrationbaselines.registration.lapirn import LapIRN  # nopep8
 from registrationbaselines.registration.syn_ants import SyNANTs  # nopep8
 # from registrationbaselines.registration.voxelmorph import VoxelMorph  # nopep8
-from registrationbaselines.metrics import metrics  # nopep8
-from registrationbaselines.io import load  # nopep8
 
 
 def main() -> None:
-    """
-    Main function to run the full registration and evaluation pipeline.
-    """
-
+    logger_instance = SingletonLogger(Path(__file__.replace(".py", ".log")),
+                                      "RegBaselines")
+    logger = logger_instance.get_logger()
     base_dir = Path(__file__).parent.absolute().parent
 
     methods = {
@@ -81,6 +79,12 @@ def main() -> None:
 
     first_dataset_evaluation = True
 
+    logger.my_level(
+        f"Registering with {len(datasets)} dataset(s) and {len(methods)} method(s)")
+    logger.my_level(f"Datasets: {[dataset.name for dataset in datasets]}")
+    logger.my_level(
+        f"Methods: {[method.__name__ for method in methods.keys()]}")
+
     for i, dataset in enumerate(datasets):
         first_dataset_evaluation = True
 
@@ -98,15 +102,19 @@ def main() -> None:
                                           use_masked_evaluation=True)
 
                 if first_dataset_evaluation and dataset.name != "image_pairs":
+                    logger.my_level(
+                        f"Evaluating with zero displacement on {dataset.name}")
                     registration.evaluate_with_zero_displacement()
                     first_dataset_evaluation = False
 
+                logger.my_level(
+                    f"Registering with {method.__name__} on {dataset.name}")
                 registration.execute_with_one_parameter_set()
 
                 # if not hasattr(registration, "model_path"):
                 #     registration.perform_wandb_sweep()
             except Exception as e:
-                print(f"Error in {method.__name__}: {e}")
+                logger.my_level(f"Error in {method.__name__}: {e}")
                 continue
 
 

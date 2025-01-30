@@ -10,11 +10,10 @@ from tqdm import tqdm
 
 from registrationbaselines.core import utils_wandb, utils
 from registrationbaselines.data_loading import data_loaders
+from registrationbaselines.displacement import deform_objects
 from registrationbaselines.evaluation.evaluation import RegistrationEvaluator
 from registrationbaselines.interfaces import _interface_core
 from registrationbaselines.io import save, load
-from registrationbaselines.displacement import deform_objects
-from registrationbaselines.metrics import metrics
 
 
 class RegistrationInterface(_interface_core.InterfaceCore):
@@ -151,13 +150,16 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         for item in tqdm(self.dataloader):
             try:
+                self.log(f"Registering {item['fixed_image']} to {item['moving_image']}")  # nopep8
 
+                self.log(f"\tLoading images")
                 fixed_image = load.load_image(
                     item["fixed_image"]).to(self.device)
                 moving_image = load.load_image(
                     item["moving_image"]).to(self.device)
 
                 if self.dataloader.has_segmentations:
+                    self.log(f"\tLoading segmentations")
                     fixed_segmentations = load.load_segmentation(
                         item["fixed_segmentations"]).to(self.device)
                     moving_segmentations = load.load_segmentation(
@@ -172,6 +174,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                     fixed_segmentations_name, moving_segmentations_name = "", ""
 
                 if self.use_masked_evaluation:
+                    self.log(f"\tCreating evaluation mask")
                     fixed_evaluation_mask = utils.get_convex_hull_mask(
                         fixed_image)
                 else:
@@ -181,17 +184,20 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                 moving_image_name = str(
                     item["moving_image"].stem).split('.')[0]
 
+                self.log(f"\tRegistering")
                 deformed_image, displacement = self._register(fixed_image,
                                                               moving_image)
 
                 deformed_image = deformed_image.to(self.device)
                 displacement = displacement.to(self.device)
 
+                self.log(f"\tSaving results")
                 self._save_results(deformed_image,
                                    displacement.detach().clone(),
                                    fixed_image_name,
                                    moving_image_name)
 
+                self.log(f"\tEvaluating results")
                 own_warped = deform_objects.deform_image(
                     moving_image, displacement)
 
@@ -203,6 +209,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                          moving_segmentations_name),
                                         fixed_evaluation_mask)
 
+                self.log(f"\tVisualising results")
                 self.evaluator.visualize(fixed_image,
                                          fixed_image_name,
                                          moving_image,
@@ -213,12 +220,16 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                                          moving_segmentations,
                                          fixed_evaluation_mask)
             except Exception as e:
-                print(f"Error in {fixed_image_name} to {moving_image_name}: {e}")  # nopep8
+                self.log(f"Error in {fixed_image_name} to {moving_image_name}: {e}")  # nopep8
 
+        self.log(f"\tCalculating statistics")
         self.evaluator.results.calculate_all_statistics()
 
         if self.use_wandb:
+            self.log(f"\tLogging to wandb")
             self.evaluator.wandb_log()
+
+        self.log(f"\tFinished")
 
     def evaluate_with_zero_displacement(self) -> None:
         """
