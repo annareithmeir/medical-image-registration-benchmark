@@ -27,49 +27,15 @@ def main() -> None:
     """
     Main function to run the full registration and evaluation pipeline.
     """
-    """
-    path_fixed_rig = Path(
-        "/home/koeglf/data/try_new_preprocessing/XPqt2AtrAMc/preprocessed/3_followup_rNBPbQu83kU/rig/XPqt2AtrAMc~3_followup_rNBPbQu83kU~901_hals_09_i6_b_idose_6_seg.nii.gz")
-    path_moving_rig = Path(
-        "/home/koeglf/data/try_new_preprocessing/XPqt2AtrAMc/preprocessed/2_followup_LleziZ9eAbs/rig/XPqt2AtrAMc~2_followup_LleziZ9eAbs~201_hals_pv_08_i6_b_idose_6_seg.nii.gz")
-    path_fixed_aff = Path(
-        "/home/koeglf/data/try_new_preprocessing/XPqt2AtrAMc/preprocessed/3_followup_rNBPbQu83kU/aff/XPqt2AtrAMc~3_followup_rNBPbQu83kU~901_hals_09_i6_b_idose_6_seg.nii.gz")
-    path_moving_aff = Path(
-        "/home/koeglf/data/try_new_preprocessing/XPqt2AtrAMc/preprocessed/2_followup_LleziZ9eAbs/aff/XPqt2AtrAMc~2_followup_LleziZ9eAbs~201_hals_pv_08_i6_b_idose_6_seg.nii.gz")
-    path_fixed_double = Path(
-        "/home/koeglf/data/try_new_preprocessing/XPqt2AtrAMc/preprocessed/3_followup_rNBPbQu83kU/double/XPqt2AtrAMc~3_followup_rNBPbQu83kU~901_hals_09_i6_b_idose_6_seg.nii.gz")
-    path_moving_double = Path(
-        "/home/koeglf/data/try_new_preprocessing/XPqt2AtrAMc/preprocessed/2_followup_LleziZ9eAbs/double/XPqt2AtrAMc~2_followup_LleziZ9eAbs~201_hals_pv_08_i6_b_idose_6_seg.nii.gz")
-
-    seg_fixed_rig = load.load_segmentation(path_fixed_rig)
-    seg_moving_rig = load.load_segmentation(path_moving_rig)
-    seg_fixed_aff = load.load_segmentation(path_fixed_aff)
-    seg_moving_aff = load.load_segmentation(path_moving_aff)
-    seg_fixed_double = load.load_segmentation(path_fixed_double)
-    seg_moving_double = load.load_segmentation(path_moving_double)
-
-    dice_scores_rig, dice_mean_rig = metrics.dice_score(
-        seg_fixed_rig, seg_moving_rig)
-    dice_scores_aff, dice_mean_aff = metrics.dice_score(
-        seg_fixed_aff, seg_moving_aff)
-    dice_scores_double, dice_mean_double = metrics.dice_score(
-        seg_fixed_double, seg_moving_double)
-
-    print(f"Dice scores for rigid: {dice_scores_rig}, mean: {dice_mean_rig}")
-    print(f"Dice scores for affine: {dice_scores_aff}, mean: {dice_mean_aff}")
-    print(f"Dice scores for double: {
-          dice_scores_double}, mean: {dice_mean_double}")
-    """
 
     base_dir = Path(__file__).parent.absolute().parent
 
-    # methods: Dict[Type[Union[VoxelMorph, LapIRN, SyNANTs, DemonsSITK, BSplineNiftyReg]], Path] = {
     methods = {
         # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
         # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
-        DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
-        SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
+        # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
+        # SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
     }
 
     models = [
@@ -87,7 +53,7 @@ def main() -> None:
     indices = [0, 1]
     indices = None
     datasets = [
-        data_loaders.NeckCTDataset(dataset_path=Path("/home/koeglf/data/registrationStudy/old/SerielleCTs_nii_forHumans/"),
+        data_loaders.NeckCTDataset(dataset_path=Path("/home/koeglf/data/try_new_preprocessing/SerielleCTs_nii_forHumans/"),
                                    name="SerielleCTs_nii_forHumans_registrations",
                                    return_type="path_dict",
                                    indices=indices),
@@ -104,15 +70,14 @@ def main() -> None:
         #     return_type="path_dict")
     ]
 
-    registration = BSplineNiftyReg(base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
-                                   datasets[0],
-                                   use_masked_evaluation=True)
-
-    for path in [Path("/home/koeglf/data/registrationStudy/old/SerielleCTs_nii_forHumans_registrations/BSplineNiftyReg/BSplineNiftyReg_662d4caf-b56e-48a9-8803-4e8912161d8c")]:  # ,
-        #  Path("/home/koeglf/data/registrationStudy/SerielleCTs_nii_forHumans_registrations/DemonsSITK/DemonsSITK_f88d61a7-f8ac-4127-b945-fce0bb4c8bd3"),
-        #  Path("/home/koeglf/data/registrationStudy/SerielleCTs_nii_forHumans_registrations/SyNANTs/SyNANTs_b09bdd5f-38e0-41d4-b7c9-c13793eb4179")]:
-        registration.reevaluate_one_run(path)
-    return
+    # registration = BSplineNiftyReg(base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
+    #                                datasets[0],
+    #                                use_masked_evaluation=True)
+    # for path in [Path("/home/koeglf/data/registrationStudy/old/SerielleCTs_nii_forHumans_registrations/BSplineNiftyReg/BSplineNiftyReg_662d4caf-b56e-48a9-8803-4e8912161d8c")]:  # ,
+    #     #  Path("/home/koeglf/data/registrationStudy/SerielleCTs_nii_forHumans_registrations/DemonsSITK/DemonsSITK_f88d61a7-f8ac-4127-b945-fce0bb4c8bd3"),
+    #     #  Path("/home/koeglf/data/registrationStudy/SerielleCTs_nii_forHumans_registrations/SyNANTs/SyNANTs_b09bdd5f-38e0-41d4-b7c9-c13793eb4179")]:
+    #     registration.reevaluate_one_run(path)
+    # return
 
     first_dataset_evaluation = True
 
@@ -120,25 +85,29 @@ def main() -> None:
         first_dataset_evaluation = True
 
         for j, (method, config_path) in enumerate(methods.items()):
-            # get method name
-            if method.__name__ in ["VoxelMorph", "LapIRN"]:
-                registration = method(config_path,
-                                      dataset,
-                                      use_masked_evaluation=True,
-                                      model_path=models[i][j])
-            else:
-                registration = method(config_path,
-                                      dataset,
-                                      use_masked_evaluation=True)
 
-            if first_dataset_evaluation and dataset.name != "image_pairs":
-                registration.evaluate_with_zero_displacement()
-                first_dataset_evaluation = False
+            try:
+                if method.__name__ in ["VoxelMorph", "LapIRN"]:
+                    registration = method(config_path,
+                                          dataset,
+                                          use_masked_evaluation=True,
+                                          model_path=models[i][j])
+                else:
+                    registration = method(config_path,
+                                          dataset,
+                                          use_masked_evaluation=True)
 
-            registration.execute_with_one_parameter_set()
+                if first_dataset_evaluation and dataset.name != "image_pairs":
+                    registration.evaluate_with_zero_displacement()
+                    first_dataset_evaluation = False
 
-            # if not hasattr(registration, "model_path"):
-            #     registration.perform_wandb_sweep()
+                registration.execute_with_one_parameter_set()
+
+                # if not hasattr(registration, "model_path"):
+                #     registration.perform_wandb_sweep()
+            except Exception as e:
+                print(f"Error in {method.__name__}: {e}")
+                continue
 
 
 if __name__ == "__main__":
