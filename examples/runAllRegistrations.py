@@ -33,8 +33,8 @@ def main() -> None:
         # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
         # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
-        # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
-        # SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
+        DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
+        SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
     }
 
     models = [
@@ -52,7 +52,7 @@ def main() -> None:
     indices = [0, 1]
     indices = None
     datasets = [
-        data_loaders.NeckCTDataset(dataset_path=Path("/home/koeglf/data/try_new_preprocessing/SerielleCTs_nii_forHumans/"),
+        data_loaders.NeckCTDataset(dataset_path=Path("/home/koeglf/data/preprocess_again/SerielleCTs_nii_forHumans/"),
                                    name="SerielleCTs_nii_forHumans_registrations",
                                    return_type="path_dict",
                                    indices=indices),
@@ -105,7 +105,7 @@ def main() -> None:
                 if first_dataset_evaluation and dataset.name != "image_pairs":
                     logger.my_level(
                         f"Evaluating with zero displacement on {dataset.name}")
-                    # registration.evaluate_with_zero_displacement()
+                    registration.evaluate_with_zero_displacement()
                     first_dataset_evaluation = False
 
                 logger.my_level(

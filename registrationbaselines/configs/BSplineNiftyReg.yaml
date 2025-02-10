@@ -3,9 +3,11 @@ name:   BSplineNiftyReg
 
 parameters:
   result_path:
-    values:            [/home/koeglf/data/registrationStudy/]
+    values:            [/home/koeglf/data/preprocess_again/]
   gpu:
     values:            [0]
+  bending_energy:
+    values:            ["--be 0.01"]
     # values:            [/u/home/koeglf/Documents/code/registrationbaselines/tmp/niftyreg]
   # similarity_metric:
   #   values:           ["--lncc 7", "--lncc 3"]
