@@ -26,10 +26,10 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
 
 from registrationbaselines.training.train_voxelmorph import VoxelMorph  # nopep8
 from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset  # nopep8
-from registrationbaselines.core import utils  # nopep8
+from registrationbaselines.core import utils, utils_dl  # nopep8
 
 GPUS = 1
-BATCH_SIZE = 8
+BATCH_SIZE = 1
 
 
 def make_network(shape: List[int]):
@@ -58,12 +58,12 @@ def make_network(shape: List[int]):
 def main():
 
     idxs = np.arange(5)
-    np.random.shuffle(idxs)
-    train_idx, val_idx = idxs[:4], idxs[4:]
+    # np.random.shuffle(idxs)
+    train_idx, val_idx = idxs[:1], idxs[:1]
 
     base_dir = Path(__file__).parent.parent.absolute()
 
-    data_path = Path("/data/LungCT_preprocessed_new")
+    data_path = Path("/home/koeglf/data/LungCT/LungCT_preprcoessed/")
 
     train_dataset = L2RLungCTDataset(dataset_path=data_path,
                                      indices=list(train_idx),
@@ -102,9 +102,9 @@ def main():
         fixed_image = item['fixed_image'].cuda()
         moving_image = item['moving_image'].cuda()
 
-        fixed_image = utils.reshape_tensor(
+        fixed_image = utils_dl.reshape_tensor(
             fixed_image, [4 * 40, 4 * 96, 4 * 96])
-        moving_image = utils.reshape_tensor(
+        moving_image = utils_dl.reshape_tensor(
             moving_image, [4 * 40, 4 * 96, 4 * 96])
 
         fixed_image.unsqueeze_(0).unsqueeze_(0)
@@ -116,7 +116,7 @@ def main():
                                           optimizer,
                                           make_batch,
                                           unwrapped_net=hires_net,
-                                          steps=5)
+                                          steps=11)
 
 
 if __name__ == "__main__":
