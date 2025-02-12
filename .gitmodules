@@ -7,3 +7,6 @@
 [submodule "registrationbaselines/dl_repos/convexAdam"]
 	path = registrationbaselines/dl_repos/convexAdam
 	url = https://github.com/multimodallearning/convexAdam.git
+[submodule "registrationbaselines/dl_repos/ICON"]
+	path = registrationbaselines/dl_repos/ICON
+	url = https://github.com/uncbiag/ICON.git
