@@ -13,3 +13,4 @@ mypy.ini
 
 .vscode/
 *.log
+results/*
