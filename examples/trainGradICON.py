@@ -1,6 +1,8 @@
-from pathlib import Path
-import sys
 import builtins
+import os
+from pathlib import Path
+import random
+import sys
 
 from typing import Tuple, List
 
@@ -8,10 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import torch.utils.tensorboard
-import random
-import icon_registration
-import icon_registration.networks as networks
-import icon_registration.network_wrappers as network_wrappers
+import wandb
 
 original_input = builtins.input
 
@@ -23,10 +22,21 @@ def fixed_input() -> str:
 builtins.input = fixed_input
 
 sys.path.append(str(Path(__file__).parent.absolute().parent))  # nopep8
+# p_icon = os.path.abspath(os.path.join(
+#     os.path.dirname(__file__), '..', "registrationbaselines", "dl_repos", "ICON", "src"))
+# sys.path.append(p_icon)  # nopep8
 
 from registrationbaselines.training.train_voxelmorph import VoxelMorph  # nopep8
 from registrationbaselines.data_loading.data_loaders import L2RLungCTDataset  # nopep8
 from registrationbaselines.core import utils, utils_dl  # nopep8
+
+import icon_registration as icon_registration  # nopep8
+import icon_registration.networks as networks  # nopep8
+import icon_registration.network_wrappers as network_wrappers  # nopep8
+# import registrationbaselines.dl_repos.ICON.src.icon_registration as icon_registration  # nopep8
+# import registrationbaselines.dl_repos.ICON.src.icon_registration.networks as networks  # nopep8
+# import registrationbaselines.dl_repos.ICON.src.icon_registration.network_wrappers as network_wrappers  # nopep8
+
 
 GPUS = 1
 BATCH_SIZE = 1
@@ -91,10 +101,6 @@ def main():
 
     net_par.train()
 
-    dataloader = DataLoader(train_dataset,
-                            batch_size=BATCH_SIZE,
-                            shuffle=True)
-
     def make_batch() -> Tuple[torch.Tensor, torch.Tensor]:
 
         item = random.choice(train_dataset)
@@ -112,11 +118,29 @@ def main():
 
         return moving_image, fixed_image
 
-    icon_registration.train_batchfunction(net_par,
-                                          optimizer,
-                                          make_batch,
-                                          unwrapped_net=hires_net,
-                                          steps=11)
+    def train_func(): return icon_registration.train_batchfunction(net_par,
+                                                                   optimizer,
+                                                                   make_batch,
+                                                                   unwrapped_net=hires_net,
+                                                                   steps=2)
+
+    config = {
+        "method": "grid",
+        "metric": {"name": "all_loss", "goal": "minimize"},
+        "parameters": {
+            "learning_rate": {"values": [0.1]},
+        }
+    }
+    sweep_id = wandb.sweep(config,
+                           entity=None,
+                           project="gradicon")
+
+    wandb.agent(sweep_id,
+                function=train_func,
+                entity=None,
+                project="gradicon")
+
+    x = 0
 
 
 if __name__ == "__main__":
