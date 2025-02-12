@@ -3,8 +3,10 @@ name: DemonsSITK
 
 parameters:
   result_path: 
-    values:            [/home/fryderyk/Documents/code/registrationbaselines/tmp/displacement_debug]
-
+    values:            [/home/koeglf/data/preprocess_again/]
+  gpu:
+    values:            [0]
+    
   filter_type:
     values:               [FastSymmetricForcesDemonsRegistrationFilter]
                           #  SymmetricForcesDemonsRegistrationFilter,

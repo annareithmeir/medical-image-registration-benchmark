@@ -1,7 +1,8 @@
 import glob
-import random
 from itertools import combinations
+import os
 from pathlib import Path
+import random
 import shutil
 
 from typing import List, Dict, Tuple, Union, Optional
@@ -398,6 +399,85 @@ class ImagePairDataset(GenericDataset):
         self.spacing = load.get_image_spacing(self.images_list[0][0])
         self.image_shape = load.load_image(
             self.images_list[0][0]).shape
+
+
+class NeckCTDataset(GenericDataset):
+
+    def __init__(self,
+                 dataset_path: Path,
+                 name: str = "NeckCT",
+                 return_type: Optional[str] = None,
+                 indices: Optional[list[int]] = None) -> None:
+        """
+
+        @param dataset_path: Path to the original or pre-processed dataset
+        @param return_type: The data can either be returned as a dict[Path], dict[torch.Tensor]
+        @param indices: If desired, only specific indices can be used for the dataset creation (e.g. for train/val/test split)
+        """
+
+        super().__init__(name,
+                         return_type,
+                         indices)
+
+        self.images_path = dataset_path
+        self.images_path_preprocessed = None
+        self.ndim = 3
+        self.spacing = (1.0, 1.0, 1.0)
+        self.image_shape = None
+
+        self.has_segmentations = True
+        self.has_keypoints = False
+
+        self._load_files()
+
+        if indices is not None:
+            self.images_list = [self.images_list[i] for i in indices]
+            self.segmentations_list = [
+                self.segmentations_list[i] for i in indices]
+
+    def _load_files(self) -> None:
+        """
+        Initializes the image and segmentation list from the given dataset path and indices
+        @return:
+        """
+
+        paths_patients = sorted(glob.glob(str(self.images_path / "*")))
+        paths_patients = [Path(path)
+                          for path in paths_patients if os.path.isdir(path)]
+
+        for path_patient in paths_patients:
+            path_patient = path_patient / 'preprocessed'
+
+            paths_studies = sorted(glob.glob(str(path_patient / "*")))
+            paths_studies = [Path(path)
+                             for path in paths_studies if os.path.isdir(path)]
+
+            if len(paths_studies) > 2:
+                print(f"{path_patient} has more than two studies")
+
+            paths_fixed = glob.glob(str(paths_studies[1] / "*.nii.gz"))
+            paths_moving = glob.glob(str(paths_studies[0] / "*.nii.gz"))
+
+            paths_images_fixed = []
+            paths_segs_fixed = []
+            for path in paths_fixed:
+                if path.endswith("_seg.nii.gz"):
+                    paths_segs_fixed.append(path)
+                else:
+                    paths_images_fixed.append(path)
+
+            paths_images_moving = []
+            paths_segs_moving = []
+            for path in paths_moving:
+                if path.endswith("_seg.nii.gz"):
+                    paths_segs_moving.append(path)
+                else:
+                    paths_images_moving.append(path)
+
+            self.images_list.append(
+                [paths_images_fixed[0], paths_images_moving[0]])
+            self.segmentations_list.append(
+                [paths_segs_fixed[0], paths_segs_moving[0]])
 
 
 class L2RLungCTDataset(GenericDataset):

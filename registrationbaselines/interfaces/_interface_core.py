@@ -10,7 +10,7 @@ import wandb
 import wandb.sdk
 
 from registrationbaselines.io import load
-from registrationbaselines.core import utils_wandb
+from registrationbaselines.core import utils_wandb, singleton_logger
 
 
 class InterfaceCore(ABC):
@@ -34,6 +34,8 @@ class InterfaceCore(ABC):
     model_path: Optional[Path] = None
     device: str
 
+    logger: singleton_logger.SingletonLogger
+
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
@@ -52,21 +54,29 @@ class InterfaceCore(ABC):
 
         self._handle_device_selection()
 
-    def perform_wandb_sweep(self) -> None:
+        self.logger = singleton_logger.SingletonLogger.get_logger()
+
+    def log(self, message: str) -> None:
+        self.logger.my_level(message)
+
+    def perform_wandb_sweep(self, project_name: Optional[str] = None) -> None:
         """
         Train with all parameter sets.
         """
+
+        if not project_name:
+            project_name = "reg_baselines"
 
         self.use_wandb = True
 
         self.sweep_id = wandb.sweep(self.general_configuration,
                                     entity=None,
-                                    project="reg_baselines")
+                                    project=project_name)
 
         wandb.agent(self.sweep_id,
                     function=lambda: self._perform_wandb_run(),
                     entity=None,
-                    project="reg_baselines")
+                    project=project_name)
 
     def _perform_wandb_run(self) -> None:
         """

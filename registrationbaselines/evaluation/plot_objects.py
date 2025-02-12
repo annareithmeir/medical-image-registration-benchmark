@@ -18,7 +18,7 @@ from registrationbaselines.evaluation import utils_evaluation
 from registrationbaselines.metrics import metrics
 
 os.environ['NEURITE_BACKEND'] = "pytorch"
-matplotlib.rcParams['text.usetex'] = True
+# matplotlib.rcParams['text.usetex'] = True
 
 
 def plot_tensor_slices_difference(
@@ -160,7 +160,8 @@ def plot_all_registration_results(moving_image: torch.Tensor,
     @return: plot
     """
 
-    assert utils_displacement.is_unit_displacement(displacement)
+    if not utils_displacement.is_unit_displacement(displacement):
+        Warning("Displacement field is not in unit displacement.")
 
     if pred_image is None:
         shape = fixed_image.shape

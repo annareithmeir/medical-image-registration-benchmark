@@ -56,7 +56,7 @@ def add_configuration_to_command(command: List[str],
 
     for key, value in configuration.items():
 
-        if key not in ['result_path', 'method_name']:
+        if key not in ['result_path', 'method_name', 'gpu']:
             if isinstance(value, bool):
                 if value:  # Only add flag if True
                     command.append(f"{key}")
