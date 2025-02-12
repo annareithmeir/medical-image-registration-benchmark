@@ -59,21 +59,24 @@ class InterfaceCore(ABC):
     def log(self, message: str) -> None:
         self.logger.my_level(message)
 
-    def perform_wandb_sweep(self) -> None:
+    def perform_wandb_sweep(self, project_name: Optional[str] = None) -> None:
         """
         Train with all parameter sets.
         """
+
+        if not project_name:
+            project_name = "reg_baselines"
 
         self.use_wandb = True
 
         self.sweep_id = wandb.sweep(self.general_configuration,
                                     entity=None,
-                                    project="reg_baselines")
+                                    project=project_name)
 
         wandb.agent(self.sweep_id,
                     function=lambda: self._perform_wandb_run(),
                     entity=None,
-                    project="reg_baselines")
+                    project=project_name)
 
     def _perform_wandb_run(self) -> None:
         """
