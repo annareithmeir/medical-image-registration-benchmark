@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 import sys
 import os
@@ -11,6 +12,7 @@ import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 import gc
+import torch.nn.functional as F
 
 from registrationbaselines.interfaces._interface_training import TrainingInterface
 from registrationbaselines.core import utils_dl
@@ -45,6 +47,18 @@ class VoxelMorph(TrainingInterface):
         new_shape = utils_dl.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
                                                             len(self.general_configuration["parameters"]["enc"]["values"][0]))
 
+        n = 7
+        x_new = new_shape[0] - n * \
+            (2 **
+             len(self.general_configuration["parameters"]["enc"]["values"][0]))
+        y_new = new_shape[1] - n * \
+            (2 **
+             len(self.general_configuration["parameters"]["enc"]["values"][0]))
+        z_new = new_shape[2] - n * \
+            (2 **
+             len(self.general_configuration["parameters"]["enc"]["values"][0]))
+        new_shape = (x_new, y_new, z_new)
+
         self.train_dataset.image_shape = new_shape
         if self.val_dataset:
             self.val_dataset.image_shape = new_shape
@@ -60,21 +74,33 @@ class VoxelMorph(TrainingInterface):
         :return: Generator with data of form (invols[m,f], outvols[m,f])
         """
 
-        dataloader = DataLoader(
-            dataset, batch_size=self.run_configuration['batch_size'], shuffle=True)
+        def custom_collate(batch):
+            fixed_images = torch.stack(
+                [item['fixed_image'].unsqueeze(0) for item in batch], dim=0)
+            moving_images = torch.stack(
+                [item['moving_image'].unsqueeze(0) for item in batch], dim=0)
+
+            return {"fixed_image": fixed_images, "moving_image": moving_images}
+
+        dataloader = DataLoader(dataset,
+                                batch_size=self.run_configuration['batch_size'],
+                                shuffle=True,
+                                pin_memory=True,  # Helps with GPU memory transfer
+                                num_workers=8,   # Use more workers to avoid bottlenecks)
+                                collate_fn=custom_collate)
         while True:
             item = next(iter(dataloader))
 
             y = item['fixed_image']
             x = item['moving_image']
 
-            x = x.unsqueeze(0)
-            y = y.unsqueeze(0)
+            # x = F.interpolate(x, size=self.train_dataset.image_shape,
+            #                   mode='trilinear', align_corners=True)
+            # y = F.interpolate(y, size=self.train_dataset.image_shape,
+            #                   mode='trilinear', align_corners=True)
 
-            x = utils_dl.pad_tensor_to_shape(
-                x, self.train_dataset.image_shape)
-            y = utils_dl.pad_tensor_to_shape(
-                y, self.train_dataset.image_shape)
+            # y = utils_dl.pad_tensor_to_shape(y, self.train_dataset.image_shape)
+            # x = utils_dl.pad_tensor_to_shape(x, self.train_dataset.image_shape)
 
             shape = x.shape[2:]
             zeros = torch.from_numpy(
@@ -97,10 +123,13 @@ class VoxelMorph(TrainingInterface):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # device handling
-        gpus = self.run_configuration['gpu'].split(',')
+        # Convert to list of integers
+        gpus = list(map(int, self.run_configuration['gpu'].split(',')))
         nb_gpus = len(gpus)
-        # device = 'cuda'
-        os.environ['CUDA_VISIBLE_DEVICES'] = self.run_configuration['gpu']
+
+        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(
+            map(str, gpus))  # Ensure GPUs are set
+
         assert np.mod(self.run_configuration['batch_size'], nb_gpus) == 0, \
             'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (
                 self.run_configuration['batch_size'], nb_gpus)
@@ -128,8 +157,11 @@ class VoxelMorph(TrainingInterface):
 
         if nb_gpus > 1:
             # use multiple GPUs via DataParallel
-            model = torch.nn.DataParallel(model)
+            model = torch.nn.DataParallel(model, device_ids=gpus)
             model.save = model.module.save
+
+        print(
+            f"Using {torch.cuda.device_count()} GPUs: {torch.cuda.get_device_name(0)}")
 
         # prepare the model for training and send to device
         model.to(device)
@@ -146,6 +178,8 @@ class VoxelMorph(TrainingInterface):
             image_loss_func = vxm.losses.NCC().loss
         elif self.run_configuration['sim_loss'] == 'mse':
             image_loss_func = vxm.losses.MSE().loss
+            # take mse loss from pytorch
+            # image_loss_func = F.mse
         else:
             raise ValueError(
                 'Image loss should be "mse" or "ncc", but found "%s"' % self.run_configuration['image_loss'])
@@ -162,8 +196,11 @@ class VoxelMorph(TrainingInterface):
         losses += [vxm.losses.Grad('l2',
                                    loss_mult=self.run_configuration['int_downsize']).loss]
         weights += [self.run_configuration['reg_weight']]
+        abort = False
 
         # training loops
+        steps_per_epoch = math.ceil(
+            len(self.train_dataset) / self.run_configuration['batch_size'])
         for epoch in range(self.run_configuration['initial_epoch'], self.run_configuration['epochs']):
 
             model.train()
@@ -177,7 +214,8 @@ class VoxelMorph(TrainingInterface):
             epoch_total_loss = []
             epoch_step_time = []
 
-            for step in range(self.run_configuration['steps_per_epoch']):
+            for step in range(steps_per_epoch):
+                torch.cuda.empty_cache()
 
                 step_start_time = time.time()
 
@@ -253,6 +291,9 @@ class VoxelMorph(TrainingInterface):
                 else:
                     wandb.log({"loss": np.mean(epoch_total_loss),
                               "sim-loss": mean_loss[0], "grad-loss": mean_loss[1]})
+
+            if abort:
+                break
 
         # final model save
         model.save(self.get_trained_model_path())
