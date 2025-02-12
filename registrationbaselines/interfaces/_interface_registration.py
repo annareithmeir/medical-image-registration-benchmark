@@ -148,9 +148,11 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         self.evaluator = RegistrationEvaluator(self.path_dir_run,
                                                len(self.dataloader))
-
         for item in tqdm(self.dataloader):
             try:
+                # if '0e5fp8GltvE' not in str(item["fixed_image"]):
+                #     continue
+
                 self.log(f"Registering {str(item['fixed_image']).split('/')[-1]} to {str(item['moving_image']).split('/')[-1]}")  # nopep8
 
                 self.log(f"\tLoading images")
