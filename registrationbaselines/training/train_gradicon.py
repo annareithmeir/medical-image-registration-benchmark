@@ -72,8 +72,8 @@ class GradICON(TrainingInterface):
         os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(
             map(str, gpus))  # Ensure GPUs are set
 
-        self.network = self._make_network(
-            [1, 1] + list(self.train_dataset.image_shape))
+        self.network = utils_dl.make_gradicon_network([1, 1] + list(self.train_dataset.image_shape),
+                                                      self.run_configuration['batch_size'])
 
         if torch.cuda.device_count() > 1:
             print(f"Using {torch.cuda.device_count()} GPUs for training")
@@ -169,30 +169,6 @@ class GradICON(TrainingInterface):
 
             yield moving_image, fixed_image
 
-    def _make_network(self, shape: List[int]):
-
-        phi = network_wrappers.FunctionFromVectorField(
-            networks.tallUNet2(dimension=3)
-        )
-        psi = network_wrappers.FunctionFromVectorField(
-            networks.tallUNet2(dimension=3))
-
-        hires_net = icon_registration.GradientICON(
-            network_wrappers.DoubleNet(
-                network_wrappers.DownsampleNet(
-                    network_wrappers.TwoStepRegistration(phi, psi), dimension=3
-                ),
-                network_wrappers.FunctionFromVectorField(
-                    networks.tallUNet2(dimension=3)),
-            ),
-            icon_registration.LNCCOnlyInterpolated(sigma=5),
-            3,
-        )
-
-        hires_net.assign_identity_map(
-            [self.run_configuration["batch_size"] // torch.cuda.device_count(), 1, 4 * 40, 4 * 96, 4 * 96])
-        return hires_net.cuda()
-
     def _save_current_state(self, epoch: int) -> None:
         torch.save(
             self.optimizer.state_dict(),
@@ -202,23 +178,3 @@ class GradICON(TrainingInterface):
             self.network.module.state_dict() if self._multiple_gpus else self.network.state_dict(),
             os.path.join(self.path_dir_run, f"model_{epoch:05d}.pt")
         )
-
-    def _enable_multiple_gpus(self) -> None:
-        if not self.network:
-            raise ValueError("Network not initialized yet")
-
-        gpus = list(map(int, self.run_configuration['gpu'].split(',')))
-        nb_gpus = len(gpus)
-
-        assert np.mod(self.run_configuration['batch_size'], nb_gpus) == 0, \
-            'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (
-            self.run_configuration['batch_size'], nb_gpus)
-
-        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(
-            map(str, gpus))  # Ensure GPUs are set
-
-        if torch.cuda.device_count() > 1:
-            print(f"Using {torch.cuda.device_count()} GPUs for training")
-            self.network = torch.nn.DataParallel(self.network, device_ids=gpus)
-
-            self._multiple_gpus = True
