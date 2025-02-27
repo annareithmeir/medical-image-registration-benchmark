@@ -70,7 +70,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
     def reevaluate_one_run(self, path_dir_run: Path = Path("/home/koeglf/data/registrationStudy/SerielleCTs_nii_forHumans_registrations/BSplineNiftyReg/BSplineNiftyReg_662d4caf-b56e-48a9-8803-4e8912161d8c")) -> None:
         self.evaluator = RegistrationEvaluator(path_dir_run,
                                                len(self.dataloader))
-        print('reevaluate')
+        self.log('reevaluate')
         for item in tqdm(self.dataloader):
 
             fixed_image = load.load_image(item["fixed_image"]).to(self.device)
