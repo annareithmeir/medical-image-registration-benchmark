@@ -39,7 +39,7 @@ class SingletonLogger:
             self.logger = logging.getLogger("singleton_logger")
 
     @staticmethod
-    def get_logger():
+    def get_logger() -> logging.Logger:
         if not SingletonLogger._instance:
             raise Exception(
                 "Logger not initialized. Create an instance first.")
