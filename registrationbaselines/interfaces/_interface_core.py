@@ -1,6 +1,7 @@
+import json
+import logging
 import os
 from pathlib import Path
-import json
 import uuid
 
 from abc import ABC, abstractmethod
@@ -34,7 +35,7 @@ class InterfaceCore(ABC):
     model_path: Optional[Path] = None
     device: str
 
-    logger: singleton_logger.SingletonLogger
+    logger: logging.Logger
 
     def __init__(self,
                  method_name: str,
