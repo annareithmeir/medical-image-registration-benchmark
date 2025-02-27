@@ -7,7 +7,6 @@ import numpy as np
 import scipy.spatial
 import SimpleITK as sitk
 import torch
-import torch.nn.functional as F
 
 from registrationbaselines.core.types import floatArray2D, intArray1D, intArray2D
 
