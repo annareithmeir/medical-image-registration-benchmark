@@ -1,15 +1,13 @@
 from pathlib import Path
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import torch
-import SimpleITK as sitk
 
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.io import save, load
-from registrationbaselines.displacement import utils_displacement
 
 
 class BSplineNiftyReg(RegistrationInterface):
