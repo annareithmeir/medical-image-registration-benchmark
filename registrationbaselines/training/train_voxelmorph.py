@@ -47,18 +47,6 @@ class VoxelMorph(TrainingInterface):
         new_shape = utils_dl.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
                                                             len(self.general_configuration["parameters"]["enc"]["values"][0]))
 
-        n = 7
-        x_new = new_shape[0] - n * \
-            (2 **
-             len(self.general_configuration["parameters"]["enc"]["values"][0]))
-        y_new = new_shape[1] - n * \
-            (2 **
-             len(self.general_configuration["parameters"]["enc"]["values"][0]))
-        z_new = new_shape[2] - n * \
-            (2 **
-             len(self.general_configuration["parameters"]["enc"]["values"][0]))
-        new_shape = (x_new, y_new, z_new)
-
         self.train_dataset.image_shape = new_shape
         if self.val_dataset:
             self.val_dataset.image_shape = new_shape
@@ -160,9 +148,6 @@ class VoxelMorph(TrainingInterface):
             model = torch.nn.DataParallel(model, device_ids=gpus)
             model.save = model.module.save
 
-        print(
-            f"Using {torch.cuda.device_count()} GPUs: {torch.cuda.get_device_name(0)}")
-
         # prepare the model for training and send to device
         model.to(device)
         self.model = model
@@ -178,8 +163,6 @@ class VoxelMorph(TrainingInterface):
             image_loss_func = vxm.losses.NCC().loss
         elif self.run_configuration['sim_loss'] == 'mse':
             image_loss_func = vxm.losses.MSE().loss
-            # take mse loss from pytorch
-            # image_loss_func = F.mse
         else:
             raise ValueError(
                 'Image loss should be "mse" or "ncc", but found "%s"' % self.run_configuration['image_loss'])
@@ -196,7 +179,6 @@ class VoxelMorph(TrainingInterface):
         losses += [vxm.losses.Grad('l2',
                                    loss_mult=self.run_configuration['int_downsize']).loss]
         weights += [self.run_configuration['reg_weight']]
-        abort = False
 
         # training loops
         steps_per_epoch = math.ceil(
@@ -291,9 +273,6 @@ class VoxelMorph(TrainingInterface):
                 else:
                     wandb.log({"loss": np.mean(epoch_total_loss),
                               "sim-loss": mean_loss[0], "grad-loss": mean_loss[1]})
-
-            if abort:
-                break
 
         # final model save
         model.save(self.get_trained_model_path())
