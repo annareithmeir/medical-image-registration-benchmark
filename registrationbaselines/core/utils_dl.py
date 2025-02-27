@@ -3,10 +3,6 @@ from typing import List, Tuple
 import torch
 import torch.nn.functional as F
 
-import icon_registration as icon_registration  # nopep8
-import icon_registration.networks as networks  # nopep8
-import icon_registration.network_wrappers as network_wrappers  # nopep8
-
 
 def pad_tensor_to_shape(tensor: torch.Tensor,
                         new_shape: List[int]) -> torch.Tensor:
@@ -156,29 +152,3 @@ def reshape_tensor(tensor: torch.Tensor, new_shape: List[int]) -> torch.Tensor:
         tensor = tensor[tuple(crop_slices)]
 
     return tensor
-
-
-def make_gradicon_network(shape: List[int], batch_size) -> icon_registration.GradientICON:
-
-    phi = network_wrappers.FunctionFromVectorField(
-        networks.tallUNet2(dimension=3)
-    )
-    psi = network_wrappers.FunctionFromVectorField(
-        networks.tallUNet2(dimension=3))
-
-    hires_net = icon_registration.GradientICON(
-        network_wrappers.DoubleNet(
-            network_wrappers.DownsampleNet(
-                network_wrappers.TwoStepRegistration(phi, psi), dimension=3
-            ),
-            network_wrappers.FunctionFromVectorField(
-                networks.tallUNet2(dimension=3)),
-        ),
-        icon_registration.LNCCOnlyInterpolated(sigma=5),
-        3,
-    )
-
-    hires_net.assign_identity_map(
-        [batch_size // torch.cuda.device_count(), 1, 4 * 40, 4 * 96, 4 * 96])
-
-    return hires_net.cuda()

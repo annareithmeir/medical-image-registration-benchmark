@@ -15,7 +15,6 @@ from registrationbaselines.core.singleton_logger import SingletonLogger  # nopep
 from registrationbaselines.data_loading import data_loaders  # nopep8
 from registrationbaselines.training.train_lapirn import LapIRN  # nopep8
 from registrationbaselines.training.train_voxelmorph import VoxelMorph  # nopep8
-from registrationbaselines.training.train_gradicon import GradICON  # nopep8
 
 # os.environ["WANDB_MODE"] = "disabled"
 
@@ -30,7 +29,6 @@ def main() -> None:
     methods: Dict[Type[Union[VoxelMorph, LapIRN]], Path] = {
         # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
-        GradICON: base_dir / "registrationbaselines/configs/GradICON.yaml",
     }
 
     idxs = np.arange(5)
