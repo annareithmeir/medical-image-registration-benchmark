@@ -8,14 +8,14 @@ import shutil
 from typing import List, Dict, Tuple, Union, Optional
 
 import matplotlib.pyplot as plt
+import nibabel as nib
 import numpy as np
+from PIL import Image
 import torch
 import torchio as tio
-from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 from tqdm import tqdm
-import nibabel as nib
 
 
 from registrationbaselines.io import load
