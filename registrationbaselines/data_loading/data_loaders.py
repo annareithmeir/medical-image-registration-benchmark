@@ -39,8 +39,7 @@ class GenericDataset(Dataset[datasetReturnType]):
     def __init__(self,
                  name: str,
                  return_type: Optional[str] = None,
-                 indices: Optional[list[int]] = None,
-                 modality: Optional[Tuple[str, ...]] = None) -> None:
+                 indices: Optional[list[int]] = None) -> None:
         super().__init__()
 
         self.images_path = None
@@ -59,8 +58,6 @@ class GenericDataset(Dataset[datasetReturnType]):
         self.has_keypoints = False
 
         self.name = name
-
-        self.modality = modality
 
         assert self.return_type in ["torch_tensor_dict", "path_dict"]
 
@@ -378,12 +375,10 @@ class ImagePairDataset(GenericDataset):
                  segmentation_pairs: Optional[List[List[Path]]] = None,
                  keypoint_pairs: Optional[List[List[Path]]] = None,
                  return_type: str = "",
-                 name: str = "image_pairs",
-                 modality: Optional[Tuple[str, str]] = None) -> None:
+                 name: str = "image_pairs") -> None:
         super().__init__(name,
                          return_type,
-                         [],
-                         modality=modality)
+                         [])
 
         self.images_path = image_pairs[0][0].parent
 
@@ -503,8 +498,7 @@ class L2RLungCTDataset(GenericDataset):
 
         super().__init__("LungCT",
                          return_type,
-                         indices,
-                         modality=("CT", "CT"))
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -710,8 +704,7 @@ class L2RAbdominalMRCTDataset(GenericDataset):
 
         super().__init__("AbdomenMRCT",
                          return_type,
-                         indices,
-                         modality=("MR", "CT"))
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
@@ -887,8 +880,7 @@ class L2RAbdominalCTCTDataset(GenericDataset):
 
         super().__init__("AbdomenCTCT",
                          return_type,
-                         indices,
-                         modality=("CT", "CT"))
+                         indices)
 
         self.images_path = dataset_path
         self.images_path_preprocessed = None
