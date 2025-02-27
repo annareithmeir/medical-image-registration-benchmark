@@ -310,20 +310,3 @@ def print_histogram(tensor: torch.Tensor, bins: int) -> None:
 
         bar = '█' * int(bar_length)
         print(f"{bin_start:.1f} [{bar}]")
-
-
-def get_new_voxelmorph_image_shape(old_shape: List[int],
-                                   number_of_layers_in_encoder: int) -> List[int]:
-    """
-    Input shape for voxelmorph must be multiples of 2^n,
-    for N being the number of layers in the encoder.
-    We only pad, to not loose any information.
-    """
-
-    new_shape: List[int] = [0, 0, 0]
-
-    for i in range(3):
-        new_shape[i] = torch.ceil(torch.tensor(
-            old_shape[i] / (2 ** number_of_layers_in_encoder))).int().item() * (2 ** number_of_layers_in_encoder)
-
-    return new_shape
