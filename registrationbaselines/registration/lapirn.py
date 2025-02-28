@@ -27,18 +27,20 @@ class LapIRN(RegistrationInterface):
 
     def __init__(self,
                  configuration_path: Path,
+                 path_results: Path,
                  dataloader: data_loaders.GenericDataset,
-                 model_path: Path,
-                 use_masked_evaluation: bool = True) -> None:
+                 use_masked_evaluation: bool = True,
+                 use_logger=False) -> None:
         """
         Initialize the registration model - inference is performed here.
         """
 
         super().__init__("LapIRN",
                          configuration_path,
+                         path_results,
                          dataloader,
                          use_masked_evaluation,
-                         model_path)
+                         use_logger=use_logger)
 
     def _register(self,
                   fixed_image: torch.Tensor,
@@ -88,7 +90,8 @@ class LapIRN(RegistrationInterface):
             F_X_Y_cpu = F_X_Y.data.cpu()[0, :, :, :, :].permute(1, 2, 3, 0)
 
             deformed_image = utils_dl.crop_tensor_to_shape(X_Y,
-                                                           list(original_shape))  # .permute(2,1,0)
+                                                           # .permute(2,1,0)
+                                                           list(original_shape))
             displacement = utils_dl.crop_tensor_to_shape(F_X_Y_cpu,
                                                          list(original_shape) + [3])
 

@@ -20,20 +20,31 @@ from registrationbaselines.training.train_voxelmorph import VoxelMorph  # nopep8
 
 
 def main() -> None:
-    logger_instance = SingletonLogger(Path(__file__.replace(".py", ".log")),
-                                      "RegBaselines")
-    logger = logger_instance.get_logger()
+
+    use_logger = True
+
+    if use_logger:
+        from registrationbaselines.core.singleton_logger import SingletonLogger  # nopep8
+        logger_instance = SingletonLogger(Path(__file__.replace(".py", ".log")),
+                                          "RegBaselines")
+        logger = logger_instance.get_logger()
+
+        log = logger.my_level
+    else:
+        log = print
+
+    path_results = Path(r"/home/koeglf/data/train-debug_result_path/")
 
     base_dir = Path(__file__).parent.parent.absolute()
 
     methods: Dict[Type[Union[VoxelMorph, LapIRN]], Path] = {
         # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
-        # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
+        VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
     }
 
     idxs = np.arange(5)
     # np.random.shuffle(idxs)
-    train_idx, val_idx = [0, 0, 0], [0, 0, 0]
+    train_idx, val_idx = [0], [0]
 
     path_neckCT = Path(
         "/home/koeglf/data/preprocess_again/SerielleCTs_nii_forHumans/")
@@ -43,19 +54,19 @@ def main() -> None:
     datasets = [
 
 
-        # (data_loaders.NeckCTDataset(dataset_path=path_neckCT,
-        #                             indices=train_idx,
-        #                             return_type="torch_tensor_dict"),
-        #  data_loaders.NeckCTDataset(dataset_path=path_neckCT,
-        #                             indices=val_idx,
-        #                             return_type="torch_tensor_dict"))
+        (data_loaders.NeckCTDataset(dataset_path=path_neckCT,
+                                    indices=train_idx,
+                                    return_type="torch_tensor_dict"),
+         data_loaders.NeckCTDataset(dataset_path=path_neckCT,
+                                    indices=val_idx,
+                                    return_type="torch_tensor_dict"))
 
-        (data_loaders.L2RLungCTDataset(dataset_path=path_lungCT,
-                                       indices=train_idx,
-                                       return_type="torch_tensor_dict"),
-         data_loaders.L2RLungCTDataset(dataset_path=path_lungCT,
-                                       indices=val_idx,
-                                       return_type="torch_tensor_dict"))
+        # (data_loaders.L2RLungCTDataset(dataset_path=path_lungCT,
+        #                                indices=train_idx,
+        #                                return_type="torch_tensor_dict"),
+        #  data_loaders.L2RLungCTDataset(dataset_path=path_lungCT,
+        #                                indices=val_idx,
+        #                                return_type="torch_tensor_dict"))
     ]
 
     # (data_loaders.L2RAbdominalMRCTDataset(dataset_path=path_abdomenMRCT,
@@ -82,9 +93,11 @@ def main() -> None:
 
         for method, config_path in methods.items():
 
-            training = method(train_dataset,
-                              config_path,
-                              val_dataset)
+            training = method(train_dataset=train_dataset,
+                              configuration_path=config_path,
+                              path_results=path_results,
+                              val_dataset=val_dataset,
+                              use_logger=use_logger)
 
             # training.execute_with_one_parameter_set()
             training.perform_wandb_sweep(project_name="NeckCT_overfit")

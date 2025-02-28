@@ -1,8 +1,6 @@
 method: grid
 name: VoxelMorph
 parameters:
-  result_path:
-    values:     [/home/koeglf/data/preprocess_again/temp]
   gpu_number:
     values:     [["0,1,2"]]
   multichannel:

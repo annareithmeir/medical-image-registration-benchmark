@@ -40,6 +40,7 @@ class InterfaceCore(ABC):
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
+                 path_results: Path,
                  dataset_name: str,
                  use_logger: bool) -> None:
         """
@@ -49,6 +50,8 @@ class InterfaceCore(ABC):
         self.method_name = method_name
 
         self.general_configuration = load.read_config(configuration_path)
+
+        self.path_dir_results = path_results
 
         self.base_dir = Path(__file__).parent.parent.absolute().parent
 
@@ -106,9 +109,6 @@ class InterfaceCore(ABC):
         """
         Create the method directory.
         """
-
-        self.path_dir_results = Path(
-            self.general_configuration["parameters"]["result_path"]["values"][0])
 
         # create directory in base_dir called method
         self.path_dir_dataset = self.path_dir_results / dataset_name

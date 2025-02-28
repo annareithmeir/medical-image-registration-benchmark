@@ -38,7 +38,9 @@ class LapIRN(TrainingInterface):
     def __init__(self,
                  train_dataset: data_loaders.GenericDataset,
                  configuration_path: Path,
-                 val_dataset: Optional[data_loaders.GenericDataset] = None) -> None:
+                 path_results: Path,
+                 val_dataset: Optional[data_loaders.GenericDataset] = None,
+                 use_logger=False) -> None:
         """
         Initialization of LapIRN Training.
         @param train_dataset: training dataset
@@ -48,8 +50,10 @@ class LapIRN(TrainingInterface):
 
         super().__init__("LapIRN",
                          configuration_path,
+                         path_results,
                          train_dataset,
-                         val_dataset)
+                         val_dataset,
+                         use_logger=use_logger)
 
         new_shape = registrationbaselines.core.utils_dl.get_new_lapirn_image_shape(
             self.train_dataset.image_shape)
