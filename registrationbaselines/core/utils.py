@@ -8,7 +8,7 @@ import scipy.spatial
 import SimpleITK as sitk
 import torch
 
-from registrationbaselines.core.types import floatArray2D, intArray1D, intArray2D, intArray3D
+from registrationbaselines.core.types import floatArray2D, intArray1D, intArray2D
 
 
 def turn_off_warnings() -> None:

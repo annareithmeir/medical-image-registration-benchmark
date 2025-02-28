@@ -1,0 +1,15 @@
+method: grid
+name: VoxelMorph
+parameters:
+  result_path:
+    values:     [/home/koeglf/data/preprocess_again/trainings]
+  batch_size:
+    values:     [3]
+  epochs:
+    values:     [2000]
+  lr:
+    values:     [0.00005]
+  gpu:
+    values:     ['0,1,2']
+  save_checkpoint:
+    values:     [50]

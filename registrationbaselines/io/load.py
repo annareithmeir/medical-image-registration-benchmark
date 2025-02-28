@@ -58,64 +58,17 @@ def load_displacement(path: Path) -> torch.Tensor:
 
     utils.is_nifti(path)
 
-    displacement_sitk: sitk.Image = sitk.ReadImage(path)
+    displacement_nib = nib.load(path)
 
-    utils.is_isotropic(displacement_sitk)
-    utils.is_direction_identity(displacement_sitk)
-    utils.are_offdiagonal_direction_elements_zero(displacement_sitk)
+    displacement_array = np.asarray(displacement_nib.dataobj)
 
-    displacement_array: floarArray4Dor5D = sitk.GetArrayFromImage(
-        displacement_sitk)
+    displacement_tensor = torch.from_numpy(
+        displacement_array).squeeze().to(torch.float32)
 
-    # check intent code
-    # 1006 = NIFTI_INTENT_DISPVECT
-    if displacement_sitk.GetMetaData("intent_code") != "1006":
-        raise ValueError(
-            "The intent code of the displacement field should be NIFTI_INTENT_DISPVECT.")
-
-    # check dimensions
-    shape = displacement_array.shape
-
-    # check that it is 5D
-    if len(shape) != 5:
-        raise ValueError(f"Dimension is not 5D: {len(shape)}")
-
-    separating_dimension_correct = shape[1] == 1  # dim 1 is dummy
-    # dim 0 is vector dimension, which has to correspond to spatial dimensions
-    vector_dimension_correct = shape[0] == len(shape) - 2
-
-    if not separating_dimension_correct or not vector_dimension_correct:
-        raise ValueError(
-            "The displacement field should have spatial dimensions as the last dimensions \
-                and a vector dimension as the first dimension and separated by a dummy dimension.")
-
-    displacement_tensor = torch.from_numpy(displacement_array)
-    if displacement_tensor.dtype != torch.float32:
-        raise TypeError(
-            f"Dsiplacement is not torch.float32: {displacement_tensor.dtype}")
-
-    # remove separating dummy dimension
-    displacement_tensor = displacement_tensor.squeeze()
-
-    # move the vector dimension to the last dimension
-    new_order = list(range(1, displacement_tensor.dim())) + [0]
-    displacement_tensor = displacement_tensor.permute(new_order)
-
-    # should be unit displacement
     displacement_tensor = utils_displacement.displacement_to_unit_displacement(
         displacement_tensor)
 
-    displacement_tensor = utils_displacement.reverse_axis(displacement_tensor)
-
-    displacement_nib = nib.load(path)
-    displacement_array_nib = displacement_nib.get_fdata()
-    displacement_tensor_nib = torch.from_numpy(
-        displacement_array_nib).squeeze().to(torch.float32)
-    displacement_tensor_nib = utils_displacement.displacement_to_unit_displacement(
-        displacement_tensor_nib)
-    displacement_tensor = displacement_tensor_nib[..., [2, 1, 0]]
-
-    s = torch.sum(torch.abs(displacement_tensor - displacement_tensor_nib))
+    displacement_tensor = displacement_tensor[..., [2, 1, 0]]
 
     return displacement_tensor
 

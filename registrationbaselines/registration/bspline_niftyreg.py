@@ -1,15 +1,13 @@
 from pathlib import Path
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import torch
-import SimpleITK as sitk
 
 from registrationbaselines.interfaces._interface_registration import RegistrationInterface
 from registrationbaselines.core import utils_commandline, utils_niftyreg, utils_nifti
 from registrationbaselines.data_loading import data_loaders
 from registrationbaselines.io import save, load
-from registrationbaselines.displacement import utils_displacement
 
 
 class BSplineNiftyReg(RegistrationInterface):
@@ -50,25 +48,31 @@ class BSplineNiftyReg(RegistrationInterface):
         self.path_fixed = self.working_dir_path / "fixed.nii.gz"
         self.path_moving = self.working_dir_path / "moving.nii.gz"
 
+        self.log(f"\t\tCreating temp files for NiftyReg")
         save.save_image(fixed_image, self.path_fixed)
         save.save_image(moving_image, self.path_moving)
 
+        self.log(f"\t\tRunning NiftyReg in the terminal")
         self._create_registration_command_list()
         utils_commandline.run_command_in_terminal(self.command,
                                                   self._outputs_exist,
                                                   print_command_list=False)
 
+        self.log(f"\t\tTransforming output to a displacement field")
         self.path_result_deformation = \
             utils_niftyreg.convert_transformation_to_displacement_field(
                 self.path_result_control_grid, self.path_fixed)
 
+        self.log(f"\t\tSetting the intent code of the displacement field")
         utils_nifti.set_intent_code(
             self.path_result_deformation, 'NIFTI_INTENT_DISPVECT')
 
+        self.log(f"\t\tLoading the deformed image and the displacement field")
         deformed_image = load.load_image(self.path_result_deformed)
         displacement = load.load_displacement(
             self.path_result_deformation)
 
+        self.log(f"\t\tRemoving temporary files")
         # remove temporary files
         self.path_fixed.unlink()
         self.path_moving.unlink()

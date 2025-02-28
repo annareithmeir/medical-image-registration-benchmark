@@ -10,5 +10,10 @@ tests/_trial_temp
 wandb/
 evaluation_results.csv
 mypy.ini
+results/
 
 .vscode/
+*.log
+results/*
+*.json
+.vscode/launch.json
