@@ -42,8 +42,8 @@ def main() -> None:
         # VoxelMorph: base_dir / "registrationbaselines/configs/VoxelMorph.yaml",
         # LapIRN: base_dir / "registrationbaselines/configs/LapIRN.yaml",
         BSplineNiftyReg: base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",
-        DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
-        SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
+        # DemonsSITK: base_dir / "registrationbaselines/configs/DemonsSITK.yaml",
+        # SyNANTs: base_dir / "registrationbaselines/configs/SyNANTs.yaml",
     }
 
     models = [
@@ -58,13 +58,13 @@ def main() -> None:
     ]
 
     indices = random.sample(range(1, 8), 2)
-    indices = [0, 1]
-    indices = None
+    indices = [1]
+    # indices = None
     datasets = [
-        data_loaders.NeckCTDataset(dataset_path=Path("/home/koeglf/data/preprocess_again/SerielleCTs_nii_forHumansQ/"),
-                                   name="SerielleCTs_nii_forHumans_registrations",
-                                   return_type="path_dict",
-                                   indices=indices),
+        # data_loaders.NeckCTDataset(dataset_path=Path("/home/koeglf/data/preprocess_again/SerielleCTs_nii_forHumansQ/"),
+        #                            name="SerielleCTs_nii_forHumans_registrations",
+        #                            return_type="path_dict",
+        #                            indices=indices),
         # data_loaders.L2RLungCTDataset(dataset_path=Path("/data/LungCT_preprocessed_new"),
         #                               return_type="path_dict",
         #                               indices=indices),
@@ -76,6 +76,15 @@ def main() -> None:
         #      Path(f"/u/home/koeglf/Documents/code/registrationbaselines/registrationbaselines/tests/images/moving_x_11.nii.gz")]
         # ],
         #     return_type="path_dict")
+        # data_loader_custom.privateLiverCTdataset(Path("/home/reithmeira/data/liver-CT-contrast-phases-mini-preprocessed"),
+        #                                        return_type="path_dict",
+        #                                        indices=indices)
+        # data_loaders.ImagePairDataset([[Path("/home/reithmeira/data/liver-ct-mr-mdix-preprocessed/0001/ct.nii.gz"),
+        #                     Path("/home/reithmeira/data/liver-ct-mr-mdix-preprocessed/0001/fat.nii.gz")]],
+        #                     segmentation_pairs=[[Path("/home/reithmeira/data/liver-ct-mr-mdix-preprocessed/0001/seg/ct_ts_liver_segments.nii"),
+        #                     Path("/home/reithmeira/data/liver-ct-mr-mdix-preprocessed/0001/seg/mrt2_ts_liver_segments.nii")]],
+        #                     return_type="path_dict")
+        data_loaders.LiverMdixCTDataset(Path("/home/reithmeira/data/liver-ct-mr-mdix-preprocessed"), return_type="path_dict", indices=indices)
     ]
 
     # registration = BSplineNiftyReg(base_dir / "registrationbaselines/configs/BSplineNiftyReg.yaml",

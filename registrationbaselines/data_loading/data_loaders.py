@@ -1377,6 +1377,119 @@ class FIREDataset(GenericDataset):
         return fixed_imageixed, moving_imageoving
 
 
+class LiverMdixCTDataset(GenericDataset):
+    """
+
+    """
+
+    def __init__(self, dataset_path: Path, return_type: str = None, return_mode: str = "train", indices: list[int] = None) -> None:
+        """
+
+        @param dataset_path:
+        @param return_type:
+        @param return_mode: train/val/test subdataset
+        @param indices: unused
+        """
+
+        super().__init__("LiverMdixCTDataset", return_type, indices)
+
+        self.spacing = (1,1,1)
+        self.image_shape = (None, None)
+        self.ndim = 3
+
+        self.has_segmentations = True
+        self.has_keypoints = False
+
+        self.images_path = dataset_path
+        assert return_mode in ["train", "val", "test"]
+        self.return_mode = return_mode
+
+        self.classes = {
+            0: "background",
+            1: "segment_1",
+            2: "segment_2",
+            3: "segment_3",
+            4: "segment_4",
+            5: "segment_5",
+            6: "segment_6",
+            7: "segment_7",
+            8: "segment_8",
+        }
+
+        self.images_list, self.segmentations_list, self.mdix_list = self.read_filenames()
+        print(len(self.images_list))
+
+
+        if indices is not None:
+            self.images_list = [self.images_list[i] for i in indices]
+            self.segmentations_list = [
+                self.segmentations_list[i] for i in indices]
+
+        print(len(self.images_list))
+
+
+    def __getitem__(self, idx: int) -> datasetReturnType:
+
+        if self.return_type == "path_dict":
+            path_f, path_m = self._get_image_pair_as_paths(idx)
+            path_segmentations_f, path_segmentations_m = self._get_segmentation_pair_as_paths(
+                idx)
+            item = {"fixed_image": path_f, "moving_image": path_m,
+                    "fixed_segmentations": path_segmentations_f, "moving_segmentations": path_segmentations_m, "mdix_files": self.mdix_list[idx]}
+        elif self.return_type == "torch_tensor_dict":  # np_array bsxhxw
+            fixed_image, moving_image = self._get_image_pair_as_tensors(
+                idx)
+            segmentations_f, segmentations_m = self._get_segmentation_pair_as_tensors(
+                idx)
+            item = {"moving_image": moving_image, "fixed_image": fixed_image,
+                    "moving_segmentations": segmentations_m, "fixed_segmentations": segmentations_f}
+
+        return item
+
+
+    def __len__(self):
+        return len(os.listdir(self.images_path))
+
+    def read_filenames(self):
+
+        x_ls = list()
+        y_ls = list()
+        mdix_ls = list()
+        masks_x_ls = list()
+        masks_y_ls = list()
+
+        for i in range(len(self)):
+            subj_folder = self.images_path / (str(i + 1).zfill(4))
+            # print(subj_folder)
+
+            img_mdix_0 = subj_folder / (str(i + 1).zfill(4) + "_water.nii.gz")
+            img_mdix_1 = subj_folder / (str(i + 1).zfill(4) + "_fat.nii.gz")
+            img_mdix_2 = subj_folder / (str(i + 1).zfill(4) + "_pdff.nii.gz")
+            img_mdix_3 = subj_folder / (str(i + 1).zfill(4) + "_r2.nii.gz")
+            img_mdix = [img_mdix_0, img_mdix_1, img_mdix_2, img_mdix_3]
+
+            image_ct = subj_folder / (str(i + 1).zfill(4) + "_ct.nii.gz")
+            seg_ct = subj_folder / ("seg") / (str(i + 1).zfill(4) + "_ct_ts_liver_segments.nii")
+            image_mrt2 = subj_folder / (str(i + 1).zfill(4) + "_mr_t2.nii.gz")
+            seg_mrt2 = subj_folder / ("seg") / (str(i + 1).zfill(4) +"_mrt2_ts_liver_segments.nii")
+
+            # MR to CT
+            y_ls.append(image_mrt2)
+            masks_y_ls.append(seg_mrt2)
+            x_ls.append(image_ct)
+            masks_x_ls.append(seg_ct)
+            mdix_ls.append(img_mdix)
+
+            # CT to MR
+            # y_ls.append(image_ct)
+            # masks_y_ls.append(seg_ct)
+            # x_ls.append(image_mrt2)
+            # masks_x_ls.append(seg_mrt2)
+            # mdix_ls.append(img_mdix)
+
+        return list(zip(x_ls, y_ls)), list(zip(masks_x_ls, masks_y_ls)), mdix_ls
+
+
 """
 Internal Datset structures for displacement fields and path pairs
 """
