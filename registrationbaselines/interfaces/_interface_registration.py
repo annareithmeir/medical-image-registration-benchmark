@@ -38,14 +38,16 @@ class RegistrationInterface(_interface_core.InterfaceCore):
                  configuration_path: Path,
                  dataloader: data_loaders.GenericDataset,
                  use_masked_evaluation: bool = True,
-                 model_path: Optional[Path] = None) -> None:
+                 model_path: Optional[Path] = None,
+                 use_logger: bool = False) -> None:
         """
         Initialize the registration model.
         """
 
         super().__init__(method_name,
                          configuration_path,
-                         dataloader.name)
+                         dataloader.name,
+                         use_logger)
 
         self.dataloader = dataloader
         self.use_masked_evaluation = use_masked_evaluation

@@ -11,7 +11,7 @@ import wandb
 import wandb.sdk
 
 from registrationbaselines.io import load
-from registrationbaselines.core import utils_wandb, singleton_logger
+from registrationbaselines.core import utils_wandb
 
 
 class InterfaceCore(ABC):
@@ -40,7 +40,8 @@ class InterfaceCore(ABC):
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
-                 dataset_name: str) -> None:
+                 dataset_name: str,
+                 use_logger: bool) -> None:
         """
         Initialize the registration model.
         """
@@ -55,10 +56,16 @@ class InterfaceCore(ABC):
 
         self._handle_device_selection()
 
-        self.logger = singleton_logger.SingletonLogger.get_logger()
+        self.use_logger = use_logger
+        if self.use_logger:
+            from registrationbaselines.core import singleton_logger
+            self.logger = singleton_logger.SingletonLogger.get_logger()
 
     def log(self, message: str) -> None:
-        self.logger.my_level(message)
+        if self.use_logger:
+            self.logger.my_level(message)
+        else:
+            print(message)
 
     def perform_wandb_sweep(self, project_name: Optional[str] = None) -> None:
         """
