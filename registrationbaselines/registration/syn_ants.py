@@ -22,6 +22,7 @@ class SyNANTs(RegistrationInterface):
 
     def __init__(self,
                  configuration_path: Path,
+                 path_results: Path,
                  dataloader: data_loaders.GenericDataset,
                  use_masked_evaluation: bool = True,
                  use_logger=False) -> None:
@@ -33,6 +34,7 @@ class SyNANTs(RegistrationInterface):
 
         super().__init__("SyNANTs",
                          configuration_path,
+                         path_results,
                          dataloader,
                          use_masked_evaluation,
                          use_logger=use_logger)

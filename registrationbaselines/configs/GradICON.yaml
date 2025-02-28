@@ -1,8 +1,6 @@
 method: grid
 name: VoxelMorph
 parameters:
-  result_path:
-    values:     [/home/koeglf/data/preprocess_again/trainings]
   batch_size:
     values:     [3]
   epochs:

@@ -2,8 +2,6 @@ method: grid
 name: DemonsSITK
 
 parameters:
-  result_path: 
-    values:            [/home/koeglf/data/preprocess_again/]
   gpu:
     values:            [0]
     

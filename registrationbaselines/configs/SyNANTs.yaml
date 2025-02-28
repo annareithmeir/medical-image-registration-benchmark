@@ -2,8 +2,6 @@ method: grid
 name: SyNANTs
 
 parameters:
-  result_path:
-    values:            [/home/koeglf/data/preprocess_again/]
     # values: [/home/anna/PycharmProjects/registrationbaselines/tmp/results]
 #   value: /home/fryderyk/Documents/data/results/
   gpu:

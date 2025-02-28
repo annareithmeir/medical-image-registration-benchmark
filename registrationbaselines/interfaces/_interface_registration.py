@@ -36,6 +36,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
+                 path_results: Path,
                  dataloader: data_loaders.GenericDataset,
                  use_masked_evaluation: bool = True,
                  model_path: Optional[Path] = None,
@@ -46,6 +47,7 @@ class RegistrationInterface(_interface_core.InterfaceCore):
 
         super().__init__(method_name,
                          configuration_path,
+                         path_results,
                          dataloader.name,
                          use_logger)
 

@@ -36,14 +36,18 @@ class TrainingInterface(_interface_core.InterfaceCore):
     def __init__(self,
                  method_name: str,
                  configuration_path: Path,
+                 path_results: Path,
                  train_dataset: data_loaders.GenericDataset,
-                 val_dataset: Optional[data_loaders.GenericDataset] = None) -> None:
+                 val_dataset: Optional[data_loaders.GenericDataset] = None,
+                 use_logger=False) -> None:
         """
         Initialize the training procedure.
         """
         super().__init__(method_name,
                          configuration_path,
-                         train_dataset.name)
+                         path_results,
+                         train_dataset.name,
+                         use_logger=use_logger)
 
         self._create_train_results_directory()
 

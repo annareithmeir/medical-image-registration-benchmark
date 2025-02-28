@@ -2,8 +2,6 @@ method: grid
 name:   BSplineNiftyReg
 
 parameters:
-  result_path:
-    values:            [/home/reithmeira/results/liver-ct-mr-mdix-preprocessed]
   gpu:
     values:            [0]
   bending_energy:

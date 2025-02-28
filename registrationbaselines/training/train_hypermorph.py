@@ -35,12 +35,16 @@ class VoxelMorph(TrainingInterface):
     def __init__(self,
                  train_dataset: data_loaders.GenericDataset,
                  configuration_path: Path,
-                 val_dataset: Optional[data_loaders.GenericDataset] = None) -> None:
+                 path_results: Path,
+                 val_dataset: Optional[data_loaders.GenericDataset] = None,
+                 use_logger=False) -> None:
 
         super().__init__("VoxelMorph",
                          configuration_path,
+                         path_results,
                          train_dataset,
-                         val_dataset)
+                         val_dataset,
+                         use_logger=use_logger)
 
         new_shape = utils_dl.get_new_voxelmorph_image_shape(self.train_dataset.image_shape,
                                                             len(self.general_configuration["parameters"]["enc"]["values"][0]))

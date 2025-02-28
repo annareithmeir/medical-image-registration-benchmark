@@ -23,18 +23,20 @@ sys.path.append(str(Path(__file__).parent.absolute().parent))
 class VoxelMorph(RegistrationInterface):
     def __init__(self,
                  configuration_path: Path,
+                 path_results: Path,
                  dataloader: data_loaders.GenericDataset,
-                 model_path: Path,
-                 use_masked_evaluation: bool = True) -> None:
+                 use_masked_evaluation: bool = True,
+                 use_logger=False) -> None:
         """
         Initialize the registration model - inference is performed here.
         """
 
         super().__init__("VoxelMorph",
                          configuration_path,
+                         path_results,
                          dataloader,
                          use_masked_evaluation,
-                         model_path)
+                         use_logger=use_logger)
 
         self.gpu_number = self.general_configuration["parameters"]['gpu_number']["values"][0]
         self.number_of_layers = len(
@@ -74,7 +76,7 @@ class VoxelMorph(RegistrationInterface):
 
         displacement = displacement.permute(1, 2, 3, 0)
         displacement = displacement[..., [2, 1, 0]]
-        
+
         displacement = utils_displacement.displacement_to_unit_displacement(
             displacement)
 
