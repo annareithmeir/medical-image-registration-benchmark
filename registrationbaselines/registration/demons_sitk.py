@@ -24,12 +24,14 @@ class DemonsSITK(RegistrationInterface):
     def __init__(self,
                  configuration_path: Path,
                  dataloader: data_loaders.GenericDataset,
-                 use_masked_evaluation: bool = True) -> None:
+                 use_masked_evaluation: bool = True,
+                 use_logger=False) -> None:
 
         super().__init__("DemonsSITK",
                          configuration_path,
                          dataloader,
-                         use_masked_evaluation)
+                         use_masked_evaluation,
+                         use_logger=use_logger)
 
         self.image_fixed: sitk.Image
         self.image_moving: sitk.Image

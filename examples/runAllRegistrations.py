@@ -61,7 +61,7 @@ def main() -> None:
     indices = [0, 1]
     indices = None
     datasets = [
-        data_loaders.NeckCTDataset(dataset_path=Path("/home/koeglf/data/preprocess_again/SerielleCTs_nii_forHumans/"),
+        data_loaders.NeckCTDataset(dataset_path=Path("/home/koeglf/data/preprocess_again/SerielleCTs_nii_forHumansQ/"),
                                    name="SerielleCTs_nii_forHumans_registrations",
                                    return_type="path_dict",
                                    indices=indices),
@@ -106,17 +106,17 @@ def main() -> None:
                                           dataset,
                                           use_masked_evaluation=True,
                                           model_path=models[i][j],
-                                          use_logger)
+                                          use_logger=use_logger)
                 else:
                     registration = method(config_path,
                                           dataset,
                                           use_masked_evaluation=True,
-                                          use_logger)
+                                          use_logger=use_logger)
 
                 if first_dataset_evaluation and dataset.name != "image_pairs":
                     log(
                         f"Evaluating with zero displacement on {dataset.name}")
-                    registration.evaluate_with_zero_displacement()
+                    # registration.evaluate_with_zero_displacement()
                     first_dataset_evaluation = False
 
                 log(
