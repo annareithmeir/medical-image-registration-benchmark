@@ -4,10 +4,6 @@ A Python benchmarking framework for comparing classical and learning-based medic
 
 This project brings together affine and deformable registration approaches, evaluation metrics, and dataset tooling in a single reproducible pipeline. It is designed for research and experimentation in medical imaging, with a strong focus on clinically relevant image alignment tasks such as CT/CT and CT/MR registration.
 
-## Why this project matters
-
-Medical image registration is a core problem in computer vision and healthcare AI: the goal is to align moving images to fixed images so that anatomy can be compared, analyzed, or used downstream in segmentation, treatment planning, and motion correction.
-
 This repository is useful for:
 
 - benchmarking multiple registration methods under the same conditions
@@ -39,43 +35,10 @@ The benchmark includes multiple registration strategies, including:
 - `registrationbaselines/tests/` — validation and regression checks
 - `docs/` — project documentation notes
 
-## Skills demonstrated
-
-This work sits at the intersection of:
-
-- Python and scientific computing
-- medical imaging and 3D data processing
-- classical optimization and image registration algorithms
-- deep learning for biomedical image analysis
-- experiment tracking and reproducible benchmarking
-- evaluation design using quantitative imaging metrics
-
-## Public 2D cardiac MRI example
-
-This repository includes a lightweight end-to-end registration demo built around a 2D cardiac MRI example using the provided NIfTI pair or the public ACDC cardiac challenge dataset.
-
-By default, the demo searches the project `tmp/` folder for `acdc_fixed.nii.gz` and `acdc_moving.nii.gz` and registers that provided pair directly. If the pair is absent, it can use a local ACDC dataset via `ACDC_DATASET_PATH`, or fall back to a synthetic cardiac phantom. The demo reports alignment metrics and saves fixed, moving, and registered PNGs for inspection.
-
-Generated demo artifacts are saved under `tmp/public_2d_demo_outputs/`, which is intentionally kept out of git so local benchmark output remains easy to inspect without polluting the repository.
-
-![Fixed cardiac slice](tmp/public_2d_demo_outputs/fixed.png)
-
-![Moving image before registration](tmp/public_2d_demo_outputs/moving_before_registration.png)
-
-![Moving image after registration](tmp/public_2d_demo_outputs/moving_after_registration.png)
 
 ```bash
 pip install -r requirements.txt
-python examples/public_2d_acdc_demo.py --output-dir tmp/public_2d_demo_outputs
 ```
-
-If you have the ACDC dataset locally, you can point the script at it with:
-
-```bash
-ACDC_DATASET_PATH=/path/to/acdc python examples/public_2d_acdc_demo.py --output-dir tmp/public_2d_demo_outputs
-```
-
-The script saves fixed, moving, and aligned image outputs under the chosen output directory for inspection and comparison.
 
 ## Architecture and design overview
 
@@ -155,15 +118,6 @@ The framework supports:
 - result plotting and CSV export
 - mask-aware evaluation workflows
 - zero-displacement baselines for sanity checks
-
-## Project status
-
-This repository is a research-oriented benchmarking project rather than a polished SaaS product. It is well suited for demonstrating:
-
-- research engineering skills
-- strong Python implementation ability
-- familiarity with medical imaging pipelines
-- experimentation and benchmarking mindset
 
 ## License
 
